@@ -1,0 +1,7 @@
+html:not([data-gibbous-disabled]) :is(
+  .dashboard-changelog,
+  [class*="CopilotChatInputPartial-module__inputContainer"],
+  .feed-left-sidebar nav:has(a[href="/feed"])
+) {
+  display: none !important;
+}

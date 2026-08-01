@@ -1,13 +1,17 @@
 {
   "manifest_version": 3,
   "name": "Gibbous",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "GitHub, but with the UX you asked for.",
   "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["https://github.com/*"],
-      "css": ["gibbous.css"],
+      "css": [
+        "gibbous.css",
+        "pages/dashboard.css",
+        "pages/repository.css"
+      ],
       "js": [
         "vendor/van-1.6.1.nomodule.js",
         "gibbous.js"

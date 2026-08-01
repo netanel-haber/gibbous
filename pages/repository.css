@@ -1,0 +1,172 @@
+html:not([data-gibbous-disabled]):has(
+  meta[name="octolytics-dimension-repository_nwo"]
+) nav :is(
+  li:has(
+    a:is(
+      [href$="/agents"],
+      [href$="/projects"],
+      [href$="/wiki"],
+      [href$="/security"],
+      [href$="/pulse"]
+    )
+  ),
+  a:is(
+    [href$="/agents"],
+    [href$="/projects"],
+    [href$="/wiki"],
+    [href$="/security"],
+    [href$="/pulse"]
+  )
+),
+html:not([data-gibbous-disabled]) .gibbous-suggested-workflows,
+html:not([data-gibbous-disabled]) .gibbous-file-excluded {
+  display: none !important;
+}
+
+.gibbous-filename-cell {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.gibbous-filename-cell > .react-directory-truncate {
+  min-width: 0;
+}
+
+.gibbous-hide-file {
+  background: transparent;
+  border: 0;
+  border-radius: var(--borderRadius-medium, 6px);
+  color: var(--fgColor-accent, var(--color-accent-fg));
+  cursor: pointer;
+  flex: none;
+  font: inherit;
+  font-size: 12px;
+  opacity: 0;
+  padding: 2px 6px;
+  pointer-events: none;
+}
+
+html:not([data-gibbous-disabled]) .react-directory-row:is(:hover, :focus-within) .gibbous-hide-file {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html[data-gibbous-disabled] .gibbous-hide-file {
+  display: none;
+}
+
+.gibbous-hide-file:hover {
+  background: var(--button-default-bgColor-hover, var(--color-btn-hover-bg));
+}
+
+.gibbous-forked-in {
+  display: block;
+}
+
+.gibbous-forked-in[hidden] {
+  display: none;
+}
+
+.gibbous-hidden-files-control {
+  display: inline-flex;
+  position: relative;
+}
+
+.gibbous-eyes-toggle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--button-default-borderColor-rest, var(--borderColor-default));
+  border-radius: var(--borderRadius-medium, 6px);
+  color: var(--fgColor-default, var(--color-fg-default));
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 18px;
+  height: var(--control-medium-size, 32px);
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  text-decoration: none !important;
+  width: var(--control-medium-size, 32px);
+}
+
+.gibbous-eyes-toggle[hidden] {
+  display: none;
+}
+
+.gibbous-eyes-toggle:hover,
+.gibbous-list-button:hover {
+  background: var(--button-default-bgColor-hover, var(--color-btn-hover-bg));
+}
+
+.gibbous-eyes-toggle:focus-visible,
+.gibbous-list-button:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg));
+  outline-offset: -2px;
+}
+
+.gibbous-hidden-menu {
+  background: var(--overlay-bgColor, var(--color-canvas-overlay));
+  border: 1px solid var(--borderColor-default, var(--color-border-default));
+  border-radius: var(--borderRadius-medium, 6px);
+  box-shadow: var(--shadow-floating-small, 0 8px 24px rgba(0, 0, 0, 0.3));
+  color: var(--fgColor-default, var(--color-fg-default));
+  padding: 12px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(340px, calc(100vw - 16px));
+  z-index: 1000;
+}
+
+.gibbous-hidden-menu[hidden] {
+  display: none;
+}
+
+.gibbous-hidden-menu-title {
+  font-weight: 600;
+}
+
+.gibbous-hidden-menu-repository,
+.gibbous-hidden-menu-empty {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+  font-size: 12px;
+}
+
+.gibbous-hidden-menu-repository {
+  display: block;
+  margin-top: 2px;
+}
+
+.gibbous-hidden-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.gibbous-hidden-item {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.gibbous-hidden-item code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gibbous-list-button {
+  background: var(--button-default-bgColor-rest, var(--color-btn-bg));
+  border: 1px solid var(--button-default-borderColor-rest, var(--borderColor-default));
+  border-radius: var(--borderRadius-medium, 6px);
+  color: var(--fgColor-default, var(--color-fg-default));
+  cursor: pointer;
+  flex: none;
+  font: inherit;
+  padding: 3px 8px;
+}
