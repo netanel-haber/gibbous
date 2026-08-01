@@ -1,0 +1,29 @@
+html:not([data-gibbous-disabled]) :is(
+  .dashboard-changelog,
+  [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]),
+  [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]) + [class*="__itemDivider__"],
+  [class*="CopilotChatInputPartial-module__inputContainer"],
+  .feed-left-sidebar nav:has(a[href="/feed"])
+) {
+  display: none !important;
+}
+
+.gibbous-toggle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--button-default-borderColor-rest, var(--borderColor-default));
+  border-radius: var(--borderRadius-medium, 6px);
+  color: var(--fgColor-default, var(--color-fg-default));
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 18px;
+  height: var(--control-medium-size, 32px);
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: var(--control-medium-size, 32px);
+}
+
+.gibbous-toggle:hover {
+  background: var(--button-default-bgColor-hover, var(--color-btn-hover-bg));
+}

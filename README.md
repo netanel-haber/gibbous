@@ -9,3 +9,20 @@
   by <a href="https://www.flickr.com/photos/john-spade/">daspader</a>, licensed under
   <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>.
 </p>
+
+# Gibbous
+
+GitHub, but with the UX you asked for.
+
+## Features
+
+- Hides “Latest from our changelog” on the GitHub dashboard.
+- Hides the dashboard Copilot composer and header button.
+- Hides the dashboard Home/Feed navigation.
+- Adds a persistent `🌔`/`🌘` toggle to the GitHub header.
+
+## Install
+
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select this repository.
