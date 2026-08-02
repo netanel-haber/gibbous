@@ -4,13 +4,10 @@ GitHub, but with the UX you want.
 
 ## Features
 
-- Hides “Latest from our changelog” on the GitHub dashboard.
-- Hides the dashboard Copilot composer and header button.
-- Hides the dashboard Home/Feed navigation.
-- Hides low-signal repository tabs and suggested workflows.
-- Persistently hides repository entries by exact name, shared between upstream and your fork.
-- Shows `forked in owner/repository` on upstream repositories when you have a fork.
-- Adds a persistent `🌔`/`🌘` global toggle and `👀` hidden-file list.
+- Hides buttons I never use on GitHub
+- You can click to persistenly hide files like e.g. pre commit config in top level views of repos: 👀 button above files view
+- Shows `forked in owner/repository` on upstream repositories when you have a fork
+-`🌔`/`🌘` global toggle the tweaks
 
 ## Install
 
