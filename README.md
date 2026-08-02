@@ -4,10 +4,10 @@ GitHub, but with the UX you want.
 
 ## Features
 
-- Hides buttons I never use on GitHub
-- You can click to persistenly hide files like e.g. pre commit config in top level views of repos: 👀 button above files view
-- Shows `forked in owner/repository` on upstream repositories when you have a fork
-- `🌔`/`🌘` global toggle the tweaks
+- `🌔`/`🌘` global toggle for all of the tweaks
+- 👀 button above files view:  Click to persistenly hide files like e.g. CNAME in top level views of repos
+- Hides unused buttons like CoPilot and Workflows
+- `forked in owner/repository` link to fork on upstream repositories when you have a fork
 
 ## Install
 
