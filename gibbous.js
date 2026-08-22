@@ -1,4 +1,4 @@
-const {a, button, code, div, span} = van.tags;
+const {a, button, code, div, li, span} = van.tags;
 
 const enabled = van.state(true);
 let contextInvalidated = false;
@@ -34,15 +34,28 @@ const setEnabled = value => {
 };
 
 const createRepositoryPage = () => {
+  const hiddenTabLabels = [
+    "Agents",
+    "Discussions",
+    "Projects",
+    "Wiki",
+    "Security and quality",
+    "Insights",
+    "More",
+  ];
   const active = van.state(false);
+  const activePullRequestState = van.state(null);
   const menuOpen = van.state(false);
+  const repositoryNwo = van.state(null);
   const repositoryKey = van.state(null);
   const hiddenNames = van.state([]);
   const userFork = van.state(null);
+  const viewer = van.state(null);
   let forkLookup = null;
   let loadedHiddenNamesKey = null;
   let forkedIn;
   let hiddenFilesControl;
+  let pullRequestShortcuts;
 
   const normalizeNames = names => Array.isArray(names)
     ? [...new Set(
@@ -256,6 +269,98 @@ const createRepositoryPage = () => {
     }
   };
 
+  const repositoryNavigation = () => document.querySelector(
+    'nav[aria-label="Repository"], nav[aria-label="Repository navigation"]',
+  );
+
+  const markRepositoryTabs = () => {
+    const navigation = repositoryNavigation();
+    if (!navigation) {
+      return;
+    }
+
+    for (const item of navigation.querySelectorAll("a, button")) {
+      const label = item.textContent.replace(/\s+/g, " ").trim();
+      if (hiddenTabLabels.some(hiddenLabel => (
+        label === hiddenLabel || label.startsWith(`${hiddenLabel} `)
+      ))) {
+        const container = label.startsWith("More") && item.parentElement !== navigation
+          ? item.parentElement
+          : item.closest("li") ?? item;
+        container.classList.add("gibbous-hidden-repository-tab");
+      }
+    }
+  };
+
+  const pullRequestUrl = state => repositoryNwo.val
+    ? `/${repositoryNwo.val}/pulls?q=${encodeURIComponent(`is:pr is:${state} author:@me`)}`
+    : "#";
+
+  const readPullRequestState = context => {
+    const pullsPath = `/${context.nwo}/pulls`;
+    const filters = new URLSearchParams(location.search).get("q")?.toLowerCase() ?? "";
+    const author = filters.match(/\bauthor:([^\s]+)/)?.[1];
+    const isMine = location.pathname === `${pullsPath}/@me`
+      || author === "@me"
+      || Boolean(author && viewer.val && author === viewer.val.toLowerCase());
+    if (!location.pathname.startsWith(pullsPath) || !isMine) {
+      return null;
+    }
+    return filters.includes("is:closed") ? "closed" : "open";
+  };
+
+  const pullRequestShortcutClass = state => (
+    `gibbous-pull-request-shortcut${
+      activePullRequestState.val === state ? " gibbous-pull-request-shortcut-active" : ""
+    }`
+  );
+
+  const createPullRequestShortcuts = () => li(
+    {
+      class: "gibbous-pull-request-shortcuts",
+      hidden: () => !enabled.val || !viewer.val || !repositoryNwo.val,
+    },
+    a(
+      {
+        class: () => pullRequestShortcutClass("open"),
+        href: () => pullRequestUrl("open"),
+        "aria-label": "My open pull requests",
+        title: "My open pull requests",
+      },
+      "📖\uFE0E",
+    ),
+    a(
+      {
+        class: () => pullRequestShortcutClass("closed"),
+        href: () => pullRequestUrl("closed"),
+        "aria-label": "My closed pull requests",
+        title: "My closed pull requests",
+      },
+      "📕\uFE0E",
+    ),
+  );
+
+  const mountPullRequestShortcuts = () => {
+    const navigation = repositoryNavigation();
+    if (!navigation) {
+      return;
+    }
+
+    const pullRequestsLink = [...navigation.querySelectorAll("a")]
+      .find(link => link.textContent.replace(/\s+/g, " ").trim().startsWith("Pull requests"));
+    const pullRequestsItem = pullRequestsLink?.closest("li") ?? pullRequestsLink;
+    if (!pullRequestsItem) {
+      return;
+    }
+
+    if (!pullRequestShortcuts?.isConnected) {
+      pullRequestShortcuts = createPullRequestShortcuts();
+    }
+    if (pullRequestShortcuts.previousElementSibling !== pullRequestsItem) {
+      pullRequestsItem.after(pullRequestShortcuts);
+    }
+  };
+
   const createForkedIn = () => span(
     {
       class: "gibbous-forked-in text-small lh-condensed-ultra no-wrap mt-1",
@@ -365,7 +470,14 @@ const createRepositoryPage = () => {
     const pageContext = readRepositoryContext();
     const context = table ? pageContext : null;
     active.val = Boolean(context);
+    repositoryNwo.val = pageContext?.nwo ?? null;
+    viewer.val = viewerLogin();
+    activePullRequestState.val = pageContext ? readPullRequestState(pageContext) : null;
 
+    if (pageContext) {
+      markRepositoryTabs();
+      mountPullRequestShortcuts();
+    }
     if (enabled.val && pageContext) {
       markSuggestedWorkflows();
     }

@@ -1,3 +1,19 @@
+:root {
+  --gibbous-moon-border: rgb(246 214 112 / 38%);
+  --gibbous-moon-background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.18' numOctaves='2' seed='7'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E"),
+    radial-gradient(circle at 28% 32%, rgb(96 78 50 / 25%) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 68% 43%, rgb(96 78 50 / 20%) 0 1.5px, transparent 2px),
+    radial-gradient(circle at 44% 76%, rgb(96 78 50 / 22%) 0 0.75px, transparent 1.25px),
+    radial-gradient(
+      circle at 35% 35%,
+      rgb(246 214 112 / 62%),
+      rgb(225 180 72 / 45%) 65%,
+      rgb(174 159 102 / 24%)
+    );
+  --gibbous-moon-background-blend: soft-light, normal, normal, normal, normal;
+}
+
 html:not([data-gibbous-disabled]) :is(
   [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]),
   [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]) + [class*="__itemDivider__"]
@@ -25,8 +41,27 @@ html:not([data-gibbous-disabled]) :is(
   width: var(--control-medium-size, 32px);
 }
 
-.gibbous-header-button:hover {
-  background: var(--button-default-bgColor-hover, var(--color-btn-hover-bg));
+:is(
+  .gibbous-header-button,
+  .gibbous-eyes-toggle,
+  .gibbous-hide-file,
+  .gibbous-pull-request-shortcut,
+  .gibbous-forked-in a
+) {
+  box-shadow: inset 0 0 0 1px var(--gibbous-moon-border);
+}
+
+:is(
+  .gibbous-header-button,
+  .gibbous-eyes-toggle,
+  .gibbous-hide-file,
+  .gibbous-pull-request-shortcut
+):is(:hover, :focus),
+.gibbous-forked-in a:is(:hover, :focus),
+.gibbous-pull-request-shortcut.gibbous-pull-request-shortcut-active {
+  background: var(--gibbous-moon-background);
+  background-blend-mode: var(--gibbous-moon-background-blend);
+  opacity: 1;
 }
 
 .gibbous-header-button:focus-visible {

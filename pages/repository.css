@@ -1,8 +1,11 @@
 html:not([data-gibbous-disabled]):has(
   meta[name="octolytics-dimension-repository_nwo"]
-) nav :is(
+) nav:is(
+  [aria-label="Repository"],
+  [aria-label="Repository navigation"]
+) :is(
   li:has(
-    a:is(
+    > a:is(
       [href$="/agents"],
       [href$="/projects"],
       [href$="/wiki"],
@@ -18,9 +21,45 @@ html:not([data-gibbous-disabled]):has(
     [href$="/pulse"]
   )
 ),
+html:not([data-gibbous-disabled]) .gibbous-hidden-repository-tab,
 html:not([data-gibbous-disabled]) .gibbous-suggested-workflows,
 html:not([data-gibbous-disabled]) .gibbous-file-excluded {
   display: none !important;
+}
+
+.gibbous-pull-request-shortcuts {
+  align-items: center;
+  align-self: center;
+  display: inline-flex;
+  gap: 2px;
+  margin-left: -8px;
+  transform: translateY(-3px);
+}
+
+.gibbous-pull-request-shortcuts[hidden] {
+  display: none;
+}
+
+.gibbous-pull-request-shortcut {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--borderRadius-medium, 6px);
+  color: var(--fgColor-default, var(--color-fg-default));
+  display: inline-flex;
+  font-size: 13px;
+  font-variant-emoji: text;
+  height: 24px;
+  justify-content: center;
+  line-height: 1;
+  opacity: 0.75;
+  text-decoration: none !important;
+  width: 24px;
+}
+
+.gibbous-pull-request-shortcut:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg));
+  outline-offset: -2px;
 }
 
 .gibbous-filename-cell {
@@ -56,12 +95,34 @@ html[data-gibbous-disabled] .gibbous-hide-file {
   display: none;
 }
 
-.gibbous-hide-file:hover {
-  background: var(--button-default-bgColor-hover, var(--color-btn-hover-bg));
-}
-
 .gibbous-forked-in {
   display: block;
+}
+
+.gibbous-forked-in a {
+  border-radius: var(--borderRadius-small, 3px);
+  margin: -1px -4px;
+  padding: 1px 4px;
+}
+
+.gibbous-forked-in a:is(:hover, :focus) {
+  box-shadow:
+    inset 0 0 0 1px var(--gibbous-moon-border),
+    inset 0 0 0 100vmax color-mix(
+      in srgb,
+      var(--bgColor-default, var(--color-canvas-default, #020408)) 55%,
+      transparent
+    );
+}
+
+.gibbous-hide-file:is(:hover, :focus) {
+  box-shadow:
+    inset 0 0 0 1px var(--gibbous-moon-border),
+    inset 0 0 0 100vmax color-mix(
+      in srgb,
+      var(--bgColor-default, var(--color-canvas-default, #020408)) 62%,
+      transparent
+    );
 }
 
 .gibbous-forked-in[hidden] {
@@ -94,7 +155,6 @@ html[data-gibbous-disabled] .gibbous-hide-file {
   display: none;
 }
 
-.gibbous-eyes-toggle:hover,
 .gibbous-list-button:hover {
   background: var(--button-default-bgColor-hover, var(--color-btn-hover-bg));
 }
