@@ -422,6 +422,7 @@ SITE_CSS = r"""
 @layer base {
   :root {
     color-scheme: dark;
+    --site-header-height: 6.75rem;
     --gibbous-moon-border: rgb(246 214 112 / 38%);
     --gibbous-moon-background:
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.18' numOctaves='2' seed='7'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E"),
@@ -439,7 +440,10 @@ SITE_CSS = r"""
 }
 
 @layer components {
-  .site-shell { @apply w-full px-4; }
+  .site-shell {
+    @apply w-full px-4;
+    padding-top: var(--site-header-height);
+  }
   .gallery-navigation { @apply hidden; }
   .gallery-navigation:disabled { @apply cursor-default opacity-20; }
   .feature-panel { @apply py-10; }
@@ -499,6 +503,14 @@ SITE_CSS = r"""
   100% { left: 3rem; transform: translateY(-50%); }
 }
 
+@keyframes case-arrive-next {
+  from { transform: translateX(2rem); }
+}
+
+@keyframes case-arrive-previous {
+  from { transform: translateX(-2rem); }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .comparison-toggle[data-orbit="on"] .comparison-moon {
     animation: moon-orbit-on 360ms linear;
@@ -511,21 +523,27 @@ SITE_CSS = r"""
 @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
   .horizontal-gallery .gallery-scroll { height: var(--gallery-height); }
   .horizontal-gallery .gallery-sticky {
-    @apply sticky top-0 grid h-screen overflow-hidden;
+    @apply sticky grid overflow-hidden;
+    top: var(--site-header-height);
+    height: calc(100vh - var(--site-header-height));
     grid-template-columns: 3.5rem minmax(0, 1fr) 3.5rem;
   }
   .horizontal-gallery .gallery-frame { @apply overflow-hidden; }
   .horizontal-gallery .gallery-navigation {
     @apply my-auto flex h-12 w-12 items-center justify-center rounded border border-[#455160] bg-[#161e2a] text-2xl text-[#e6c96f];
   }
-  .horizontal-gallery .gallery-track {
-    @apply flex h-full;
-    transition: transform 90ms cubic-bezier(.2, 1.6, .35, 1);
+  .horizontal-gallery .gallery-track { @apply relative h-full; }
+  .horizontal-gallery .feature-panel { @apply invisible absolute inset-0 flex w-full flex-col justify-start pb-0 pt-6; }
+  .horizontal-gallery .feature-panel[data-active] { @apply visible; }
+  .horizontal-gallery .gallery-track[data-direction="next"] .feature-panel[data-active] .comparison-card {
+    animation: case-arrive-next 100ms cubic-bezier(.2, .9, .35, 1);
   }
-  .horizontal-gallery .feature-panel { @apply flex w-full shrink-0 flex-col justify-start pb-0 pt-6; }
+  .horizontal-gallery .gallery-track[data-direction="previous"] .feature-panel[data-active] .comparison-card {
+    animation: case-arrive-previous 100ms cubic-bezier(.2, .9, .35, 1);
+  }
   .horizontal-gallery .comparison-content {
     margin-inline: auto;
-    width: min(100%, calc((100vh - 8.5rem) * 1.6));
+    width: min(100%, calc((100vh - var(--site-header-height) - 7rem) * 1.6));
   }
 }
 """
@@ -557,8 +575,8 @@ def render_gallery_item(feature: Feature, index: int) -> str:
         <div class="comparison-content" data-comparison>
           <div class="mb-5 flex items-start gap-4">
             <span class="mt-3 text-sm text-[#e6c96f]" aria-hidden="true">{index}.</span>
-            <div>
-              <div class="flex flex-wrap items-center gap-4">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center justify-between gap-4">
                 <h2 class="text-2xl font-semibold text-white" id="example-{feature.slug}-title">{html.escape(feature.title)}</h2>
                 <span class="comparison-switch" data-comparison-switch>
                   <button class="comparison-toggle" type="button" role="switch" data-comparison-toggle aria-label="Enable Gibbous for {html.escape(feature.title)}" aria-checked="false" title="Enable Gibbous">
@@ -568,7 +586,7 @@ def render_gallery_item(feature: Feature, index: int) -> str:
                   </button>
                 </span>
               </div>
-              <p class="mt-1 text-base leading-7 text-[#9da7b3]">{html.escape(feature.description)}</p>
+              <p class="mt-1 text-base leading-7 text-[#9da7b3] lg:whitespace-nowrap">{html.escape(feature.description)}</p>
             </div>
           </div>
           <div class="comparison-card">
@@ -602,8 +620,8 @@ def render_index(stylesheet: str = "") -> str:
   <title>Gibbous — GitHub, minus the clutter</title>
 </head>
 <body>
-  <main class="site-shell py-5">
-    <header class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+  <main class="site-shell">
+    <header class="site-header fixed inset-x-0 top-0 z-50 flex flex-col gap-4 border-b border-[#30363d] bg-[#101722] px-4 py-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8" data-site-header>
       <div>
         <h1 class="text-3xl font-semibold text-white">gibbous 🌔</h1>
         <p class="mt-2 text-base text-[#9da7b3]">A Chrome extension for hiding the useless parts of GitHub UI.</p>
@@ -631,7 +649,8 @@ def render_index(stylesheet: str = "") -> str:
   </main>
   <script>
     const gallery = document.querySelector("[data-gallery]");
-    const frame = document.querySelector("[data-gallery-frame]");
+    const gallerySticky = gallery.querySelector(".gallery-sticky");
+    const siteHeader = document.querySelector("[data-site-header]");
     const track = document.querySelector("[data-gallery-track]");
     const previous = document.querySelector("[data-gallery-previous]");
     const next = document.querySelector("[data-gallery-next]");
@@ -642,44 +661,49 @@ def render_index(stylesheet: str = "") -> str:
     let currentPanel = -1;
 
     const showPanel = panel => {{
-      const changed = panel !== currentPanel;
+      if (panel === currentPanel) return;
+      track.dataset.direction = panel < currentPanel ? "previous" : "next";
       currentPanel = panel;
-      track.style.transform = `translate3d(${{-panel * frame.clientWidth}}px, 0, 0)`;
       previous.disabled = panel === 0;
       next.disabled = panel === panels.length - 1;
-      panels.forEach((item, index) => item.inert = index !== panel);
-      if (changed) status.textContent = `${{panels[panel].querySelector("h2").textContent}}, ${{panel + 1}} of ${{panels.length}}`;
+      panels.forEach((item, index) => {{
+        const active = index === panel;
+        item.inert = !active;
+        item.toggleAttribute("data-active", active);
+      }});
+      status.textContent = `${{panels[panel].querySelector("h2").textContent}}, ${{panel + 1}} of ${{panels.length}}`;
     }};
 
     const updateGallery = () => {{
       if (!motion.matches) return;
 
-      const distance = gallery.offsetHeight - innerHeight;
-      const progress = Math.min(1, Math.max(0, -gallery.getBoundingClientRect().top / distance));
+      const distance = gallery.offsetHeight - gallerySticky.offsetHeight;
+      const progress = Math.min(1, Math.max(0, (siteHeader.offsetHeight - gallery.getBoundingClientRect().top) / distance));
       const panel = Math.min(panels.length - 1, Math.floor(progress * panels.length));
       showPanel(panel);
     }};
 
     const goToPanel = panel => {{
       const boundedPanel = Math.min(panels.length - 1, Math.max(0, panel));
-      const distance = gallery.offsetHeight - innerHeight;
+      const distance = gallery.offsetHeight - gallerySticky.offsetHeight;
       const galleryTop = scrollY + gallery.getBoundingClientRect().top;
       const progress = (boundedPanel + .5) / panels.length;
-      scrollTo({{top: galleryTop + progress * distance}});
+      scrollTo({{top: galleryTop - siteHeader.offsetHeight + progress * distance}});
       showPanel(boundedPanel);
     }};
 
     const configureGallery = () => {{
+      document.documentElement.style.setProperty("--site-header-height", `${{siteHeader.offsetHeight}}px`);
       document.documentElement.classList.toggle("horizontal-gallery", motion.matches);
+      currentPanel = -1;
       if (motion.matches) return updateGallery();
-      track.style.transform = "";
       panels.forEach(panel => panel.inert = false);
     }};
 
     previous.addEventListener("click", () => goToPanel(currentPanel - 1));
     next.addEventListener("click", () => goToPanel(currentPanel + 1));
     addEventListener("scroll", () => requestAnimationFrame(updateGallery), {{passive: true}});
-    addEventListener("resize", updateGallery);
+    addEventListener("resize", configureGallery);
     motion.addEventListener("change", configureGallery);
     configureGallery();
 
