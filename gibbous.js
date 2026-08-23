@@ -1,3 +1,8 @@
+(() => {
+  if (matchMedia("(max-width: 767px)").matches) {
+    return;
+  }
+
 const {a, button, code, div, li, span} = van.tags;
 
 const enabled = van.state(true);
@@ -625,3 +630,4 @@ new MutationObserver(scheduleRefresh).observe(document.documentElement, {
 });
 
 refresh();
+})();

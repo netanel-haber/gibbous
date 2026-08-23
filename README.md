@@ -5,15 +5,31 @@ GitHub, but with the UX you want.
 ## Features
 
 - `🌔`/`🌘` global toggle for all of the tweaks
-- 👀 button above files view:  Click to persistenly hide files like e.g. CNAME in top level views of repos
-- Hides unused buttons like CoPilot and Workflows
+- Leaves GitHub untouched on mobile viewports
+- 👀 button above files view: click to persistently hide files like CNAME in top-level repository views
+- Hides unused buttons like Copilot and Workflows
 - `forked in owner/repository` link to fork on upstream repositories when you have a fork
 
 ## Install
 
-1. Open `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Click **Load unpacked** and select this repository.
+[![Download extension ZIP](https://img.shields.io/badge/download-extension.zip-e6c96f?style=for-the-badge&labelColor=161b22)](https://github.com/netanel-haber/gibbous/archive/refs/heads/main.zip)
+
+1. Download and extract the ZIP.
+2. Open `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select the extracted `gibbous-main` folder.
+
+## Website
+
+The generated gallery is published at <https://netanel-haber.github.io/gibbous/>.
+
+Regenerate the HTML, Tailwind CSS, and every screenshot:
+
+```bash
+python3 scripts/generate_site.py
+```
+
+The script requires Chrome and `npx`. It renders deterministic local GitHub fixtures, captures them in headless Chrome, and compiles Tailwind CSS 3.4.17.
 
 <p align="center">
   <a href="https://www.flickr.com/photos/john-spade/6680460959/">
