@@ -19,18 +19,6 @@ GitHub, but with the UX you want.
 3. Enable **Developer mode**.
 4. Click **Load unpacked** and select the extracted `gibbous-main` folder.
 
-## Website
-
-The generated gallery is published at <https://netanel-haber.github.io/gibbous/>.
-
-Regenerate the HTML, Tailwind CSS, and every screenshot:
-
-```bash
-python3 scripts/generate_site.py
-```
-
-The script requires Chrome and `npx`. It renders deterministic local GitHub fixtures, captures them in headless Chrome, and compiles Tailwind CSS 3.4.17.
-
 <p align="center">
   <a href="https://www.flickr.com/photos/john-spade/6680460959/">
     <img src="https://live.staticflickr.com/7022/6680460959_fb8336eb3a_k.jpg" width="2048" height="2048" alt="Moon Waxing Gibbous January 2012">
