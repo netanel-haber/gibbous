@@ -10,11 +10,9 @@
       "matches": ["https://github.com/*"],
       "css": [
         "gibbous.css",
-        "pages/dashboard.css",
         "pages/repository.css"
       ],
       "js": [
-        "vendor/van-1.6.1.nomodule.js",
         "gibbous.js"
       ],
       "run_at": "document_start"

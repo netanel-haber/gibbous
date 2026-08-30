@@ -1,34 +1,33 @@
-html:not([data-gibbous-disabled]):has(
-  meta[name="octolytics-dimension-repository_nwo"]
-) nav:is(
+html:not([data-gibbous-disabled]):has(meta[name="octolytics-dimension-repository_nwo"]) nav:is(
   [aria-label="Repository"],
   [aria-label="Repository navigation"]
 ) :is(
-  li:has(
-    > a:is(
-      [href$="/agents"],
-      [href$="/projects"],
-      [href$="/wiki"],
-      [href$="/security"],
-      [href$="/pulse"]
-    )
-  ),
+  li:has(> a:is(
+    [href$="/agents"],
+    [href$="/discussions"],
+    [href$="/projects"],
+    [href$="/wiki"],
+    [href$="/security"],
+    [href$="/pulse"]
+  )),
   a:is(
     [href$="/agents"],
+    [href$="/discussions"],
     [href$="/projects"],
     [href$="/wiki"],
     [href$="/security"],
     [href$="/pulse"]
   )
 ),
-html:not([data-gibbous-disabled]) .gibbous-hidden-repository-tab,
-html:not([data-gibbous-disabled]) .gibbous-suggested-workflows,
-html:not([data-gibbous-disabled]) .gibbous-file-excluded {
+html:not([data-gibbous-disabled]) :is(
+  .gibbous-hidden-repository-tab,
+  .gibbous-suggested-workflows,
+  .gibbous-file-excluded
+) {
   display: none !important;
 }
 
 .gibbous-pull-request-shortcuts {
-  align-items: center;
   align-self: center;
   display: inline-flex;
   gap: 2px;
@@ -36,30 +35,14 @@ html:not([data-gibbous-disabled]) .gibbous-file-excluded {
   transform: translateY(-3px);
 }
 
-.gibbous-pull-request-shortcuts[hidden] {
-  display: none;
-}
-
 .gibbous-pull-request-shortcut {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: var(--borderRadius-medium, 6px);
-  color: var(--fgColor-default, var(--color-fg-default));
-  display: inline-flex;
   font-size: 13px;
   font-variant-emoji: text;
-  height: 24px;
-  justify-content: center;
-  line-height: 1;
   opacity: 0.75;
-  text-decoration: none !important;
-  width: 24px;
 }
 
-.gibbous-pull-request-shortcut:focus-visible {
-  outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg));
-  outline-offset: -2px;
+.gibbous-pull-request-shortcut-active {
+  opacity: 1;
 }
 
 .gibbous-filename-cell {
@@ -68,21 +51,15 @@ html:not([data-gibbous-disabled]) .gibbous-file-excluded {
   gap: 8px;
 }
 
-.gibbous-filename-cell > .react-directory-truncate {
+.gibbous-filename-cell > .react-directory-truncate,
+.gibbous-hidden-item code {
   min-width: 0;
 }
 
 .gibbous-hide-file {
-  background: transparent;
-  border: 0;
-  border-radius: var(--borderRadius-medium, 6px);
-  color: var(--fgColor-accent, var(--color-accent-fg));
-  cursor: pointer;
   flex: none;
-  font: inherit;
   font-size: 12px;
   opacity: 0;
-  padding: 2px 6px;
   pointer-events: none;
 }
 
@@ -95,38 +72,15 @@ html[data-gibbous-disabled] .gibbous-hide-file {
   display: none;
 }
 
-.gibbous-forked-in {
+.gibbous-forked-in,
+.gibbous-hidden-menu-repository {
   display: block;
 }
 
 .gibbous-forked-in a {
-  border-radius: var(--borderRadius-small, 3px);
+  border-radius: 3px;
   margin: -1px -4px;
   padding: 1px 4px;
-}
-
-.gibbous-forked-in a:is(:hover, :focus) {
-  box-shadow:
-    inset 0 0 0 1px var(--gibbous-moon-border),
-    inset 0 0 0 100vmax color-mix(
-      in srgb,
-      var(--bgColor-default, var(--color-canvas-default, #020408)) 55%,
-      transparent
-    );
-}
-
-.gibbous-hide-file:is(:hover, :focus) {
-  box-shadow:
-    inset 0 0 0 1px var(--gibbous-moon-border),
-    inset 0 0 0 100vmax color-mix(
-      in srgb,
-      var(--bgColor-default, var(--color-canvas-default, #020408)) 62%,
-      transparent
-    );
-}
-
-.gibbous-forked-in[hidden] {
-  display: none;
 }
 
 .gibbous-hidden-files-control {
@@ -135,45 +89,24 @@ html[data-gibbous-disabled] .gibbous-hide-file {
 
 .gibbous-eyes-toggle {
   anchor-name: --gibbous-hidden-files;
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--button-default-borderColor-rest, var(--borderColor-default));
-  border-radius: var(--borderRadius-medium, 6px);
-  color: var(--fgColor-default, var(--color-fg-default));
-  cursor: pointer;
-  display: inline-flex;
-  font-size: 18px;
-  height: var(--control-medium-size, 32px);
-  justify-content: center;
-  line-height: 1;
-  padding: 0;
-  text-decoration: none !important;
-  width: var(--control-medium-size, 32px);
 }
 
-.gibbous-eyes-toggle[hidden] {
+:is(
+  .gibbous-pull-request-shortcuts,
+  .gibbous-forked-in,
+  .gibbous-eyes-toggle
+)[hidden] {
   display: none;
-}
-
-.gibbous-list-button:hover {
-  background: var(--button-default-bgColor-hover, var(--color-btn-hover-bg));
-}
-
-.gibbous-eyes-toggle:focus-visible,
-.gibbous-list-button:focus-visible {
-  outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg));
-  outline-offset: -2px;
 }
 
 .gibbous-hidden-menu {
   background: var(--overlay-bgColor, var(--color-canvas-overlay));
   border: 1px solid var(--borderColor-default, var(--color-border-default));
-  border-radius: var(--borderRadius-medium, 6px);
-  box-shadow: var(--shadow-floating-small, 0 8px 24px rgba(0, 0, 0, 0.3));
+  border-radius: 6px;
+  box-shadow: var(--shadow-floating-small, 0 8px 24px rgb(0 0 0 / 30%));
   color: var(--fgColor-default, var(--color-fg-default));
   inset: auto;
   margin-block: 8px;
-  margin-inline: 0;
   padding: 12px;
   position-anchor: --gibbous-hidden-files;
   position-area: block-end span-inline-start;
@@ -181,18 +114,12 @@ html[data-gibbous-disabled] .gibbous-hide-file {
   width: min(340px, calc(100vw - 16px));
 }
 
-.gibbous-hidden-menu-title {
-  font-weight: 600;
-}
-
-.gibbous-hidden-menu-repository,
-.gibbous-hidden-menu-empty {
+:is(.gibbous-hidden-menu-repository, .gibbous-hidden-menu-empty) {
   color: var(--fgColor-muted, var(--color-fg-muted));
   font-size: 12px;
 }
 
 .gibbous-hidden-menu-repository {
-  display: block;
   margin-top: 2px;
 }
 
@@ -212,19 +139,7 @@ html[data-gibbous-disabled] .gibbous-hide-file {
 }
 
 .gibbous-hidden-item code {
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.gibbous-list-button {
-  background: var(--button-default-bgColor-rest, var(--color-btn-bg));
-  border: 1px solid var(--button-default-borderColor-rest, var(--borderColor-default));
-  border-radius: var(--borderRadius-medium, 6px);
-  color: var(--fgColor-default, var(--color-fg-default));
-  cursor: pointer;
-  flex: none;
-  font: inherit;
-  padding: 3px 8px;
 }

@@ -1,150 +1,171 @@
 (() => {
-  if (matchMedia("(max-width: 767px)").matches) {
-    return;
-  }
+  if (matchMedia("(max-width: 767px)").matches) return;
 
-const {a, button, code, div, li, span} = van.tags;
-
-const enabled = van.state(true);
-let contextInvalidated = false;
-
-const extensionCall = async (operation, fallback) => {
-  if (contextInvalidated) {
-    return fallback;
-  }
-
-  try {
-    return await operation();
-  } catch (error) {
-    if (!String(error).includes("Extension context invalidated")) {
-      throw error;
-    }
-    contextInvalidated = true;
-    return fallback;
-  }
-};
-
-const reportUnexpectedError = error => console.error("Gibbous:", error);
-
-const storageGet = keys => extensionCall(
-  () => chrome.storage.local.get(keys),
-  null,
-);
-
-const storageSet = values => extensionCall(() => chrome.storage.local.set(values));
-
-const setEnabled = value => {
-  enabled.val = value;
-  document.documentElement.toggleAttribute("data-gibbous-disabled", !value);
-};
-
-const createRepositoryPage = () => {
-  const hiddenTabLabels = [
-    "Agents",
-    "Discussions",
-    "Projects",
-    "Wiki",
-    "Security and quality",
-    "Insights",
-    "More",
-  ];
-  const active = van.state(false);
-  const activePullRequestState = van.state(null);
-  const repositoryNwo = van.state(null);
-  const repositoryKey = van.state(null);
-  const hiddenNames = van.state([]);
-  const userFork = van.state(null);
-  const viewer = van.state(null);
-  let forkLookup = null;
-  let loadedHiddenNamesKey = null;
+  let enabled = true;
+  let contextInvalidated = false;
+  let repositoryKey;
+  let hiddenNames = [];
+  let loadedHiddenNamesKey;
+  let forkLookup;
+  let userFork;
+  let control;
   let forkedIn;
+  let forkLink;
   let hiddenFilesControl;
+  let hiddenFilesToggle;
   let hiddenFilesMenu;
+  let hiddenFilesMenuRepository;
+  let hiddenFilesMenuList;
   let pullRequestShortcuts;
 
-  const normalizeNames = names => Array.isArray(names)
-    ? [...new Set(
-        names
-          .filter(name => typeof name === "string")
-          .map(name => name.trim())
-          .filter(Boolean),
-      )]
-    : [];
-
-  const setHiddenNames = value => {
-    const normalized = normalizeNames(value);
-    if (
-      normalized.length === hiddenNames.val.length
-      && normalized.every((name, index) => name === hiddenNames.val[index])
-    ) {
-      return;
+  const create = (tag, attributes = {}, ...children) => {
+    const node = document.createElement(tag);
+    for (const [name, value] of Object.entries(attributes)) {
+      if (name.startsWith("on")) node.addEventListener(name.slice(2), value);
+      else node.setAttribute(name, value);
     }
+    node.append(...children);
+    return node;
+  };
 
-    hiddenNames.val = normalized;
-    if (enabled.val) {
-      refreshRows();
+  const extensionCall = async (operation, fallback) => {
+    if (contextInvalidated) return fallback;
+    try {
+      return await operation();
+    } catch (error) {
+      if (!String(error).includes("Extension context invalidated")) throw error;
+      contextInvalidated = true;
+      return fallback;
     }
   };
 
-  const hiddenNamesKey = () => repositoryKey.val
-    ? `hiddenNames:${repositoryKey.val}`
-    : null;
+  const reportError = error => console.error("Gibbous:", error);
+  const storageGet = keys => extensionCall(() => chrome.storage.local.get(keys), null);
+  const storageSet = values => extensionCall(() => chrome.storage.local.set(values));
+  const hiddenStorageKey = () => repositoryKey && `hiddenNames:${repositoryKey}`;
+
+  const normalizeNames = names => Array.isArray(names)
+    ? [...new Set(names.filter(name => typeof name === "string").map(name => name.trim()).filter(Boolean))]
+    : [];
+
+  const setHiddenNames = names => {
+    const next = normalizeNames(names);
+    if (next.length === hiddenNames.length && next.every((name, index) => name === hiddenNames[index])) return;
+    hiddenNames = next;
+    renderHiddenMenu();
+    if (enabled) refreshRows();
+  };
 
   const loadHiddenNames = async () => {
-    const key = hiddenNamesKey();
-    if (!key || key === loadedHiddenNamesKey) {
-      return;
-    }
-
-    const stored = await storageGet(key);
-    if (!stored) {
-      return;
-    }
+    const key = hiddenStorageKey();
+    if (!key || key === loadedHiddenNamesKey) return;
     loadedHiddenNamesKey = key;
-    if (key === hiddenNamesKey()) {
-      setHiddenNames(stored[key] ?? []);
-    }
+    const stored = await storageGet(key);
+    if (stored && key === hiddenStorageKey()) setHiddenNames(stored[key] ?? []);
   };
 
   const updateHiddenNames = update => {
-    const key = hiddenNamesKey();
-    if (!key) {
-      return;
-    }
-
+    const key = hiddenStorageKey();
+    if (!key) return;
     void navigator.locks.request(`gibbous:${key}`, async () => {
       const stored = await storageGet(key);
-      if (!stored) {
-        return;
-      }
+      if (!stored) return;
       const next = normalizeNames(update(normalizeNames(stored[key])));
-      if (key === hiddenNamesKey()) {
-        setHiddenNames(next);
-      }
+      if (key === hiddenStorageKey()) setHiddenNames(next);
       await storageSet({[key]: next});
-    }).catch(reportUnexpectedError);
+    }).catch(reportError);
   };
 
-  const hideName = name => {
-    updateHiddenNames(names => names.includes(name) ? names : [...names, name]);
+  const renderHiddenMenu = () => {
+    if (!hiddenFilesMenuList) return;
+    const items = hiddenNames.map(name => create(
+      "div",
+      {class: "gibbous-hidden-item"},
+      create("code", {title: name}, name),
+      create(
+        "button",
+        {
+          class: "Button Button--secondary Button--small gibbous-list-button",
+          type: "button",
+          "aria-label": `Show ${name}`,
+          onclick: () => updateHiddenNames(names => names.filter(hiddenName => hiddenName !== name)),
+        },
+        "Show",
+      ),
+    ));
+    hiddenFilesMenuList.replaceChildren(
+      ...(items.length ? items : [create("span", {class: "gibbous-hidden-menu-empty"}, "Nothing hidden.")]),
+    );
   };
 
-  const showName = name => {
-    updateHiddenNames(names => names.filter(hiddenName => hiddenName !== name));
+  const closeMenu = () => {
+    if (hiddenFilesMenu?.matches(":popover-open")) hiddenFilesMenu.hidePopover();
   };
 
-  const metaContent = (root, name) => root
-    .querySelector(`meta[name="octolytics-dimension-${name}"]`)
-    ?.content || null;
+  const createHiddenFilesControl = () => {
+    hiddenFilesToggle = create(
+      "button",
+      {
+        class: "Button Button--secondary Button--medium Button--iconOnly gibbous-eyes-toggle",
+        type: "button",
+        "aria-label": "Hidden files",
+        popovertarget: "gibbous-hidden-menu",
+        title: "Hidden files",
+      },
+      "👀",
+    );
+    hiddenFilesMenuRepository = create("code", {class: "gibbous-hidden-menu-repository"});
+    hiddenFilesMenuList = create("div", {class: "gibbous-hidden-list"});
+    hiddenFilesMenu = create(
+      "div",
+      {id: "gibbous-hidden-menu", class: "gibbous-hidden-menu", popover: "auto"},
+      create("strong", {}, "Hidden files"),
+      hiddenFilesMenuRepository,
+      hiddenFilesMenuList,
+    );
+    renderHiddenMenu();
+    return create("div", {class: "gibbous-hidden-files-control"}, hiddenFilesToggle, hiddenFilesMenu);
+  };
+
+  const createHideButton = name => create(
+    "button",
+    {
+      class: "Button Button--invisible Button--small gibbous-hide-file",
+      type: "button",
+      "aria-label": `Hide ${name}`,
+      title: `Hide ${name}`,
+      onclick: event => {
+        event.preventDefault();
+        event.stopPropagation();
+        updateHiddenNames(names => names.includes(name) ? names : [...names, name]);
+      },
+    },
+    "Hide",
+  );
+
+  const refreshRows = () => {
+    const table = document.querySelector('table[aria-labelledby="folders-and-files"]');
+    if (!table) return;
+    const hidden = new Set(hiddenNames);
+    for (const row of table.querySelectorAll("tr.react-directory-row")) {
+      const nameLink = row.querySelector(".react-directory-row-name-cell-large-screen a.Link--primary, a.Link--primary");
+      const name = nameLink?.textContent.trim();
+      if (!name || name === "..") continue;
+      row.classList.toggle("gibbous-file-excluded", hidden.has(name));
+      const cell = row.querySelector(".react-directory-row-name-cell-large-screen .react-directory-filename-cell");
+      if (cell && !cell.querySelector(".gibbous-hide-file")) {
+        cell.classList.add("gibbous-filename-cell");
+        cell.append(createHideButton(name));
+      }
+    }
+  };
+
+  const metaContent = (root, name) => root.querySelector(`meta[name="octolytics-dimension-${name}"]`)?.content;
 
   const readRepositoryContext = (root = document) => {
     const nwo = metaContent(root, "repository_nwo")
       ?? root.querySelector("qbsearch-input[data-current-repository]")?.dataset.currentRepository;
-    if (!nwo) {
-      return null;
-    }
-
-    return {
+    return nwo && {
       nwo,
       rootNwo: metaContent(root, "repository_network_root_nwo")
         ?? metaContent(root, "repository_parent_nwo")
@@ -153,133 +174,9 @@ const createRepositoryPage = () => {
     };
   };
 
-  const viewerLogin = () => document
-    .querySelector('[class*="GlobalNavUserMenu-module__container"] [data-login]')
-    ?.dataset.login
-    ?? document.querySelector('meta[name="user-login"]')?.content
-    ?? null;
-
-  const createHiddenList = () => {
-    const names = hiddenNames.val;
-    return div(
-      {class: "gibbous-hidden-list"},
-      names.length
-        ? names.map(name => div(
-            {class: "gibbous-hidden-item"},
-            code({title: name}, name),
-            button(
-              {
-                class: "gibbous-list-button",
-                type: "button",
-                "aria-label": `Show ${name}`,
-                onclick: () => showName(name),
-              },
-              "Show",
-            ),
-          ))
-        : span({class: "gibbous-hidden-menu-empty"}, "Nothing hidden."),
-    );
-  };
-
-  const createMenuButton = () => button(
-    {
-      class: "gibbous-eyes-toggle",
-      type: "button",
-      hidden: () => !enabled.val || !active.val,
-      "aria-label": "Hidden files",
-      popovertarget: "gibbous-hidden-menu",
-      title: "Hidden files",
-    },
-    "👀",
-  );
-
-  const createMenu = () => {
-    hiddenFilesMenu = div(
-      {
-        id: "gibbous-hidden-menu",
-        class: "gibbous-hidden-menu",
-        popover: "auto",
-      },
-      div({class: "gibbous-hidden-menu-title"}, "Hidden files"),
-      code(
-        {class: "gibbous-hidden-menu-repository"},
-        () => repositoryKey.val ?? "",
-      ),
-      createHiddenList,
-    );
-    return hiddenFilesMenu;
-  };
-
-  const closeMenu = () => {
-    if (hiddenFilesMenu?.matches(":popover-open")) {
-      hiddenFilesMenu.hidePopover();
-    }
-  };
-
-  const createHideButton = name => button(
-    {
-      class: "gibbous-hide-file",
-      type: "button",
-      "aria-label": `Hide ${name}`,
-      title: `Hide ${name}`,
-      onclick: event => {
-        event.preventDefault();
-        event.stopPropagation();
-        hideName(name);
-      },
-    },
-    "Hide",
-  );
-
-  function refreshRows() {
-    const table = document.querySelector('table[aria-labelledby="folders-and-files"]');
-    if (!table) {
-      return;
-    }
-
-    const hidden = new Set(hiddenNames.val);
-    for (const row of table.querySelectorAll("tr.react-directory-row")) {
-      const nameLink = row.querySelector(
-        ".react-directory-row-name-cell-large-screen a.Link--primary",
-      ) ?? row.querySelector("a.Link--primary");
-      const name = nameLink?.textContent.trim();
-      if (!name || name === "..") {
-        continue;
-      }
-
-      row.classList.toggle("gibbous-file-excluded", hidden.has(name));
-
-      const filenameCell = row.querySelector(
-        ".react-directory-row-name-cell-large-screen .react-directory-filename-cell",
-      );
-      if (filenameCell && !filenameCell.querySelector(".gibbous-hide-file")) {
-        filenameCell.classList.add("gibbous-filename-cell");
-        filenameCell.append(createHideButton(name));
-      }
-    }
-  }
-
-  const markSuggestedWorkflows = () => {
-    if (!readRepositoryContext()) {
-      return;
-    }
-
-    const heading = [...document.querySelectorAll("h1, h2, h3")]
-      .find(element => element.textContent.trim() === "Suggested workflows");
-    if (!heading || heading.closest(".gibbous-suggested-workflows")) {
-      return;
-    }
-
-    const moreWorkflows = [...document.querySelectorAll("a, button")]
-      .find(element => element.textContent.trim() === "More workflows");
-    let section = heading.parentElement;
-    while (section && moreWorkflows && !section.contains(moreWorkflows)) {
-      section = section.parentElement;
-    }
-    if (moreWorkflows && section && section !== document.body) {
-      section.classList.add("gibbous-suggested-workflows");
-    }
-  };
+  const viewerLogin = () => document.querySelector(
+    '[class*="GlobalNavUserMenu-module__container"] [data-login]',
+  )?.dataset.login ?? document.querySelector('meta[name="user-login"]')?.content;
 
   const repositoryNavigation = () => document.querySelector(
     'nav[aria-label="Repository"], nav[aria-label="Repository navigation"]',
@@ -287,15 +184,10 @@ const createRepositoryPage = () => {
 
   const markRepositoryTabs = () => {
     const navigation = repositoryNavigation();
-    if (!navigation) {
-      return;
-    }
-
+    if (!navigation) return;
     for (const item of navigation.querySelectorAll("a, button")) {
       const label = item.textContent.replace(/\s+/g, " ").trim();
-      if (hiddenTabLabels.some(hiddenLabel => (
-        label === hiddenLabel || label.startsWith(`${hiddenLabel} `)
-      ))) {
+      if (/^(Agents|Discussions|Projects|Wiki|Security and quality|Insights|More)(?:\s|$)/.test(label)) {
         const container = label.startsWith("More") && item.parentElement !== navigation
           ? item.parentElement
           : item.closest("li") ?? item;
@@ -304,321 +196,222 @@ const createRepositoryPage = () => {
     }
   };
 
-  const pullRequestUrl = state => repositoryNwo.val
-    ? `/${repositoryNwo.val}/pulls?q=${encodeURIComponent(`is:pr is:${state} author:@me`)}`
-    : "#";
+  const markSuggestedWorkflows = () => {
+    const heading = [...document.querySelectorAll("h1, h2, h3")]
+      .find(element => element.textContent.trim() === "Suggested workflows");
+    const more = [...document.querySelectorAll("a, button")]
+      .find(element => element.textContent.trim() === "More workflows");
+    if (!heading || !more || heading.closest(".gibbous-suggested-workflows")) return;
+    let section = heading.parentElement;
+    while (section && !section.contains(more)) section = section.parentElement;
+    if (section && section !== document.body) section.classList.add("gibbous-suggested-workflows");
+  };
 
-  const readPullRequestState = context => {
-    const pullsPath = `/${context.nwo}/pulls`;
+  const readPullRequestState = (context, viewer) => {
+    const path = `/${context.nwo}/pulls`;
     const filters = new URLSearchParams(location.search).get("q")?.toLowerCase() ?? "";
     const author = filters.match(/\bauthor:([^\s]+)/)?.[1];
-    const isMine = location.pathname === `${pullsPath}/@me`
+    const mine = location.pathname === `${path}/@me`
       || author === "@me"
-      || Boolean(author && viewer.val && author === viewer.val.toLowerCase());
-    if (!location.pathname.startsWith(pullsPath) || !isMine) {
-      return null;
-    }
+      || Boolean(author && viewer && author === viewer.toLowerCase());
+    if (!location.pathname.startsWith(path) || !mine) return;
     return filters.includes("is:closed") ? "closed" : "open";
   };
 
-  const pullRequestShortcutClass = state => (
-    `gibbous-pull-request-shortcut${
-      activePullRequestState.val === state ? " gibbous-pull-request-shortcut-active" : ""
-    }`
-  );
-
-  const createPullRequestShortcuts = () => li(
-    {
-      class: "gibbous-pull-request-shortcuts",
-      hidden: () => !enabled.val || !viewer.val || !repositoryNwo.val,
-    },
-    a(
-      {
-        class: () => pullRequestShortcutClass("open"),
-        href: () => pullRequestUrl("open"),
-        "aria-label": "My open pull requests",
-        title: "My open pull requests",
-      },
-      "📖\uFE0E",
-    ),
-    a(
-      {
-        class: () => pullRequestShortcutClass("closed"),
-        href: () => pullRequestUrl("closed"),
-        "aria-label": "My closed pull requests",
-        title: "My closed pull requests",
-      },
-      "📕\uFE0E",
-    ),
-  );
-
-  const mountPullRequestShortcuts = () => {
+  const mountPullRequestShortcuts = (context, viewer) => {
     const navigation = repositoryNavigation();
-    if (!navigation) {
-      return;
-    }
-
-    const pullRequestsLink = [...navigation.querySelectorAll("a")]
+    const pullRequests = [...(navigation?.querySelectorAll("a") ?? [])]
       .find(link => link.textContent.replace(/\s+/g, " ").trim().startsWith("Pull requests"));
-    const pullRequestsItem = pullRequestsLink?.closest("li") ?? pullRequestsLink;
-    if (!pullRequestsItem) {
-      return;
+    const item = pullRequests?.closest("li") ?? pullRequests;
+    if (!item) return;
+    if (!pullRequestShortcuts) {
+      pullRequestShortcuts = create(
+        "li",
+        {class: "gibbous-pull-request-shortcuts"},
+        ...[["open", "📖\uFE0E"], ["closed", "📕\uFE0E"]].map(([state, icon]) => create(
+          "a",
+          {
+            class: "Button Button--invisible Button--small Button--iconOnly gibbous-pull-request-shortcut",
+            "data-state": state,
+            "aria-label": `My ${state} pull requests`,
+            title: `My ${state} pull requests`,
+          },
+          icon,
+        )),
+      );
     }
-
-    if (!pullRequestShortcuts?.isConnected) {
-      pullRequestShortcuts = createPullRequestShortcuts();
-    }
-    if (pullRequestShortcuts.previousElementSibling !== pullRequestsItem) {
-      pullRequestsItem.after(pullRequestShortcuts);
+    if (pullRequestShortcuts.previousElementSibling !== item) item.after(pullRequestShortcuts);
+    const active = context && readPullRequestState(context, viewer);
+    pullRequestShortcuts.hidden = !enabled || !context || !viewer;
+    for (const link of pullRequestShortcuts.children) {
+      const state = link.dataset.state;
+      link.href = context
+        ? `/${context.nwo}/pulls?q=${encodeURIComponent(`is:pr is:${state} author:@me`)}`
+        : "#";
+      link.classList.toggle("gibbous-pull-request-shortcut-active", state === active);
     }
   };
 
-  const createForkedIn = () => span(
-    {
-      class: "gibbous-forked-in text-small lh-condensed-ultra no-wrap mt-1",
-      hidden: () => !enabled.val || !active.val || !userFork.val,
-      "data-repository-hovercards-enabled": "",
-    },
-    "forked in ",
-    a(
-      {
-        class: "Link--inTextBlock",
-        href: () => userFork.val ? `/${userFork.val}` : "#",
-        "data-hovercard-type": "repository",
-        "data-hovercard-url": () => userFork.val ? `/${userFork.val}/hovercard` : "",
-      },
-      () => userFork.val ?? "",
-    ),
-  );
-
-  const createHiddenFilesControl = () => div(
-    {class: "gibbous-hidden-files-control"},
-    createMenuButton(),
-    createMenu(),
-  );
+  const updateFork = () => {
+    if (!forkedIn) return;
+    forkedIn.hidden = !enabled || !userFork;
+    forkLink.textContent = userFork ?? "";
+    forkLink.href = userFork ? `/${userFork}` : "#";
+    forkLink.dataset.hovercardUrl = userFork ? `/${userFork}/hovercard` : "";
+  };
 
   const mountForkedIn = () => {
-    const legacyTitle = document.querySelector(
-      '#repository-container-header strong[itemprop="name"]',
-    );
-    const titleBlock = document.querySelector("#repo-title-component")
-      ?? legacyTitle?.parentElement?.parentElement;
-    if (!titleBlock) {
-      return;
+    const legacyTitle = document.querySelector('#repository-container-header strong[itemprop="name"]');
+    const title = document.querySelector("#repo-title-component") ?? legacyTitle?.parentElement?.parentElement;
+    if (!title) return;
+    if (!forkedIn) {
+      forkLink = create("a", {class: "Link--inTextBlock", "data-hovercard-type": "repository"});
+      forkedIn = create(
+        "span",
+        {class: "gibbous-forked-in text-small lh-condensed-ultra no-wrap mt-1", "data-repository-hovercards-enabled": ""},
+        "forked in ",
+        forkLink,
+      );
     }
-
-    if (!forkedIn?.isConnected) {
-      forkedIn = createForkedIn();
-    }
-    if (forkedIn.parentElement !== titleBlock) {
-      titleBlock.append(forkedIn);
-    }
+    if (forkedIn.parentElement !== title) title.append(forkedIn);
+    updateFork();
   };
 
   const mountHiddenFilesControl = table => {
-    const root = table.closest("#repo-content-pjax-container, #repo-content-turbo-frame")
-      ?? document;
+    const root = table.closest("#repo-content-pjax-container, #repo-content-turbo-frame") ?? document;
     const codeButton = root.querySelector(
       'button[data-component="Button"]:has(svg.octicon-code), summary:has(svg.octicon-code)',
     );
-    if (!codeButton) {
-      return;
-    }
-
-    if (!hiddenFilesControl?.isConnected) {
-      hiddenFilesControl = createHiddenFilesControl();
-    }
-    if (hiddenFilesControl.nextElementSibling !== codeButton) {
-      codeButton.before(hiddenFilesControl);
-    }
+    if (!codeButton) return;
+    if (!hiddenFilesControl?.isConnected) hiddenFilesControl = createHiddenFilesControl();
+    if (hiddenFilesControl.nextElementSibling !== codeButton) codeButton.before(hiddenFilesControl);
+    hiddenFilesToggle.hidden = !enabled;
+    hiddenFilesMenuRepository.textContent = repositoryKey ?? "";
   };
 
-  const resolveUserFork = async context => {
-    const viewer = viewerLogin();
+  const resolveUserFork = async (context, viewer) => {
     const lookup = `${viewer}|${context.nwo}|${context.rootNwo}`;
-    if (lookup === forkLookup) {
-      return;
-    }
-
+    if (lookup === forkLookup) return;
     forkLookup = lookup;
-    userFork.val = null;
-    if (!viewer || context.isFork) {
-      return;
-    }
-
-    const repositoryName = context.rootNwo.split("/").at(-1);
-    const candidateNwo = `${viewer}/${repositoryName}`;
-    if (candidateNwo.toLowerCase() === context.nwo.toLowerCase()) {
-      return;
-    }
-
+    userFork = undefined;
+    updateFork();
+    if (!viewer || context.isFork) return;
+    const candidateNwo = `${viewer}/${context.rootNwo.split("/").at(-1)}`;
+    if (candidateNwo.toLowerCase() === context.nwo.toLowerCase()) return;
     try {
       const response = await fetch(`/${candidateNwo}`, {credentials: "include"});
-      if (!response.ok) {
-        return;
-      }
-
-      const candidateDocument = new DOMParser().parseFromString(
-        await response.text(),
-        "text/html",
+      if (!response.ok) return;
+      const candidate = readRepositoryContext(
+        new DOMParser().parseFromString(await response.text(), "text/html"),
       );
-      const candidate = readRepositoryContext(candidateDocument);
-      if (
-        forkLookup === lookup
-        && candidate?.isFork
-        && candidate.rootNwo.toLowerCase() === context.rootNwo.toLowerCase()
-      ) {
-        userFork.val = candidate.nwo;
+      if (forkLookup === lookup && candidate?.isFork && candidate.rootNwo.toLowerCase() === context.rootNwo.toLowerCase()) {
+        userFork = candidate.nwo;
+        updateFork();
       }
     } catch {
-      if (forkLookup === lookup) {
-        userFork.val = null;
-      }
+      if (forkLookup === lookup) updateFork();
     }
   };
 
-  const refresh = () => {
-    const table = document.querySelector('table[aria-labelledby="folders-and-files"]');
+  const refreshRepository = () => {
     const pageContext = readRepositoryContext();
-    const context = table ? pageContext : null;
-    active.val = Boolean(context);
-    repositoryNwo.val = pageContext?.nwo ?? null;
-    viewer.val = viewerLogin();
-    activePullRequestState.val = pageContext ? readPullRequestState(pageContext) : null;
-
+    const table = document.querySelector('table[aria-labelledby="folders-and-files"]');
+    const context = table && pageContext;
+    const viewer = viewerLogin();
     if (pageContext) {
       markRepositoryTabs();
-      mountPullRequestShortcuts();
+      if (enabled) markSuggestedWorkflows();
     }
-    if (enabled.val && pageContext) {
-      markSuggestedWorkflows();
-    }
-
+    mountPullRequestShortcuts(pageContext, viewer);
     if (!context) {
-      repositoryKey.val = null;
-      hiddenNames.val = [];
-      loadedHiddenNamesKey = null;
+      repositoryKey = undefined;
+      hiddenNames = [];
+      loadedHiddenNamesKey = undefined;
+      forkLookup = undefined;
+      userFork = undefined;
       closeMenu();
-      userFork.val = null;
-      forkLookup = null;
+      updateFork();
       return;
     }
-
-    if (repositoryKey.val !== context.rootNwo) {
-      repositoryKey.val = context.rootNwo;
-      hiddenNames.val = [];
+    if (repositoryKey !== context.rootNwo) {
+      repositoryKey = context.rootNwo;
+      hiddenNames = [];
+      renderHiddenMenu();
     }
-    void loadHiddenNames().catch(reportUnexpectedError);
     mountForkedIn();
     mountHiddenFilesControl(table);
-    if (enabled.val) {
+    void loadHiddenNames().catch(reportError);
+    if (enabled) {
       refreshRows();
-      resolveUserFork(context);
+      void resolveUserFork(context, viewer);
     }
   };
+
+  const updateControl = () => {
+    if (!control) return;
+    const action = enabled ? "Disable" : "Enable";
+    control.textContent = enabled ? "🌔" : "🌘";
+    control.setAttribute("aria-label", `${action} Gibbous`);
+    control.setAttribute("aria-pressed", enabled);
+    control.title = `${action} Gibbous`;
+  };
+
+  const applyEnabled = value => {
+    if (!value) closeMenu();
+    enabled = value;
+    document.documentElement.toggleAttribute("data-gibbous-disabled", !value);
+    updateControl();
+    refresh();
+  };
+
+  const mountControl = () => {
+    const anchor = document.querySelector('[class*="GlobalNavUserMenu-module__container"]')
+      ?? document.querySelector('header [data-testid="top-nav-right"] a[href^="/login"], header .HeaderMenu-link-wrap:has(a.HeaderMenu-link--sign-in)');
+    if (!anchor) return;
+    if (!control) {
+      control = create(
+        "button",
+        {
+          class: "Button Button--secondary Button--medium Button--iconOnly gibbous-header-button",
+          type: "button",
+          onclick: () => {
+            applyEnabled(!enabled);
+            void storageSet({enabled}).catch(reportError);
+          },
+        },
+      );
+      updateControl();
+    }
+    if (control.nextElementSibling !== anchor) anchor.before(control);
+  };
+
+  function refresh() {
+    mountControl();
+    refreshRepository();
+  }
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    const key = hiddenNamesKey();
-    if (area === "local" && key && changes[key]) {
-      setHiddenNames(changes[key].newValue ?? []);
-    }
+    if (area !== "local") return;
+    if (changes.enabled) applyEnabled(changes.enabled.newValue ?? true);
+    const key = hiddenStorageKey();
+    if (key && changes[key]) setHiddenNames(changes[key].newValue ?? []);
   });
 
-  return {
-    active,
-    closeMenu,
-    refresh,
+  void (async () => {
+    const stored = await storageGet({enabled: true});
+    if (stored) applyEnabled(stored.enabled);
+  })().catch(reportError);
+
+  let refreshScheduled = false;
+  const scheduleRefresh = () => {
+    if (refreshScheduled) return;
+    refreshScheduled = true;
+    requestAnimationFrame(() => {
+      refreshScheduled = false;
+      refresh();
+    });
   };
-};
 
-const repositoryPage = createRepositoryPage();
-let control;
-
-const createControl = () => div(
-  {class: "gibbous-control"},
-  button(
-    {
-      class: "gibbous-header-button gibbous-moon-toggle",
-      type: "button",
-      "aria-label": () => enabled.val ? "Disable Gibbous" : "Enable Gibbous",
-      "aria-pressed": () => String(enabled.val),
-      title: () => enabled.val ? "Disable Gibbous" : "Enable Gibbous",
-      onclick: () => {
-        const nextEnabled = !enabled.val;
-        if (!nextEnabled) {
-          repositoryPage.closeMenu();
-        }
-        setEnabled(nextEnabled);
-        refresh();
-        void storageSet({enabled: enabled.val}).catch(reportUnexpectedError);
-      },
-    },
-    () => enabled.val ? "🌔" : "🌘",
-  ),
-);
-
-const mountControl = () => {
-  const anchor = document.querySelector(
-    '[class*="GlobalNavUserMenu-module__container"]',
-  ) ?? document.querySelector(
-    'header [data-testid="top-nav-right"] a[href^="/login"], header .HeaderMenu-link-wrap:has(a.HeaderMenu-link--sign-in)',
-  );
-  if (!anchor) {
-    return;
-  }
-
-  if (!control?.isConnected) {
-    control = createControl();
-  }
-  if (control.nextElementSibling !== anchor) {
-    anchor.before(control);
-  }
-};
-
-const initialize = async () => {
-  const stored = await storageGet({enabled: true});
-  if (!stored) {
-    return;
-  }
-  setEnabled(stored.enabled);
+  new MutationObserver(scheduleRefresh).observe(document.documentElement, {childList: true, subtree: true});
   refresh();
-};
-
-void initialize().catch(reportUnexpectedError);
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "local" && changes.enabled) {
-    const nextEnabled = changes.enabled.newValue ?? true;
-    if (!nextEnabled) {
-      repositoryPage.closeMenu();
-    }
-    setEnabled(nextEnabled);
-    refresh();
-  }
-});
-
-function refresh() {
-  mountControl();
-  repositoryPage.refresh();
-}
-
-let refreshScheduled = false;
-const scheduleRefresh = () => {
-  if (refreshScheduled) {
-    return;
-  }
-
-  refreshScheduled = true;
-  requestAnimationFrame(() => {
-    refreshScheduled = false;
-    refresh();
-  });
-};
-
-new MutationObserver(scheduleRefresh).observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-});
-
-refresh();
 })();
