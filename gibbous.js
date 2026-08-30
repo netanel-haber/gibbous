@@ -281,13 +281,10 @@
   const quoteCommentBody = comment => quoteCommentRoot(comment)?.querySelector(".comment-body");
 
   const findQuoteMatches = async comments => {
-    const response = await Promise.race([
-      extensionCall(() => chrome.runtime.sendMessage({
-        type: "findQuoteMatches",
-        comments: comments.map(({text, quotes}) => ({text, quotes})),
-      }), null),
-      new Promise(resolve => setTimeout(() => resolve({error: "Quote matching timed out."}), 1000)),
-    ]);
+    const response = await extensionCall(() => chrome.runtime.sendMessage({
+      type: "findQuoteMatches",
+      comments: comments.map(({text, quotes}) => ({text, quotes})),
+    }), null);
     if (response?.error) throw new Error(response.error);
     if (!response?.matches) throw new Error("Quote worker unavailable.");
     return response.matches.map(({replyIndex, quoteIndex, sourceIndices, sourceRates, fullSourceIndices}) => {
