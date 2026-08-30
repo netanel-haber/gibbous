@@ -570,6 +570,11 @@ def render_fixture(feature: Feature, variant: Variant) -> str:
 def render_gallery_item(feature: Feature, index: int) -> str:
     before = f"assets/{feature.slug}-before.png"
     after = f"assets/{feature.slug}-after.png"
+    image_loading = (
+        'loading="eager" fetchpriority="high"'
+        if index == 1
+        else 'loading="lazy" fetchpriority="low"'
+    )
     return f"""
       <section class="feature-panel border-t border-[#30363d]" id="example-{feature.slug}" aria-labelledby="example-{feature.slug}-title">
         <div class="comparison-content" data-comparison>
@@ -591,7 +596,7 @@ def render_gallery_item(feature: Feature, index: int) -> str:
           </div>
           <div class="comparison-card">
             <a class="comparison-link" data-comparison-link href="{before}">
-              <img class="gallery-image" data-comparison-image data-before="{before}" data-after="{after}" src="{before}" width="{SCREENSHOT_SIZE[0] * SCREENSHOT_SCALE}" height="{SCREENSHOT_SIZE[1] * SCREENSHOT_SCALE}" loading="lazy" alt="GitHub before Gibbous: {html.escape(feature.title)}">
+              <img class="gallery-image" data-comparison-image data-before="{before}" data-after="{after}" src="{before}" width="{SCREENSHOT_SIZE[0] * SCREENSHOT_SCALE}" height="{SCREENSHOT_SIZE[1] * SCREENSHOT_SCALE}" {image_loading} alt="GitHub before Gibbous: {html.escape(feature.title)}">
             </a>
           </div>
         </div>
@@ -615,6 +620,7 @@ def render_index(stylesheet: str = "") -> str:
   <meta property="og:image" content="{PAGES_URL}assets/dashboard-after.png">
   <meta property="og:url" content="{PAGES_URL}">
   <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext x='50' y='50' font-size='82' text-anchor='middle' dominant-baseline='central'%3E🌔%3C/text%3E%3C/svg%3E">
   <link rel="canonical" href="{PAGES_URL}">
   <style>{stylesheet}</style>
   <title>Gibbous — GitHub, minus the clutter</title>
@@ -659,6 +665,7 @@ def render_index(stylesheet: str = "") -> str:
     const motion = matchMedia("(min-width: 1024px) and (prefers-reduced-motion: no-preference)");
     const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
     let currentPanel = -1;
+    let galleryUpdateScheduled = false;
 
     const showPanel = panel => {{
       if (panel === currentPanel) return;
@@ -700,9 +707,18 @@ def render_index(stylesheet: str = "") -> str:
       panels.forEach(panel => panel.inert = false);
     }};
 
+    const scheduleGalleryUpdate = () => {{
+      if (galleryUpdateScheduled) return;
+      galleryUpdateScheduled = true;
+      requestAnimationFrame(() => {{
+        galleryUpdateScheduled = false;
+        updateGallery();
+      }});
+    }};
+
     previous.addEventListener("click", () => goToPanel(currentPanel - 1));
     next.addEventListener("click", () => goToPanel(currentPanel + 1));
-    addEventListener("scroll", () => requestAnimationFrame(updateGallery), {{passive: true}});
+    addEventListener("scroll", scheduleGalleryUpdate, {{passive: true}});
     addEventListener("resize", configureGallery);
     motion.addEventListener("change", configureGallery);
     configureGallery();
@@ -719,7 +735,7 @@ def render_index(stylesheet: str = "") -> str:
 
       const animatePhases = enabled => {{
         phaseTimers.forEach(clearTimeout);
-        const phases = enabled ? ["🌘", "🌑", "🌒", "🌓", "🌔"] : ["🌔", "🌕", "🌖", "🌗", "🌘"];
+        const phases = enabled ? ["🌘", "🌑", "🌒", "🌓", "🌔"] : ["🌔", "🌓", "🌒", "🌑", "🌘"];
         if (reducedMotion.matches) return moon.textContent = phases.at(-1);
         phaseTimers = phases.map((phase, index) => setTimeout(() => moon.textContent = phase, index * 90));
       }};

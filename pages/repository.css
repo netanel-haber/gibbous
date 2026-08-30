@@ -131,10 +131,10 @@ html[data-gibbous-disabled] .gibbous-hide-file {
 
 .gibbous-hidden-files-control {
   display: inline-flex;
-  position: relative;
 }
 
 .gibbous-eyes-toggle {
+  anchor-name: --gibbous-hidden-files;
   align-items: center;
   background: transparent;
   border: 1px solid var(--button-default-borderColor-rest, var(--borderColor-default));
@@ -171,16 +171,14 @@ html[data-gibbous-disabled] .gibbous-hide-file {
   border-radius: var(--borderRadius-medium, 6px);
   box-shadow: var(--shadow-floating-small, 0 8px 24px rgba(0, 0, 0, 0.3));
   color: var(--fgColor-default, var(--color-fg-default));
+  inset: auto;
+  margin-block: 8px;
+  margin-inline: 0;
   padding: 12px;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
+  position-anchor: --gibbous-hidden-files;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline;
   width: min(340px, calc(100vw - 16px));
-  z-index: 1000;
-}
-
-.gibbous-hidden-menu[hidden] {
-  display: none;
 }
 
 .gibbous-hidden-menu-title {

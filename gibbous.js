@@ -50,7 +50,6 @@ const createRepositoryPage = () => {
   ];
   const active = van.state(false);
   const activePullRequestState = van.state(null);
-  const menuOpen = van.state(false);
   const repositoryNwo = van.state(null);
   const repositoryKey = van.state(null);
   const hiddenNames = van.state([]);
@@ -60,6 +59,7 @@ const createRepositoryPage = () => {
   let loadedHiddenNamesKey = null;
   let forkedIn;
   let hiddenFilesControl;
+  let hiddenFilesMenu;
   let pullRequestShortcuts;
 
   const normalizeNames = names => Array.isArray(names)
@@ -187,27 +187,34 @@ const createRepositoryPage = () => {
       type: "button",
       hidden: () => !enabled.val || !active.val,
       "aria-label": "Hidden files",
-      "aria-controls": "gibbous-hidden-menu",
-      "aria-expanded": () => String(menuOpen.val),
+      popovertarget: "gibbous-hidden-menu",
       title: "Hidden files",
-      onclick: () => menuOpen.val = !menuOpen.val,
     },
     "👀",
   );
 
-  const createMenu = () => div(
-    {
-      id: "gibbous-hidden-menu",
-      class: "gibbous-hidden-menu",
-      hidden: () => !enabled.val || !active.val || !menuOpen.val,
-    },
-    div({class: "gibbous-hidden-menu-title"}, "Hidden files"),
-    code(
-      {class: "gibbous-hidden-menu-repository"},
-      () => repositoryKey.val ?? "",
-    ),
-    createHiddenList,
-  );
+  const createMenu = () => {
+    hiddenFilesMenu = div(
+      {
+        id: "gibbous-hidden-menu",
+        class: "gibbous-hidden-menu",
+        popover: "auto",
+      },
+      div({class: "gibbous-hidden-menu-title"}, "Hidden files"),
+      code(
+        {class: "gibbous-hidden-menu-repository"},
+        () => repositoryKey.val ?? "",
+      ),
+      createHiddenList,
+    );
+    return hiddenFilesMenu;
+  };
+
+  const closeMenu = () => {
+    if (hiddenFilesMenu?.matches(":popover-open")) {
+      hiddenFilesMenu.hidePopover();
+    }
+  };
 
   const createHideButton = name => button(
     {
@@ -491,7 +498,7 @@ const createRepositoryPage = () => {
       repositoryKey.val = null;
       hiddenNames.val = [];
       loadedHiddenNamesKey = null;
-      menuOpen.val = false;
+      closeMenu();
       userFork.val = null;
       forkLookup = null;
       return;
@@ -519,8 +526,7 @@ const createRepositoryPage = () => {
 
   return {
     active,
-    menuOpen,
-    contains: target => hiddenFilesControl?.contains(target) ?? false,
+    closeMenu,
     refresh,
   };
 };
@@ -540,7 +546,7 @@ const createControl = () => div(
       onclick: () => {
         const nextEnabled = !enabled.val;
         if (!nextEnabled) {
-          repositoryPage.menuOpen.val = false;
+          repositoryPage.closeMenu();
         }
         setEnabled(nextEnabled);
         refresh();
@@ -569,40 +575,25 @@ const mountControl = () => {
   }
 };
 
-void storageGet({enabled: true})
-  .then(stored => {
-    if (!stored) {
-      return;
-    }
-    setEnabled(stored.enabled);
-    refresh();
-  })
-  .catch(reportUnexpectedError);
+const initialize = async () => {
+  const stored = await storageGet({enabled: true});
+  if (!stored) {
+    return;
+  }
+  setEnabled(stored.enabled);
+  refresh();
+};
+
+void initialize().catch(reportUnexpectedError);
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "local" && changes.enabled) {
     const nextEnabled = changes.enabled.newValue ?? true;
     if (!nextEnabled) {
-      repositoryPage.menuOpen.val = false;
+      repositoryPage.closeMenu();
     }
     setEnabled(nextEnabled);
     refresh();
-  }
-});
-
-document.addEventListener("click", event => {
-  if (
-    repositoryPage.menuOpen.val
-    && event.target instanceof Node
-    && !repositoryPage.contains(event.target)
-  ) {
-    repositoryPage.menuOpen.val = false;
-  }
-});
-
-document.addEventListener("keydown", event => {
-  if (event.key === "Escape") {
-    repositoryPage.menuOpen.val = false;
   }
 });
 
