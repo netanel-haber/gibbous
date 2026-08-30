@@ -148,7 +148,7 @@ html:not([data-gibbous-disabled]) :is(
 }
 
 .gibbous-quote-highlight {
-  background: rgb(246 214 112 / 14%) !important;
+  background: var(--gibbous-accent-hover) !important;
   border-radius: 3px;
   color: inherit;
 }
