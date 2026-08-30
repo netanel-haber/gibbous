@@ -1,6 +1,11 @@
 :root {
   --gibbous-accent: rgb(246 214 112 / 38%);
   --gibbous-accent-hover: rgb(246 214 112 / 22%);
+  --gibbous-accent-solid: color-mix(
+    in srgb,
+    rgb(246 214 112) 38%,
+    var(--bgColor-default, var(--color-canvas-default))
+  );
 }
 
 html:not([data-gibbous-disabled]) :is(
@@ -38,4 +43,130 @@ html:not([data-gibbous-disabled]) :is(
 
 :is(.gibbous-header-button, .gibbous-eyes-toggle) {
   font-size: 18px;
+}
+
+.gibbous-source-comment {
+  position: relative;
+}
+
+.gibbous-quote-rail {
+  align-items: center;
+  background: var(--gibbous-accent-solid);
+  display: flex;
+  flex-direction: column;
+  height: var(--gibbous-quote-height);
+  justify-content: center;
+  overflow: hidden;
+  position: absolute;
+  top: var(--gibbous-quote-top);
+  min-width: 30px;
+  width: max-content;
+  z-index: 1;
+}
+
+.gibbous-quote-rail-source {
+  border-radius: 6px 0 0 6px;
+  right: 100%;
+}
+
+.gibbous-quote-rail-replies {
+  border-radius: 0 6px 6px 0;
+  left: 100%;
+}
+
+.gibbous-quote-button {
+  align-self: stretch;
+  color: var(--fgColor-default, var(--color-fg-default)) !important;
+  flex: 1 1 0 !important;
+  font-size: 16px;
+  font-weight: 700;
+  height: 100% !important;
+  line-height: 1;
+  max-height: none !important;
+  max-width: none !important;
+  min-height: 0;
+  min-width: 0;
+  padding-inline: 8px !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+  width: 100% !important;
+}
+
+.gibbous-quote-button.Button--iconOnly {
+  padding-inline: 0 !important;
+}
+
+.gibbous-quote-button:is(:hover, :focus-visible) {
+  background: var(--gibbous-accent-hover) !important;
+}
+
+.gibbous-quote-missing {
+  color: var(--fgColor-muted, var(--color-fg-muted)) !important;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.gibbous-quote-rail:has(.gibbous-quote-missing) {
+  background: color-mix(
+    in srgb,
+    var(--fgColor-muted, var(--color-fg-muted)) 22%,
+    var(--bgColor-default, var(--color-canvas-default))
+  );
+}
+
+.gibbous-quote-preview {
+  background: var(--bgColor-default, var(--color-canvas-default));
+  border: 0;
+  box-sizing: border-box;
+  inset: auto;
+  margin: 8px;
+  max-height: calc(100dvh - 16px);
+  max-width: min(480px, calc(100vw - 16px));
+  overflow: auto;
+  padding: 0 !important;
+  position: fixed;
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  width: 480px;
+}
+
+.gibbous-quote-preview-source {
+  position-area: block-start span-inline-end;
+}
+
+.gibbous-quote-preview-reply {
+  position-area: block-end span-inline-start;
+}
+
+.gibbous-quote-preview > * {
+  margin: 0 !important;
+  width: 100%;
+}
+
+.gibbous-quote-preview .timeline-comment {
+  margin-inline-start: 0 !important;
+  width: 100%;
+}
+
+.gibbous-quote-highlight {
+  background: rgb(246 214 112 / 14%) !important;
+  border-radius: 3px;
+  color: inherit;
+}
+
+.gibbous-quote-preview blockquote.gibbous-quote-highlight {
+  border-inline-start-color: rgb(246 214 112 / 65%) !important;
+}
+
+.gibbous-quote-picker {
+  inset: auto;
+  margin: 4px;
+  max-height: min(360px, calc(100vh - 16px));
+  max-width: calc(100vw - 16px);
+  overflow-y: auto;
+  position-area: block-end span-inline-end;
+  width: max-content;
+}
+
+.gibbous-quote-option[aria-current="true"] {
+  background: var(--gibbous-accent-hover) !important;
 }

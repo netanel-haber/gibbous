@@ -5,6 +5,7 @@
   "description": "GitHub, but with the UX you asked for. https://netanel-haber.github.io/gibbous/",
   "homepage_url": "https://netanel-haber.github.io/gibbous/",
   "permissions": ["storage"],
+  "background": {"service_worker": "quote-worker.js"},
   "content_scripts": [
     {
       "matches": ["https://github.com/*"],
