@@ -5,6 +5,7 @@
   let contextInvalidated = false;
   let repositoryKey;
   let hiddenNames = [];
+  let hiddenRepositories = [];
   let loadedHiddenNamesKey;
   let forkLookup;
   let userFork;
@@ -12,10 +13,6 @@
   let forkedIn;
   let forkLink;
   let hiddenFilesControl;
-  let hiddenFilesToggle;
-  let hiddenFilesMenu;
-  let hiddenFilesMenuRepository;
-  let hiddenFilesMenuList;
   let pullRequestShortcuts;
   let quoteContextKey;
   let quoteMatches = [];
@@ -26,6 +23,15 @@
   let quoteRevealController;
   let quoteScrollTarget;
   let quoteScrollTimer;
+  const expandingRepositoryLists = new WeakSet();
+  const repositoryExpansionAttempts = new WeakMap();
+  const topRepositoryOrders = new WeakMap();
+  const knownRepositoryForks = new Map();
+  const queuedRepositoryForks = new Set();
+  const repositoryForkQueue = [];
+  const hiddenRepositoryControls = new WeakMap();
+  let resolvingRepositoryForks = false;
+  let hiddenItemsControlId = 0;
 
   const create = (tag, attributes = {}, ...children) => {
     const node = document.createElement(tag);
@@ -35,6 +41,44 @@
     }
     node.append(...children);
     return node;
+  };
+
+  const octicons = {
+    eye: [
+      "octicon-eye",
+      "M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.83.88 9.576.43 8.898a1.62 1.62 0 0 1 0-1.798c.45-.677 1.367-1.931 2.637-3.022C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z",
+    ],
+    eyeClosed: [
+      "octicon-eye-closed",
+      "M.143 2.31a.75.75 0 0 1 1.047-.167l14.5 10.5a.75.75 0 1 1-.88 1.214l-2.248-1.628C11.346 13.19 9.792 14 8 14c-1.981 0-3.67-.992-4.933-2.078C1.797 10.832.88 9.577.43 8.9a1.619 1.619 0 0 1 0-1.797c.353-.533.995-1.42 1.868-2.305L.31 3.357A.75.75 0 0 1 .143 2.31Zm1.536 5.622A.12.12 0 0 0 1.657 8c0 .021.006.045.022.068.412.621 1.242 1.75 2.366 2.717C5.175 11.758 6.527 12.5 8 12.5c1.195 0 2.31-.488 3.29-1.191L9.063 9.695A2 2 0 0 1 6.058 7.52L3.529 5.688a14.207 14.207 0 0 0-1.85 2.244ZM8 3.5c-.516 0-1.017.09-1.499.251a.75.75 0 1 1-.473-1.423A6.207 6.207 0 0 1 8 2c1.981 0 3.67.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.11.166-.248.365-.41.587a.75.75 0 1 1-1.21-.887c.148-.201.272-.382.371-.53a.119.119 0 0 0 0-.137c-.412-.621-1.242-1.75-2.366-2.717C10.825 4.242 9.473 3.5 8 3.5Z",
+    ],
+    pullRequest: [
+      "octicon-git-pull-request",
+      "M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z",
+    ],
+    pullRequestClosed: [
+      "octicon-git-pull-request-closed",
+      "M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 5.5a.75.75 0 0 1 .75.75v3.378a2.251 2.251 0 1 1-1.5 0V7.25a.75.75 0 0 1 .75-.75Zm-2.03-5.273a.75.75 0 0 1 1.06 0l.97.97.97-.97a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.97.97.97.97a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-.97-.97-.97.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l.97-.97-.97-.97a.75.75 0 0 1 0-1.06ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0 0-1.5ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z",
+    ],
+    repoForked: [
+      "octicon-repo-forked",
+      "M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z",
+    ],
+  };
+
+  const createOcticon = name => {
+    const [className, pathData] = octicons[name];
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    icon.setAttribute("aria-hidden", "true");
+    icon.setAttribute("class", `octicon ${className}`);
+    icon.setAttribute("fill", "currentColor");
+    icon.setAttribute("height", "16");
+    icon.setAttribute("viewBox", "0 0 16 16");
+    icon.setAttribute("width", "16");
+    path.setAttribute("d", pathData);
+    icon.append(path);
+    return icon;
   };
 
   const extensionCall = async (operation, fallback) => {
@@ -57,12 +101,101 @@
     ? [...new Set(names.filter(name => typeof name === "string").map(name => name.trim()).filter(Boolean))]
     : [];
 
+  const sameNames = (left, right) => left.length === right.length
+    && left.every((name, index) => name === right[index]);
+
+  const updateStoredNames = (key, update, apply) => {
+    if (!key) return;
+    void navigator.locks.request(`gibbous:${key}`, async () => {
+      const stored = await storageGet(key);
+      if (!stored) return;
+      const next = normalizeNames(update(normalizeNames(stored[key])));
+      apply(next);
+      await storageSet({[key]: next});
+    }).catch(reportError);
+  };
+
+  const createHiddenItemsControl = ({
+    title,
+    detail = () => "",
+    items,
+    onShow,
+    className = "",
+    size = "small",
+    variant = "invisible",
+  }) => {
+    const id = `gibbous-hidden-menu-${hiddenItemsControlId++}`;
+    const anchor = `--${id}`;
+    const toggle = create(
+      "button",
+      {
+        class: `Button Button--${variant} Button--${size} Button--iconOnly gibbous-eyes-toggle`,
+        type: "button",
+        "aria-label": title,
+        popovertarget: id,
+        title,
+      },
+      createOcticon("eye"),
+    );
+    const detailElement = create("code", {class: "gibbous-hidden-menu-detail"});
+    const list = create("div", {class: "gibbous-hidden-list"});
+    const menu = create(
+      "div",
+      {id, class: "gibbous-hidden-menu", popover: "auto"},
+      create("strong", {}, title),
+      detailElement,
+      list,
+    );
+    toggle.style.anchorName = anchor;
+    menu.style.positionAnchor = anchor;
+    let rendered = "";
+    const render = () => {
+      const names = items();
+      const detailText = detail();
+      const nextRendered = `${detailText}\0${names.join("\0")}`;
+      if (nextRendered === rendered) return;
+      rendered = nextRendered;
+      detailElement.textContent = detailText;
+      detailElement.hidden = !detailText;
+      list.replaceChildren(...(names.length ? names.map(name => create(
+        "div",
+        {class: "gibbous-hidden-item"},
+        create("code", {title: name}, name),
+        create(
+          "button",
+          {
+            class: "Button Button--secondary Button--small gibbous-list-button",
+            type: "button",
+            "aria-label": `Show ${name}`,
+            onclick: () => onShow(name),
+          },
+          "Show",
+        ),
+      )) : [create("span", {class: "gibbous-hidden-menu-empty"}, "Nothing hidden.")]));
+    };
+    render();
+    return {
+      element: create("div", {class: `gibbous-hidden-items-control ${className}`}, toggle, menu),
+      render,
+      toggle,
+    };
+  };
+
   const setHiddenNames = names => {
     const next = normalizeNames(names);
-    if (next.length === hiddenNames.length && next.every((name, index) => name === hiddenNames[index])) return;
+    if (sameNames(next, hiddenNames)) return;
     hiddenNames = next;
-    renderHiddenMenu();
+    hiddenFilesControl?.render();
     if (enabled) refreshRows();
+  };
+
+  const setHiddenRepositories = names => {
+    const next = [...new Set(normalizeNames(names).map(name => name.replace(/^\/+|\/+$/g, "").toLowerCase()))];
+    if (sameNames(next, hiddenRepositories)) return;
+    hiddenRepositories = next;
+    for (const surface of topRepositorySurfaces()) repositoryExpansionAttempts.delete(surface.root);
+    mountTopRepositories();
+    expandTopRepositories();
   };
 
   const loadHiddenNames = async () => {
@@ -75,81 +208,34 @@
 
   const updateHiddenNames = update => {
     const key = hiddenStorageKey();
-    if (!key) return;
-    void navigator.locks.request(`gibbous:${key}`, async () => {
-      const stored = await storageGet(key);
-      if (!stored) return;
-      const next = normalizeNames(update(normalizeNames(stored[key])));
-      if (key === hiddenStorageKey()) setHiddenNames(next);
-      await storageSet({[key]: next});
-    }).catch(reportError);
+    updateStoredNames(key, update, names => {
+      if (key === hiddenStorageKey()) setHiddenNames(names);
+    });
   };
 
-  const renderHiddenMenu = () => {
-    if (!hiddenFilesMenuList) return;
-    const items = hiddenNames.map(name => create(
-      "div",
-      {class: "gibbous-hidden-item"},
-      create("code", {title: name}, name),
-      create(
-        "button",
-        {
-          class: "Button Button--secondary Button--small gibbous-list-button",
-          type: "button",
-          "aria-label": `Show ${name}`,
-          onclick: () => updateHiddenNames(names => names.filter(hiddenName => hiddenName !== name)),
-        },
-        "Show",
-      ),
-    ));
-    hiddenFilesMenuList.replaceChildren(
-      ...(items.length ? items : [create("span", {class: "gibbous-hidden-menu-empty"}, "Nothing hidden.")]),
-    );
-  };
+  const updateHiddenRepositories = update => updateStoredNames(
+    "hiddenRepositories",
+    update,
+    setHiddenRepositories,
+  );
 
-  const closeMenu = () => {
-    if (hiddenFilesMenu?.matches(":popover-open")) hiddenFilesMenu.hidePopover();
-  };
+  const closeHiddenMenus = () => document.querySelectorAll(".gibbous-hidden-menu:popover-open")
+    .forEach(menu => menu.hidePopover());
 
-  const createHiddenFilesControl = () => {
-    hiddenFilesToggle = create(
-      "button",
-      {
-        class: "Button Button--secondary Button--medium Button--iconOnly gibbous-eyes-toggle",
-        type: "button",
-        "aria-label": "Hidden files",
-        popovertarget: "gibbous-hidden-menu",
-        title: "Hidden files",
-      },
-      "👀",
-    );
-    hiddenFilesMenuRepository = create("code", {class: "gibbous-hidden-menu-repository"});
-    hiddenFilesMenuList = create("div", {class: "gibbous-hidden-list"});
-    hiddenFilesMenu = create(
-      "div",
-      {id: "gibbous-hidden-menu", class: "gibbous-hidden-menu", popover: "auto"},
-      create("strong", {}, "Hidden files"),
-      hiddenFilesMenuRepository,
-      hiddenFilesMenuList,
-    );
-    renderHiddenMenu();
-    return create("div", {class: "gibbous-hidden-files-control"}, hiddenFilesToggle, hiddenFilesMenu);
-  };
-
-  const createHideButton = name => create(
+  const createHideButton = (name, className, onHide) => create(
     "button",
     {
-      class: "Button Button--invisible Button--small gibbous-hide-file",
+      class: `Button Button--invisible Button--small Button--iconOnly gibbous-hide-button ${className}`,
       type: "button",
       "aria-label": `Hide ${name}`,
       title: `Hide ${name}`,
       onclick: event => {
         event.preventDefault();
         event.stopPropagation();
-        updateHiddenNames(names => names.includes(name) ? names : [...names, name]);
+        onHide();
       },
     },
-    "Hide",
+    createOcticon("eyeClosed"),
   );
 
   const refreshRows = () => {
@@ -164,7 +250,11 @@
       const cell = row.querySelector(".react-directory-row-name-cell-large-screen .react-directory-filename-cell");
       if (cell && !cell.querySelector(".gibbous-hide-file")) {
         cell.classList.add("gibbous-filename-cell");
-        cell.append(createHideButton(name));
+        cell.append(createHideButton(
+          name,
+          "gibbous-hide-file",
+          () => updateHiddenNames(names => names.includes(name) ? names : [...names, name]),
+        ));
       }
     }
   };
@@ -214,6 +304,58 @@
     let section = heading.parentElement;
     while (section && !section.contains(more)) section = section.parentElement;
     if (section && section !== document.body) section.classList.add("gibbous-suggested-workflows");
+  };
+
+  const waitForRepositoryGrowth = (surface, previousCount) => new Promise(resolve => {
+    let finished = false;
+    const finish = grew => {
+      if (finished) return;
+      finished = true;
+      observer.disconnect();
+      clearTimeout(timeout);
+      resolve(grew);
+    };
+    const check = () => {
+      mountTopRepositories();
+      const button = surface.button();
+      const count = surface.entries().length;
+      if (count > previousCount && !button?.disabled) finish(true);
+    };
+    const observer = new MutationObserver(check);
+    const timeout = setTimeout(() => finish(false), 5000);
+    observer.observe(surface.root, {
+      attributes: true,
+      attributeFilter: ["disabled"],
+      childList: true,
+      subtree: true,
+    });
+    check();
+  });
+
+  const expandRepositoryList = async surface => {
+    const initialButton = surface.button();
+    if (!enabled || !initialButton || expandingRepositoryLists.has(surface.root)) return;
+    expandingRepositoryLists.add(surface.root);
+    try {
+      for (let expansion = 0; expansion < 4; expansion += 1) {
+        const button = surface.button();
+        if (!enabled || !surface.root.isConnected || !button || button.disabled) return;
+        const attempts = repositoryExpansionAttempts.get(surface.root) ?? 0;
+        if (attempts >= 4) return;
+        const availableBottom = surface.kind === "dashboard"
+          ? innerHeight
+          : Math.min(surface.root.getBoundingClientRect().bottom, innerHeight);
+        if (availableBottom - button.getBoundingClientRect().bottom <= 32) return;
+        const count = surface.entries().length;
+        repositoryExpansionAttempts.set(surface.root, attempts + 1);
+        button.click();
+        if (!await waitForRepositoryGrowth(surface, count)) return;
+        mountTopRepositories();
+      }
+    } finally {
+      expandingRepositoryLists.delete(surface.root);
+      mountTopRepositories();
+    }
   };
 
   const normalizeQuote = text => text
@@ -802,7 +944,7 @@
       pullRequestShortcuts = create(
         "li",
         {class: "gibbous-pull-request-shortcuts"},
-        ...[["open", "📖\uFE0E"], ["closed", "📕\uFE0E"]].map(([state, icon]) => create(
+        ...[["open", "pullRequest"], ["closed", "pullRequestClosed"]].map(([state, iconName]) => create(
           "a",
           {
             class: "Button Button--invisible Button--small Button--iconOnly gibbous-pull-request-shortcut",
@@ -810,7 +952,7 @@
             "aria-label": `My ${state} pull requests`,
             title: `My ${state} pull requests`,
           },
-          icon,
+          createOcticon(iconName),
         )),
       );
     }
@@ -826,7 +968,287 @@
     }
   };
 
+  const repositoryMatch = repository => repository.pathname.match(/^\/([^/]+)\/([^/]+)\/?$/);
+
+  const repositoryEntries = (list, selector) => [...list.querySelectorAll(":scope > li")].flatMap(row => {
+    const repositories = selector
+      ? row.querySelectorAll(selector)
+      : row.querySelectorAll("a[href]");
+    const repository = [...repositories].find(link =>
+      link.closest("li") === row
+      && (
+        selector
+        || (
+          !link.classList.contains("gibbous-repository-fork")
+          && repositoryMatch(link)
+          && link.textContent.trim()
+        )
+      ),
+    );
+    return repository ? [{repository, row}] : [];
+  });
+
+  const repositoryShowMoreButton = root => root.querySelector(
+    '[data-testid="dynamic-side-panel-items-show-more"]',
+  ) ?? [...root.querySelectorAll("button")].find(candidate =>
+    /^Show (?:even )?more$/i.test(candidate.textContent.trim()),
+  );
+
+  const repositorySearchButton = root => root.querySelector(
+    '[data-testid="dynamic-side-panel-items-search-button"], button:has(svg.octicon-search)',
+  );
+
+  const dashboardRepositorySurface = () => {
+    if (!["/", "/dashboard"].includes(location.pathname)) return;
+    const root = document.querySelector('[data-testid="dashboard-repositories"]')
+      ?? document.querySelector(".feed-left-sidebar");
+    const list = root && [...root.querySelectorAll("ul")]
+      .find(candidate => repositoryEntries(candidate).length);
+    if (!list) return;
+
+    const button = () => repositoryShowMoreButton(root);
+    const searchButton = () => repositorySearchButton(root);
+    return {kind: "dashboard", root, list, entries: () => repositoryEntries(list), button, searchButton};
+  };
+
+  const topRepositorySurfaces = () => {
+    const selector = '[data-testid="dynamic-side-panel-items-item"]';
+    const lists = new Set([...document.querySelectorAll(selector)].map(repository => repository.closest("ul")));
+    const surfaces = [...lists].filter(Boolean).flatMap(list => {
+      const dialog = list.closest('[role="dialog"]');
+      const dashboard = list.closest('[data-testid="dashboard-repositories"], .feed-left-sidebar');
+      const root = dialog ?? dashboard;
+      if (!root) return [];
+      return [{
+        kind: dialog ? "drawer" : "dashboard",
+        root,
+        list,
+        entries: () => repositoryEntries(list, selector),
+        button: () => repositoryShowMoreButton(root),
+        searchButton: () => repositorySearchButton(root),
+      }];
+    });
+    const dashboard = dashboardRepositorySurface();
+    if (dashboard && !lists.has(dashboard.list)) surfaces.push(dashboard);
+    return surfaces;
+  };
+
+  const mountHiddenRepositoriesControl = surface => {
+    const searchButton = surface.searchButton();
+    if (!searchButton) return;
+    let control = hiddenRepositoryControls.get(surface.root);
+    if (!control?.element.isConnected) {
+      control = createHiddenItemsControl({
+        title: "Hidden repositories",
+        items: () => hiddenRepositories,
+        onShow: name => updateHiddenRepositories(names => names.filter(repository => repository !== name)),
+        className: "gibbous-hidden-repositories-control",
+      });
+      hiddenRepositoryControls.set(surface.root, control);
+    }
+    control.render();
+    control.toggle.hidden = !enabled;
+    if (control.element.nextElementSibling !== searchButton) searchButton.before(control.element);
+  };
+
+  const sortTopRepositories = (entries, viewer, forkedRepositories) => {
+    const list = entries[0]?.row.parentElement;
+    if (!list || entries.some(({row}) => row.parentElement !== list)) return;
+
+    if (!enabled) {
+      list.classList.remove("gibbous-top-repositories-list");
+      for (const {row} of entries) row.style.removeProperty("--gibbous-repository-order");
+      return;
+    }
+
+    let originalOrder = topRepositoryOrders.get(list);
+    if (!originalOrder) {
+      originalOrder = new Map();
+      topRepositoryOrders.set(list, originalOrder);
+    }
+    for (const {repository} of entries) {
+      if (!originalOrder.has(repository.pathname)) {
+        originalOrder.set(repository.pathname, originalOrder.size);
+      }
+    }
+
+    const category = ({repository, row}) => {
+      if (forkedRepositories.has(row)) return 0;
+      const owner = repository.pathname.match(/^\/([^/]+)\//)?.[1].toLowerCase();
+      return owner === viewer ? 1 : 2;
+    };
+    const sorted = [...entries].sort((left, right) =>
+      category(left) - category(right)
+      || originalOrder.get(left.repository.pathname) - originalOrder.get(right.repository.pathname),
+    );
+    const firstSort = !list.classList.contains("gibbous-top-repositories-list");
+    const scroller = list.closest('[data-component="ScrollableRegion"], .feed-left-sidebar, [role="dialog"]');
+    const scrollTop = scroller?.scrollTop;
+    const rows = new Set(sorted.map(({row}) => row));
+    scroller?.classList.add("gibbous-top-repositories-scroll");
+    list.classList.add("gibbous-top-repositories-list");
+    sorted.forEach(({row}, index) => {
+      row.style.setProperty("--gibbous-repository-order", index + 1);
+    });
+    for (const child of list.children) {
+      if (rows.has(child)) continue;
+      const button = child.querySelector("button");
+      const showMore = button && /^Show (?:even )?more$/i.test(button.textContent.trim());
+      child.style.setProperty("--gibbous-repository-order", showMore ? sorted.length + 1 : 0);
+    }
+    if (firstSort && scroller) {
+      scroller.scrollTop = scrollTop;
+      requestAnimationFrame(() => {
+        if (scroller.isConnected) scroller.scrollTop = scrollTop;
+      });
+    }
+  };
+
+  const resolveRepositoryForkQueue = async () => {
+    if (resolvingRepositoryForks) return;
+    resolvingRepositoryForks = true;
+    try {
+      while (repositoryForkQueue.length) {
+        const batch = repositoryForkQueue.splice(0, 3);
+        await Promise.all(batch.map(async ({key, candidateNwo, rootNwo}) => {
+          try {
+            const response = await fetch(`/${candidateNwo}`, {
+              credentials: "include",
+              signal: AbortSignal.timeout(5000),
+            });
+            const candidate = response.ok && readRepositoryContext(
+              new DOMParser().parseFromString(await response.text(), "text/html"),
+            );
+            const fork = candidate?.isFork && candidate.rootNwo.toLowerCase() === rootNwo.toLowerCase()
+              ? `/${candidate.nwo}`
+              : null;
+            if (!knownRepositoryForks.has(key)) knownRepositoryForks.set(key, fork);
+          } catch {
+            if (!knownRepositoryForks.has(key)) knownRepositoryForks.set(key, null);
+          }
+        }));
+        mountTopRepositories();
+      }
+    } finally {
+      resolvingRepositoryForks = false;
+    }
+  };
+
+  const queueRepositoryForkLookups = (entries, viewer) => {
+    if (!enabled || !viewer) return;
+    for (const {repository} of entries) {
+      const match = repositoryMatch(repository);
+      if (!match || match[1].toLowerCase() === viewer) continue;
+      const rootNwo = `${match[1]}/${match[2]}`;
+      const key = rootNwo.toLowerCase();
+      if (knownRepositoryForks.has(key) || queuedRepositoryForks.has(key)) continue;
+      queuedRepositoryForks.add(key);
+      repositoryForkQueue.push({key, rootNwo, candidateNwo: `${viewer}/${match[2]}`});
+    }
+    if (repositoryForkQueue.length) void resolveRepositoryForkQueue().catch(reportError);
+  };
+
+  const mountTopRepositories = () => {
+    const viewer = viewerLogin()?.toLowerCase();
+    const context = readRepositoryContext();
+    const surfaces = topRepositorySurfaces();
+    const allEntries = surfaces.flatMap(surface => surface.entries());
+    const repositoryRows = new Set(allEntries.map(({row}) => row));
+    const allOwned = new Map(allEntries.flatMap(({repository}) => {
+      const match = repositoryMatch(repository);
+      return match?.[1].toLowerCase() === viewer ? [[match[2].toLowerCase(), repository]] : [];
+    }));
+    const hidden = new Set(hiddenRepositories);
+    const forkedRepositories = new Set();
+    const representedForks = new Set();
+    for (const {repository} of allEntries) {
+      const match = repositoryMatch(repository);
+      if (!match || match[1].toLowerCase() === viewer) continue;
+      const fork = allOwned.get(match[2].toLowerCase());
+      if (fork) knownRepositoryForks.set(`${match[1]}/${match[2]}`.toLowerCase(), fork.pathname);
+    }
+    for (const surface of surfaces) {
+      mountHiddenRepositoriesControl(surface);
+      const entries = surface.entries();
+      const owned = new Map(entries.flatMap(entry => {
+        const {repository} = entry;
+        const match = repositoryMatch(repository);
+        return match?.[1].toLowerCase() === viewer ? [[match[2].toLowerCase(), entry]] : [];
+      }));
+      const surfaceForks = new Set();
+      for (const {repository, row} of entries) {
+        repository.classList.add("gibbous-top-repository-link");
+        const match = repositoryMatch(repository);
+        if (!match) continue;
+        const nwo = `${match[1]}/${match[2]}`;
+        row.classList.toggle("gibbous-repository-excluded", hidden.has(nwo.toLowerCase()));
+        let hide = row.querySelector(":scope > .gibbous-hide-repository");
+        hide ??= createHideButton(
+          nwo,
+          "gibbous-hide-repository",
+          () => updateHiddenRepositories(names => names.includes(nwo.toLowerCase())
+            ? names
+            : [...names, nwo.toLowerCase()]),
+        );
+        const existingFork = row.querySelector(":scope > .gibbous-repository-fork");
+        if (hide.parentElement !== row || hide.nextElementSibling !== existingFork) {
+          row.insertBefore(hide, existingFork);
+        }
+        if (!enabled || match[1].toLowerCase() === viewer) continue;
+        const key = `${match[1]}/${match[2]}`.toLowerCase();
+        const fork = owned.get(match[2].toLowerCase());
+        const pageFork = context
+          && userFork
+          && context.nwo.toLowerCase() === key
+          ? `/${userFork}`
+          : undefined;
+        if (pageFork) knownRepositoryForks.set(key, pageFork);
+        const href = fork?.repository.pathname
+          ?? knownRepositoryForks.get(key)
+          ?? pageFork;
+        if (!href) continue;
+        surfaceForks.add(row);
+        forkedRepositories.add(row);
+        if (fork) representedForks.add(fork.row);
+        let action = row.querySelector(":scope > .gibbous-repository-fork");
+        action ??= create(
+          "a",
+          {class: "Button Button--invisible Button--small Button--iconOnly gibbous-repository-fork"},
+          createOcticon("repoForked"),
+        );
+        action.href = href;
+        action.title = `Open your fork: ${href.slice(1)}`;
+        action.setAttribute("aria-label", action.title);
+        if (action !== row.lastElementChild) row.append(action);
+      }
+      sortTopRepositories(entries, viewer, surfaceForks);
+      if (surface.kind === "dashboard") queueRepositoryForkLookups(entries, viewer);
+    }
+    for (const action of document.querySelectorAll(".gibbous-repository-fork")) {
+      if (!forkedRepositories.has(action.parentElement)) action.remove();
+    }
+    for (const hide of document.querySelectorAll(".gibbous-hide-repository")) {
+      if (!repositoryRows.has(hide.parentElement)) hide.remove();
+    }
+    const controls = new Set(surfaces.flatMap(surface => {
+      const element = hiddenRepositoryControls.get(surface.root)?.element;
+      return element ? [element] : [];
+    }));
+    for (const element of document.querySelectorAll(".gibbous-hidden-repositories-control")) {
+      if (!controls.has(element)) element.remove();
+    }
+    for (const row of document.querySelectorAll(".gibbous-represented-fork")) {
+      if (!representedForks.has(row)) row.classList.remove("gibbous-represented-fork");
+    }
+    for (const row of representedForks) row.classList.add("gibbous-represented-fork");
+  };
+
+  const expandTopRepositories = () => {
+    for (const surface of topRepositorySurfaces()) void expandRepositoryList(surface);
+  };
+
   const updateFork = () => {
+    mountTopRepositories();
     if (!forkedIn) return;
     forkedIn.hidden = !enabled || !userFork;
     forkLink.textContent = userFork ?? "";
@@ -857,10 +1279,22 @@
       'button[data-component="Button"]:has(svg.octicon-code), summary:has(svg.octicon-code)',
     );
     if (!codeButton) return;
-    if (!hiddenFilesControl?.isConnected) hiddenFilesControl = createHiddenFilesControl();
-    if (hiddenFilesControl.nextElementSibling !== codeButton) codeButton.before(hiddenFilesControl);
-    hiddenFilesToggle.hidden = !enabled;
-    hiddenFilesMenuRepository.textContent = repositoryKey ?? "";
+    if (!hiddenFilesControl?.element.isConnected) {
+      hiddenFilesControl = createHiddenItemsControl({
+        title: "Hidden files",
+        detail: () => repositoryKey ?? "",
+        items: () => hiddenNames,
+        onShow: name => updateHiddenNames(names => names.filter(hiddenName => hiddenName !== name)),
+        className: "gibbous-hidden-files-control",
+        size: "medium",
+        variant: "secondary",
+      });
+    }
+    hiddenFilesControl.render();
+    hiddenFilesControl.toggle.hidden = !enabled;
+    if (hiddenFilesControl.element.nextElementSibling !== codeButton) {
+      codeButton.before(hiddenFilesControl.element);
+    }
   };
 
   const resolveUserFork = async (context, viewer) => {
@@ -903,14 +1337,14 @@
       loadedHiddenNamesKey = undefined;
       forkLookup = undefined;
       userFork = undefined;
-      closeMenu();
+      closeHiddenMenus();
       updateFork();
       return;
     }
     if (repositoryKey !== context.rootNwo) {
       repositoryKey = context.rootNwo;
       hiddenNames = [];
-      renderHiddenMenu();
+      hiddenFilesControl?.render();
     }
     mountForkedIn();
     mountHiddenFilesControl(table);
@@ -931,7 +1365,7 @@
   };
 
   const applyEnabled = value => {
-    if (!value) closeMenu();
+    if (!value) closeHiddenMenus();
     enabled = value;
     document.documentElement.toggleAttribute("data-gibbous-disabled", !value);
     updateControl();
@@ -961,7 +1395,9 @@
 
   function refresh() {
     mountControl();
+    expandTopRepositories();
     refreshRepository();
+    mountTopRepositories();
     refreshQuoteLinks();
   }
 
@@ -973,13 +1409,16 @@
       document.querySelectorAll(".gibbous-quote-rail-replies").forEach(node => node.remove());
       refreshQuoteLinks();
     }
+    if (changes.hiddenRepositories) setHiddenRepositories(changes.hiddenRepositories.newValue ?? []);
     const key = hiddenStorageKey();
     if (key && changes[key]) setHiddenNames(changes[key].newValue ?? []);
   });
 
   void (async () => {
-    const stored = await storageGet({enabled: true});
-    if (stored) applyEnabled(stored.enabled);
+    const stored = await storageGet({enabled: true, hiddenRepositories: []});
+    if (!stored) return;
+    setHiddenRepositories(stored.hiddenRepositories);
+    applyEnabled(stored.enabled);
   })().catch(reportError);
 
   let refreshScheduled = false;
@@ -992,7 +1431,12 @@
     });
   };
 
-  new MutationObserver(scheduleRefresh).observe(document.documentElement, {childList: true, subtree: true});
+  new MutationObserver(records => {
+    if (enabled && records.some(record => record.target instanceof Element && record.target.closest('[role="dialog"]'))) {
+      mountTopRepositories();
+    }
+    scheduleRefresh();
+  }).observe(document.documentElement, {childList: true, subtree: true});
   addEventListener("pointerdown", releaseQuoteTarget, {capture: true, passive: true});
   addEventListener("wheel", releaseQuoteTarget, {passive: true});
   addEventListener("keydown", releaseQuoteTarget);

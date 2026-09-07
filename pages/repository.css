@@ -36,8 +36,6 @@ html:not([data-gibbous-disabled]) :is(
 }
 
 .gibbous-pull-request-shortcut {
-  font-size: 13px;
-  font-variant-emoji: text;
   opacity: 0.75;
 }
 
@@ -51,14 +49,12 @@ html:not([data-gibbous-disabled]) :is(
   gap: 8px;
 }
 
-.gibbous-filename-cell > .react-directory-truncate,
-.gibbous-hidden-item code {
+.gibbous-filename-cell > .react-directory-truncate {
   min-width: 0;
 }
 
 .gibbous-hide-file {
   flex: none;
-  font-size: 12px;
   opacity: 0;
   pointer-events: none;
 }
@@ -68,12 +64,7 @@ html:not([data-gibbous-disabled]) .react-directory-row:is(:hover, :focus-within)
   pointer-events: auto;
 }
 
-html[data-gibbous-disabled] .gibbous-hide-file {
-  display: none;
-}
-
-.gibbous-forked-in,
-.gibbous-hidden-menu-repository {
+.gibbous-forked-in {
   display: block;
 }
 
@@ -83,63 +74,9 @@ html[data-gibbous-disabled] .gibbous-hide-file {
   padding: 1px 4px;
 }
 
-.gibbous-hidden-files-control {
-  display: inline-flex;
-}
-
-.gibbous-eyes-toggle {
-  anchor-name: --gibbous-hidden-files;
-}
-
 :is(
   .gibbous-pull-request-shortcuts,
-  .gibbous-forked-in,
-  .gibbous-eyes-toggle
+  .gibbous-forked-in
 )[hidden] {
   display: none;
-}
-
-.gibbous-hidden-menu {
-  background: var(--overlay-bgColor, var(--color-canvas-overlay));
-  border: 1px solid var(--borderColor-default, var(--color-border-default));
-  border-radius: 6px;
-  box-shadow: var(--shadow-floating-small, 0 8px 24px rgb(0 0 0 / 30%));
-  color: var(--fgColor-default, var(--color-fg-default));
-  inset: auto;
-  margin-block: 8px;
-  padding: 12px;
-  position-anchor: --gibbous-hidden-files;
-  position-area: block-end span-inline-start;
-  position-try-fallbacks: flip-block, flip-inline;
-  width: min(340px, calc(100vw - 16px));
-}
-
-:is(.gibbous-hidden-menu-repository, .gibbous-hidden-menu-empty) {
-  color: var(--fgColor-muted, var(--color-fg-muted));
-  font-size: 12px;
-}
-
-.gibbous-hidden-menu-repository {
-  margin-top: 2px;
-}
-
-.gibbous-hidden-list {
-  display: grid;
-  gap: 4px;
-  margin-top: 10px;
-  max-height: 240px;
-  overflow-y: auto;
-}
-
-.gibbous-hidden-item {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-}
-
-.gibbous-hidden-item code {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

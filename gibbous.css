@@ -6,6 +6,12 @@
     rgb(246 214 112) 38%,
     var(--bgColor-default, var(--color-canvas-default))
   );
+  --gibbous-action-color: color-mix(
+    in srgb,
+    rgb(246 214 112) 12%,
+    var(--fgColor-muted, var(--color-fg-muted))
+  );
+  --gibbous-action-hover: rgb(246 214 112 / 7%);
 }
 
 html:not([data-gibbous-disabled]) :is(
@@ -13,15 +19,39 @@ html:not([data-gibbous-disabled]) :is(
   [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]) + [class*="__itemDivider__"],
   .dashboard-changelog,
   [class*="CopilotChatInputPartial-module__inputContainer"],
-  .feed-left-sidebar nav:has(a[href="/feed"])
+  .feed-left-sidebar nav:has(a[href="/feed"]),
+  li[data-component="ActionList.Item"]:has(
+    [data-testid="side-nav-menu-item-FEED"],
+    [data-testid="side-nav-menu-item-PROJECTS"],
+    [data-testid="side-nav-menu-item-DISCUSSIONS"],
+    [data-testid="side-nav-menu-item-CODESPACES"],
+    [data-testid="side-nav-menu-item-COPILOT"]
+  ),
+  li[data-component="ActionList.Group"]:has([data-testid="side-nav-menu-item-EXPLORE"]),
+  li[data-component="ActionList.Group"]:has([data-testid="side-nav-menu-item-EXPLORE"])
+    + li[data-component="ActionList.Divider"],
+  nav[data-component="NavList"] > ul > li[data-component="ActionList.Divider"]:first-child,
+  .gibbous-represented-fork,
+  .gibbous-repository-excluded
 ) {
   display: none !important;
 }
 
+html:not([data-gibbous-disabled])
+  [role="dialog"]:has([data-testid="side-nav-menu-item-HOME"])
+  > [data-component="Stack"] {
+  padding-bottom: 0 !important;
+}
+
+html:not([data-gibbous-disabled])
+  [role="dialog"]:has([data-testid="side-nav-menu-item-HOME"])
+  > [data-component="ScrollableRegion"]
+  > .p-2 {
+  padding-top: 0 !important;
+}
+
 :is(
   .gibbous-header-button,
-  .gibbous-eyes-toggle,
-  .gibbous-hide-file,
   .gibbous-list-button,
   .gibbous-pull-request-shortcut,
   .gibbous-forked-in a
@@ -31,8 +61,6 @@ html:not([data-gibbous-disabled]) :is(
 
 :is(
   .gibbous-header-button,
-  .gibbous-eyes-toggle,
-  .gibbous-hide-file,
   .gibbous-list-button,
   .gibbous-pull-request-shortcut,
   .gibbous-forked-in a
@@ -41,8 +69,192 @@ html:not([data-gibbous-disabled]) :is(
   background: var(--gibbous-accent-hover) !important;
 }
 
-:is(.gibbous-header-button, .gibbous-eyes-toggle) {
+.gibbous-header-button {
   font-size: 18px;
+}
+
+:is(.gibbous-eyes-toggle, .gibbous-hide-button, .gibbous-repository-fork) {
+  color: var(--gibbous-action-color) !important;
+  padding: 0 !important;
+  transition: background-color 80ms ease, border-color 80ms ease, box-shadow 80ms ease,
+    color 80ms ease, opacity 80ms ease;
+}
+
+:is(
+  .gibbous-hidden-repositories-control .gibbous-eyes-toggle,
+  .gibbous-hide-button,
+  .gibbous-repository-fork
+) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  height: 28px;
+  width: 28px;
+}
+
+.gibbous-hidden-files-control .gibbous-eyes-toggle {
+  height: var(--control-medium-size, 32px);
+  width: var(--control-medium-size, 32px);
+}
+
+:is(
+  .gibbous-hidden-repositories-control .gibbous-eyes-toggle,
+  .gibbous-hide-button,
+  .gibbous-repository-fork
+):is(
+  :hover,
+  :focus-visible
+) {
+  background: var(--gibbous-action-hover) !important;
+  color: color-mix(
+    in srgb,
+    rgb(246 214 112) 30%,
+    var(--fgColor-default, var(--color-fg-default))
+  ) !important;
+}
+
+:is(
+  .gibbous-hidden-repositories-control .gibbous-eyes-toggle,
+  .gibbous-hide-button,
+  .gibbous-repository-fork
+):focus-visible {
+  outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg));
+  outline-offset: -2px;
+}
+
+.gibbous-hidden-items-control {
+  align-items: center;
+  display: inline-flex;
+  flex: none;
+}
+
+.gibbous-hidden-repositories-control {
+  margin-inline: auto 0;
+}
+
+.gibbous-top-repositories-list {
+  display: flex !important;
+  flex-direction: column;
+  overflow-anchor: none;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-top-repositories-scroll {
+  overflow-anchor: none !important;
+}
+
+.gibbous-top-repositories-list > * {
+  order: var(--gibbous-repository-order, 0);
+}
+
+.gibbous-eyes-toggle[hidden],
+html[data-gibbous-disabled] .gibbous-hide-button {
+  display: none !important;
+}
+
+.gibbous-hidden-menu {
+  background: var(--overlay-bgColor, var(--color-canvas-overlay));
+  border: 1px solid var(--borderColor-default, var(--color-border-default));
+  border-radius: 6px;
+  box-shadow: var(--shadow-floating-small, 0 8px 24px rgb(0 0 0 / 30%));
+  color: var(--fgColor-default, var(--color-fg-default));
+  inset: auto;
+  margin-block: 8px;
+  padding: 12px;
+  position-area: block-end span-inline-start;
+  position-try-fallbacks: flip-block, flip-inline;
+  width: min(340px, calc(100vw - 16px));
+}
+
+:is(.gibbous-hidden-menu-detail, .gibbous-hidden-menu-empty) {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+  font-size: 12px;
+}
+
+.gibbous-hidden-menu-detail {
+  display: block;
+  margin-top: 2px;
+}
+
+.gibbous-hidden-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.gibbous-hidden-item {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.gibbous-hidden-item code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository)) {
+  position: relative !important;
+}
+
+li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
+  > [data-testid="dynamic-side-panel-items-item"] {
+  padding-inline-end: 2.5rem;
+}
+
+li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository)
+  > [data-testid="dynamic-side-panel-items-item"] {
+  padding-inline-end: 4.5rem;
+}
+
+li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
+  .gibbous-top-repository-link:not([data-testid="dynamic-side-panel-items-item"]) {
+  display: inline-block;
+  max-width: calc(100% - 2.5rem);
+}
+
+li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository)
+  .gibbous-top-repository-link:not([data-testid="dynamic-side-panel-items-item"]) {
+  max-width: calc(100% - 4.5rem);
+}
+
+.gibbous-repository-fork {
+  align-items: center;
+  border-radius: 6px;
+  box-sizing: border-box;
+  display: inline-flex !important;
+  inset-inline-end: 4px !important;
+  justify-content: center;
+  position: absolute !important;
+  text-decoration: none !important;
+  top: 50% !important;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+.gibbous-hide-repository {
+  inset-inline-end: 4px !important;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%);
+  z-index: 2;
+}
+
+li:has(> .gibbous-repository-fork) > .gibbous-hide-repository {
+  inset-inline-end: 36px !important;
+}
+
+html:not([data-gibbous-disabled])
+  li:is(:hover, :focus-within)
+  > .gibbous-hide-repository {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .gibbous-source-comment {

@@ -8,6 +8,14 @@
   "background": {"service_worker": "quote-worker.js"},
   "content_scripts": [
     {
+      "matches": [
+        "https://github.com/*",
+        "https://netanel-haber.github.io/gibbous/*"
+      ],
+      "js": ["theme-sync.js"],
+      "run_at": "document_start"
+    },
+    {
       "matches": ["https://github.com/*"],
       "css": [
         "gibbous.css",
