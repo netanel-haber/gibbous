@@ -1,7 +1,7 @@
 :root {
   color-scheme: dark;
   --site-header-height: 6.75rem;
-  --gallery-chrome: 12.25rem;
+  --gallery-chrome: 10.5rem;
   --bg: #101722;
   --bg-raised: #161e2a;
   --border: #30363d;
@@ -249,7 +249,9 @@ button {
   color: var(--fg-muted);
   line-height: 1.75rem;
   margin-top: .25rem;
-  text-wrap: balance;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .comparison-card {
@@ -440,6 +442,7 @@ html[data-site-ready] .comparison-card {
   .gallery-viewport, .gallery-track { height: auto; overflow: visible; }
   .feature-panel { border-top: 1px solid var(--border); padding: 2.5rem 0; position: relative; scroll-margin-top: var(--site-header-height); visibility: visible; }
   .feature-panel:first-child { border-top: 0; }
+  .feature-heading p { overflow: visible; white-space: normal; }
   .gallery-navigation { display: none; }
   .comparison-content { width: 100%; }
 }
