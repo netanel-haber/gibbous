@@ -208,8 +208,10 @@ button {
   visibility: visible;
 }
 
-html[data-site-ready] .feature-panel:first-child:not([data-active]) {
-  visibility: hidden;
+@media (min-width: 1024px) {
+  html[data-site-ready] .feature-panel:first-child:not([data-active]) {
+    visibility: hidden;
+  }
 }
 
 .comparison-content {
