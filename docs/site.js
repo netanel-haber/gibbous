@@ -59,27 +59,12 @@ const renderFrame = frame => {
 
 const renderFrames = () => document.querySelectorAll(".demo-frame").forEach(renderFrame);
 
-// Media loads only for cases the visitor is looking at: the OFF clip first, the ON clip prefetched.
-const prefetched = new Set();
-const prefetch = url => {
-  if (!url || prefetched.has(url)) return;
-  prefetched.add(url);
-  const image = new Image();
-  image.src = url;
-};
 
 const loadPanel = panel => {
   const frame = panel.querySelector(".demo-frame[data-src]");
   if (frame) {
     frame.src = frame.dataset.src;
     delete frame.dataset.src;
-  }
-  const animation = panel.querySelector(".demo-gif");
-  if (animation && !animation.getAttribute("src")) {
-    animation.setAttribute("src", animation.dataset[comparisonsEnabled ? "after" : "before"]);
-    const other = animation.dataset[comparisonsEnabled ? "before" : "after"];
-    if ("requestIdleCallback" in window) requestIdleCallback(() => prefetch(other));
-    else setTimeout(() => prefetch(other), 400);
   }
 };
 
@@ -185,21 +170,6 @@ const animateMoon = enabled => {
   phaseTimers = phases.map((phase, index) => setTimeout(() => moon.textContent = phase, index * 90));
 };
 
-// Crossfade to the other clip: keep the old frame on top and fade it out once the new one has loaded.
-const swapAnimation = (animation, source) => {
-  const ghost = animation.cloneNode();
-  ghost.classList.add("demo-gif-ghost");
-  ghost.removeAttribute("loading");
-  animation.after(ghost);
-  animation.setAttribute("src", source);
-  const fade = () => {
-    ghost.classList.add("demo-gif-fading");
-    ghost.addEventListener("transitionend", () => ghost.remove(), {once: true});
-    setTimeout(() => ghost.remove(), 600);
-  };
-  if (animation.complete) requestAnimationFrame(fade);
-  else animation.addEventListener("load", fade, {once: true});
-};
 
 const pulseCards = () => {
   for (const card of cards) {
@@ -222,12 +192,6 @@ const renderComparison = () => {
     if (frame) {
       frame.title = label;
       renderFrame(frame);
-    }
-    const animation = panel.querySelector(".demo-gif");
-    if (animation?.getAttribute("src")) {
-      const source = animation.dataset[state];
-      if (animation.getAttribute("src") !== source) swapAnimation(animation, source);
-      animation.alt = label;
     }
   }
 };

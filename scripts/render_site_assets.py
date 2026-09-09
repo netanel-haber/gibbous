@@ -25,6 +25,7 @@ FEATURES: Final = (
     "pull-request-shortcuts",
     "hidden-files",
     "quote-navigation",
+    "mermaid",
 )
 STATES: Final = ("before", "after")
 

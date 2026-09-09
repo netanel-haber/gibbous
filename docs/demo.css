@@ -1001,3 +1001,418 @@ kbd {
     padding-inline: 24px;
   }
 }
+
+/* Mermaid case */
+
+.demo {
+  transition: opacity 180ms ease;
+}
+
+.demo.switching {
+  opacity: 0;
+}
+
+.markdown-page {
+  margin: 0 auto;
+  padding-top: 16px;
+  width: 1010px;
+}
+
+.file-bar {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  height: 40px;
+}
+
+.file-bar .crumbs {
+  color: var(--fgColor-accent);
+}
+
+.file-bar .crumbs strong {
+  color: var(--fgColor-default);
+}
+
+.markdown-body h1 {
+  border-bottom: 1px solid var(--borderColor-muted);
+  font-size: 26px;
+  margin: 14px 0 10px;
+  padding-bottom: 8px;
+}
+
+.markdown-body p {
+  margin: 0 0 12px;
+}
+
+.mermaid-render {
+  border: 1px solid var(--borderColor-default);
+  border-radius: 6px;
+  height: 500px;
+  overflow: hidden;
+  position: relative;
+}
+
+.mermaid-stage {
+  inset: 0;
+  position: absolute;
+  text-align: center;
+}
+
+.mermaid-stage svg {
+  margin-top: 8px;
+  transform-origin: 50% 50%;
+}
+
+.sequence-diagram {
+  font: 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: visible;
+}
+
+.sequence-diagram text {
+  fill: var(--fgColor-default);
+  text-anchor: middle;
+}
+
+.sequence-diagram .label {
+  font-size: 14px;
+}
+
+.sequence-diagram .actor {
+  fill: color-mix(in srgb, var(--fgColor-accent) 14%, var(--bgColor-default));
+  stroke: color-mix(in srgb, var(--fgColor-accent) 65%, var(--bgColor-default));
+}
+
+.sequence-diagram .lifeline {
+  stroke: color-mix(in srgb, var(--fgColor-accent) 65%, var(--bgColor-default));
+  stroke-width: 2;
+}
+
+.sequence-diagram .message,
+.sequence-diagram marker path {
+  fill: var(--fgColor-default);
+  stroke: var(--fgColor-default);
+  stroke-width: 1.5;
+}
+
+.sequence-diagram .dashed {
+  stroke-dasharray: 4 3;
+}
+
+.sequence-diagram .loop {
+  fill: none;
+  stroke: color-mix(in srgb, var(--fgColor-accent) 65%, var(--bgColor-default));
+  stroke-dasharray: 3 3;
+}
+
+.sequence-diagram .loop-tab {
+  fill: color-mix(in srgb, var(--fgColor-accent) 14%, var(--bgColor-default));
+  stroke: color-mix(in srgb, var(--fgColor-accent) 65%, var(--bgColor-default));
+}
+
+.sequence-diagram .loop-label {
+  font-size: 13px;
+}
+
+.render-actions {
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 2;
+}
+
+.render-actions b,
+.mermaid-controls b,
+.lightbox-close,
+.lightbox-zoom b {
+  align-items: center;
+  background: var(--control-bgColor-rest);
+  border: 1px solid var(--control-borderColor-rest);
+  border-radius: 6px;
+  color: var(--fgColor-default);
+  display: inline-flex;
+  font-weight: 400;
+  height: 28px;
+  justify-content: center;
+  min-width: 28px;
+}
+
+.render-actions .enlarge-button {
+  font-size: 12px;
+  gap: 5px;
+  opacity: 0;
+  padding: 0 8px;
+}
+
+.mermaid-controls {
+  bottom: 16px;
+  display: grid;
+  gap: 3px;
+  grid-template-columns: repeat(3, 28px);
+  position: absolute;
+  right: 16px;
+}
+
+.mermaid-controls b {
+  color: var(--fgColor-muted);
+  font-size: 15px;
+}
+
+.mermaid-controls .octicon {
+  height: 12px;
+  width: 12px;
+}
+
+.mermaid-controls .up { grid-column: 2; grid-row: 1; }
+.mermaid-controls .up .octicon { transform: rotate(180deg); }
+.mermaid-controls .zoom-in { grid-column: 3; grid-row: 1; }
+.mermaid-controls .left { grid-column: 1; grid-row: 2; }
+.mermaid-controls .left .octicon { transform: rotate(90deg); }
+.mermaid-controls .reset { grid-column: 2; grid-row: 2; }
+.mermaid-controls .right { grid-column: 3; grid-row: 2; }
+.mermaid-controls .right .octicon { transform: rotate(-90deg); }
+.mermaid-controls .down { grid-column: 2; grid-row: 3; }
+.mermaid-controls .zoom-out { grid-column: 3; grid-row: 3; }
+
+.selection-highlight {
+  background: color-mix(in srgb, var(--fgColor-accent) 40%, transparent);
+  height: 120px;
+  left: 245px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 88px;
+  width: 0;
+}
+
+.mermaid-lightbox {
+  align-items: center;
+  background: var(--bgColor-default);
+  border: 1px solid var(--borderColor-default);
+  border-radius: 12px;
+  display: flex;
+  inset: 16px;
+  justify-content: center;
+  opacity: 0;
+  outline: 2000px solid rgb(0 0 0 / 55%);
+  overflow: hidden;
+  position: absolute;
+  visibility: hidden;
+  z-index: 5;
+}
+
+.lightbox-stage {
+  height: 460px;
+  transform: scale(1.28);
+  transform-origin: 50% 50%;
+  width: 900px;
+}
+
+.lightbox-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+}
+
+.lightbox-zoom {
+  bottom: 16px;
+  display: flex;
+  gap: 4px;
+  position: absolute;
+  right: 16px;
+}
+
+.lightbox-zoom .zoom-readout {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  position: relative;
+}
+
+.lightbox-zoom .zoom-readout span {
+  position: absolute;
+}
+
+.lightbox-zoom .zoomed {
+  opacity: 0;
+}
+
+.demo-cursor {
+  height: 26px;
+  left: 0;
+  margin: -3px 0 0 -5px;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  width: 26px;
+  z-index: 9;
+}
+
+.demo-cursor svg {
+  display: block;
+  fill: #fff;
+  overflow: visible;
+  stroke: #1f2328;
+  stroke-linejoin: round;
+  stroke-width: 1.4;
+}
+
+.demo-cursor .click-ring {
+  border: 3px solid var(--fgColor-attention);
+  border-radius: 50%;
+  height: 40px;
+  left: -15px;
+  opacity: 0;
+  position: absolute;
+  top: -17px;
+  transform: scale(.2);
+  width: 40px;
+}
+
+/* Before: GitHub's own zoom and pan controls */
+
+.demo[data-feature="mermaid"][data-state="before"] .demo-cursor {
+  animation: mermaid-before-cursor 8s ease-in-out infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="before"] .click-ring {
+  animation: mermaid-before-click 8s linear infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="before"] .mermaid-stage svg {
+  animation: mermaid-before-zoom 8s ease-out infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="before"] .selection-highlight {
+  animation: mermaid-before-select 8s linear infinite;
+}
+
+@keyframes mermaid-before-cursor {
+  0%, 12.5% { left: 640px; top: 450px; }
+  25%, 57% { left: 1115px; top: 620px; }
+  62%, 76% { left: 1115px; top: 651px; }
+  82%, 84% { left: 395px; top: 321px; }
+  95%, 100% { left: 700px; top: 410px; }
+}
+
+@keyframes mermaid-before-click {
+  0%, 27.4% { opacity: 0; transform: scale(.2); }
+  27.5% { opacity: .9; }
+  32.5%, 36.1% { opacity: 0; transform: scale(1); }
+  36.2% { opacity: 0; transform: scale(.2); }
+  36.3% { opacity: .9; }
+  41.3%, 44.8% { opacity: 0; transform: scale(1); }
+  44.9% { opacity: 0; transform: scale(.2); }
+  45% { opacity: .9; }
+  50%, 62.3% { opacity: 0; transform: scale(1); }
+  62.4% { opacity: 0; transform: scale(.2); }
+  62.5% { opacity: .9; }
+  67.5%, 68.6% { opacity: 0; transform: scale(1); }
+  68.7% { opacity: 0; transform: scale(.2); }
+  68.8% { opacity: .9; }
+  73.8%, 84.8% { opacity: 0; transform: scale(1); }
+  84.9% { opacity: 0; transform: scale(.2); }
+  85% { opacity: .9; }
+  90%, 100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes mermaid-before-zoom {
+  0%, 27.5% { transform: none; }
+  30%, 36.3% { transform: scale(1.1); }
+  38.8%, 45% { transform: scale(1.2); }
+  47.5%, 62.5% { transform: scale(1.3); }
+  65%, 68.8% { transform: translate(100px, 0) scale(1.3); }
+  71.3%, 99.9% { transform: translate(200px, 0) scale(1.3); }
+  100% { transform: none; }
+}
+
+@keyframes mermaid-before-select {
+  0%, 85% { opacity: 0; width: 0; }
+  85.1% { opacity: 1; width: 0; }
+  95%, 99% { opacity: 1; width: 330px; }
+  100% { opacity: 0; width: 0; }
+}
+
+/* After: Gibbous lightbox */
+
+.demo[data-feature="mermaid"][data-state="after"] .demo-cursor {
+  animation: mermaid-after-cursor 10s ease-in-out infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="after"] .click-ring {
+  animation: mermaid-after-click 10s linear infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="after"] .enlarge-button {
+  animation: mermaid-after-enlarge 10s linear infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="after"] .mermaid-lightbox {
+  animation: mermaid-after-lightbox 10s linear infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="after"] .lightbox-stage {
+  animation: mermaid-after-stage 10s cubic-bezier(.2, .8, .2, 1) infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="after"] .zoom-readout .fit {
+  animation: mermaid-after-readout-fit 10s linear infinite;
+}
+
+.demo[data-feature="mermaid"][data-state="after"] .zoom-readout .zoomed {
+  animation: mermaid-after-readout-zoomed 10s linear infinite;
+}
+
+@keyframes mermaid-after-cursor {
+  0%, 10% { left: 640px; top: 450px; }
+  20%, 24% { left: 1023px; top: 226px; }
+  34%, 44% { left: 560px; top: 340px; }
+  54%, 72% { left: 760px; top: 460px; }
+  85%, 100% { left: 640px; top: 450px; }
+}
+
+@keyframes mermaid-after-click {
+  0%, 21.9% { opacity: 0; transform: scale(.2); }
+  22% { opacity: .9; }
+  26%, 35.9% { opacity: 0; transform: scale(1); }
+  36% { opacity: .9; transform: scale(.2); }
+  38.4% { opacity: 0; transform: scale(1); }
+  38.5% { opacity: .9; transform: scale(.2); }
+  40.9%, 43.9% { opacity: 0; transform: scale(1); }
+  44% { opacity: .9; transform: scale(.2); }
+  48%, 100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes mermaid-after-enlarge {
+  0%, 15% { opacity: 0; }
+  17%, 24% { opacity: 1; }
+  26%, 100% { opacity: 0; }
+}
+
+@keyframes mermaid-after-lightbox {
+  0%, 24% { opacity: 0; visibility: hidden; }
+  24.1% { opacity: 0; visibility: visible; }
+  26.5%, 72% { opacity: 1; visibility: visible; }
+  75% { opacity: 0; visibility: visible; }
+  75.1%, 100% { opacity: 0; visibility: hidden; }
+}
+
+@keyframes mermaid-after-stage {
+  0%, 36% { transform: scale(1.28); }
+  40%, 44% { transform: translate(48px, 41px) scale(2.05); }
+  54%, 60% { transform: translate(248px, 161px) scale(2.05); }
+  63%, 100% { transform: scale(1.28); }
+}
+
+@keyframes mermaid-after-readout-fit {
+  0%, 38% { opacity: 1; }
+  38.1%, 62.9% { opacity: 0; }
+  63%, 100% { opacity: 1; }
+}
+
+@keyframes mermaid-after-readout-zoomed {
+  0%, 38% { opacity: 0; }
+  38.1%, 62.9% { opacity: 1; }
+  63%, 100% { opacity: 0; }
+}

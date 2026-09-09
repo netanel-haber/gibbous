@@ -282,25 +282,6 @@ html[data-site-ready] .comparison-card {
   width: 100%;
 }
 
-.demo-gif {
-  display: block;
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
-}
-
-.demo-gif-ghost {
-  inset: 0;
-  opacity: 1;
-  position: absolute;
-  transition: opacity 320ms ease;
-  z-index: 1;
-}
-
-.demo-gif-ghost.demo-gif-fading {
-  opacity: 0;
-}
-
 @keyframes comparison-card-pulse {
   0% { box-shadow: 0 0 0 0 hsla(46, 88%, 70%, .85), 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 60%); }
   100% { box-shadow: 0 0 0 .75rem hsla(46, 88%, 70%, 0), 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 60%); }

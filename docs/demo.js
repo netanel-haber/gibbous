@@ -32,6 +32,7 @@ const icons = {
   pullRequestClosed: '<path d="M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 5.5a.75.75 0 0 1 .75.75v3.378a2.251 2.251 0 1 1-1.5 0V7.25a.75.75 0 0 1 .75-.75Zm-2.03-5.273a.75.75 0 0 1 1.06 0l.97.97.97-.97a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.97.97.97.97a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-.97-.97-.97.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l.97-.97-.97-.97a.75.75 0 0 1 0-1.06ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"/>',
   project: '<path d="M1.75 1h12.5C15.22 1 16 1.78 16 2.75v10.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.78.78 1 1.75 1ZM1.5 5h4V2.5H1.75a.25.25 0 0 0-.25.25Zm0 1.5v6.75c0 .14.11.25.25.25H5.5v-7Zm5.5 7h7.25a.25.25 0 0 0 .25-.25V9H7Zm0-6h7.5V2.75a.25.25 0 0 0-.25-.25H7Z"/>',
   repo: '<path d="M2 2.75C2 1.78 2.78 1 3.75 1h9.5c.97 0 1.75.78 1.75 1.75v10.5a.75.75 0 0 1-.75.75H5a2 2 0 1 0 0 4h9.25a.75.75 0 0 1 0 1.5H5A3.5 3.5 0 0 1 1.5 16V2.75Zm1.5 0V13c.47-.31.98-.5 1.5-.5h8.5V2.75a.25.25 0 0 0-.25-.25h-9.5a.25.25 0 0 0-.25.25Z"/>',
+  screenFull: '<path d="M2 3.75C2 2.784 2.784 2 3.75 2h2.5a.75.75 0 0 1 0 1.5h-2.5a.25.25 0 0 0-.25.25v2.5a.75.75 0 0 1-1.5 0Zm7.75-1.75a.75.75 0 0 0 0 1.5h2.5a.25.25 0 0 1 .25.25v2.5a.75.75 0 0 0 1.5 0v-2.5A1.75 1.75 0 0 0 12.25 2ZM2.75 9a.75.75 0 0 1 .75.75v2.5c0 .138.112.25.25.25h2.5a.75.75 0 0 1 0 1.5h-2.5A1.75 1.75 0 0 1 2 12.25v-2.5A.75.75 0 0 1 2.75 9Zm10.5 0a.75.75 0 0 1 .75.75v2.5A1.75 1.75 0 0 1 12.25 14h-2.5a.75.75 0 0 1 0-1.5h2.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 .75-.75Z"/>',
   search: '<path d="M10.68 11.74a6 6 0 1 1 1.06-1.06l3.04 3.04a.75.75 0 1 1-1.06 1.06ZM11.5 7a4.5 4.5 0 1 0-9 0 4.5 4.5 0 0 0 9 0Z"/>',
   star: '<path d="m8 12.03-4.7 2.47.9-5.23L.4 5.56l5.25-.76L8 .03l2.35 4.77 5.25.76-3.8 3.71.9 5.23Z"/>',
   tag: '<path d="M2.75 2h4.69c.46 0 .9.18 1.23.5l5.82 5.83a1.75 1.75 0 0 1 0 2.47l-3.69 3.69a1.75 1.75 0 0 1-2.47 0L2.5 8.66A1.75 1.75 0 0 1 2 7.44V2.75C2 2.34 2.34 2 2.75 2ZM5.5 4.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/>',
@@ -267,6 +268,67 @@ const quoteScene = state => `
     ${comment({author: "netanel-haber", initial: "N", text: "", quoted: state === "after", direction: state === "after" ? "up" : ""})}
   </main>`;
 
+const sequenceDiagram = () => {
+  const participants = [
+    ["Client", 90, 120],
+    ["GPUWatermarkSampler", 320, 200],
+    ["GumbelWatermark", 590, 180],
+    ["Detector", 810, 120],
+  ];
+  const box = (label, cx, width, y) => `<rect class="actor" x="${cx - width / 2}" y="${y}" width="${width}" height="44" rx="4"/><text x="${cx}" y="${y + 27}">${label}</text>`;
+  const arrow = (x1, x2, y, label, dashed = false) => `<line class="message ${dashed ? "dashed" : ""}" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" marker-end="url(#mermaid-arrow)"/><text class="label" x="${(x1 + x2) / 2}" y="${y - 9}">${label}</text>`;
+  return `
+    <svg class="sequence-diagram" viewBox="0 0 900 460" width="900" height="460" aria-hidden="true">
+      <defs><marker id="mermaid-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z"/></marker></defs>
+      ${participants.map(([, cx]) => `<line class="lifeline" x1="${cx}" y1="64" x2="${cx}" y2="396"/>`).join("")}
+      <rect class="loop" x="300" y="130" width="310" height="130"/>
+      <rect class="loop-tab" x="300" y="130" width="46" height="22"/><text class="loop-label" x="323" y="146">loop</text>
+      <text class="label" x="470" y="147">[Every generated token]</text>
+      ${arrow(90, 320, 110, "Configure sampler")}
+      ${arrow(320, 590, 185, "Sample logits with token context")}
+      ${arrow(590, 320, 235, "Return watermarked token", true)}
+      ${arrow(90, 810, 300, "Submit generated token IDs")}
+      ${arrow(810, 90, 350, "Return score, p-value, and watermark flag", true)}
+      ${participants.map(([label, cx, width]) => box(label, cx, width, 20) + box(label, cx, width, 396)).join("")}
+    </svg>`;
+};
+
+const mermaidControls = () => `
+  <span class="mermaid-controls" aria-hidden="true">
+    <b class="up">${icon("chevronDown")}</b><b class="zoom-in">+</b>
+    <b class="left">${icon("chevronDown")}</b><b class="reset">↻</b><b class="right">${icon("chevronDown")}</b>
+    <b class="down">${icon("chevronDown")}</b><b class="zoom-out">−</b>
+  </span>`;
+
+const demoCursor = () => `
+  <span class="demo-cursor" aria-hidden="true">
+    <span class="click-ring"></span>
+    <svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3 5 20 9.5 15.6 13 22.5 15.8 21.2 12.3 14.5 18 14.5Z"/></svg>
+  </span>`;
+
+const mermaidScene = state => `
+  ${appHeader(state)}
+  <main class="markdown-page">
+    <div class="file-bar"><span class="button-label">${icon("branch")} main ${icon("chevronDown", "control-chevron")}</span><span class="crumbs">gibbous / docs / <strong>mermaid-test.md</strong></span></div>
+    <article class="markdown-body">
+      <h1>Mermaid lightbox test</h1>
+      <p>Use Enlarge to open the diagram. Scroll or double-click to zoom, drag to pan, press 0 to refit, and Esc to close.</p>
+      <div class="mermaid-render">
+        <span class="render-actions">${state === "after" ? `<b class="enlarge-button">${icon("screenFull")} Enlarge</b>` : ""}<b>⇔</b><b>⧉</b></span>
+        <div class="mermaid-stage">${sequenceDiagram()}</div>
+        <span class="selection-highlight"></span>
+        ${mermaidControls()}
+      </div>
+    </article>
+  </main>
+  ${state === "after" ? `
+    <div class="mermaid-lightbox" aria-hidden="true">
+      <span class="lightbox-close">${icon("x")}</span>
+      <div class="lightbox-stage">${sequenceDiagram()}</div>
+      <span class="lightbox-zoom"><b>−</b><b class="zoom-readout"><span class="fit">128%</span><span class="zoomed">205%</span></b><b>+</b></span>
+    </div>` : ""}
+  ${demoCursor()}`;
+
 const scenes = {
   dashboard: dashboardScene,
   sidebar: sidebarScene,
@@ -274,10 +336,12 @@ const scenes = {
   "pull-request-shortcuts": pullRequestsScene,
   "hidden-files": filesScene,
   "quote-navigation": quoteScene,
+  mermaid: mermaidScene,
 };
 
 const states = new Set(["before", "after"]);
 const demo = document.querySelector("#demo");
+let crossfadeTimer;
 
 const renderDemo = options => {
   const feature = scenes[options.feature] ? options.feature : "dashboard";
@@ -288,11 +352,22 @@ const renderDemo = options => {
   if (root.dataset.feature !== feature) root.dataset.feature = feature;
   if (root.dataset.state !== state) root.dataset.state = state;
   const sceneChanged = demo.dataset.feature !== feature || demo.dataset.state !== state;
+  const crossfade = sceneChanged && feature === "mermaid" && demo.dataset.feature === "mermaid";
   demo.dataset.feature = feature;
   demo.dataset.state = state;
   demo.dataset.theme = theme;
   demo.ariaLabel = `${feature.replaceAll("-", " ")}, ${state}, ${theme}`;
-  if (sceneChanged) demo.innerHTML = scenes[feature](state);
+  if (!sceneChanged) return;
+  if (!crossfade) {
+    demo.innerHTML = scenes[feature](state);
+    return;
+  }
+  clearTimeout(crossfadeTimer);
+  demo.classList.add("switching");
+  crossfadeTimer = setTimeout(() => {
+    demo.innerHTML = scenes[feature](state);
+    requestAnimationFrame(() => demo.classList.remove("switching"));
+  }, 180);
 };
 
 const params = new URLSearchParams(location.search);
