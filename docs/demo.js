@@ -324,9 +324,13 @@ const mermaidScene = state => `
     <div class="mermaid-lightbox" aria-hidden="true">
       <span class="lightbox-close">${icon("x")}</span>
       <div class="lightbox-stage">${sequenceDiagram()}</div>
-      <span class="lightbox-zoom"><b>−</b><b class="zoom-readout"><span class="fit">128%</span><span class="zoomed">205%</span></b><b>+</b></span>
-    </div>` : ""}
-  ${demoCursor()}`;
+      <span class="lightbox-zoom"><b>−</b><b class="zoom-readout"><span class="fit">128%</span><span class="zoomed">205%</span><span class="mid">160%</span></b><b>+</b></span>
+    </div>
+    <span class="pinch-hint" aria-hidden="true"></span>` : ""}
+  ${demoCursor()}
+  <div class="demo-captions" aria-hidden="true">${(state === "after"
+    ? ["Click Enlarge", "Double-click to zoom in", "Pinch or scroll to zoom out", "Drag to pan", "Press 0 to refit", "Press Esc to close"]
+    : ["Click the zoom button", "Use the arrows to pan", "Dragging only selects text"]).map((text, index) => `<b class="c${index + 1}">${text}</b>`).join("")}</div>`;
 
 const scenes = {
   dashboard: dashboardScene,

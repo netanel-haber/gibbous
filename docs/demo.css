@@ -1326,73 +1326,176 @@ kbd {
 
 /* After: Gibbous lightbox */
 
-.demo[data-feature="mermaid"][data-state="after"] .demo-cursor {
-  animation: mermaid-after-cursor 10s ease-in-out both;
-}
-
-.demo[data-feature="mermaid"][data-state="after"] .click-ring {
-  animation: mermaid-after-click 10s linear both;
-}
-
-.demo[data-feature="mermaid"][data-state="after"] .mermaid-lightbox {
-  animation: mermaid-after-lightbox 10s linear both;
-}
-
-.demo[data-feature="mermaid"][data-state="after"] .lightbox-stage {
-  animation: mermaid-after-stage 10s cubic-bezier(.2, .8, .2, 1) both;
-}
-
-.demo[data-feature="mermaid"][data-state="after"] .zoom-readout .fit {
-  animation: mermaid-after-readout-fit 10s linear both;
-}
-
-.demo[data-feature="mermaid"][data-state="after"] .zoom-readout .zoomed {
-  animation: mermaid-after-readout-zoomed 10s linear both;
-}
+.demo[data-feature="mermaid"][data-state="after"] .demo-cursor { animation: mermaid-after-cursor 15s ease-in-out both; }
+.demo[data-feature="mermaid"][data-state="after"] .click-ring { animation: mermaid-after-click 15s linear both; }
+.demo[data-feature="mermaid"][data-state="after"] .mermaid-lightbox { animation: mermaid-after-lightbox 15s linear both; }
+.demo[data-feature="mermaid"][data-state="after"] .lightbox-stage { animation: mermaid-after-stage 15s cubic-bezier(.2, .8, .2, 1) both; }
+.demo[data-feature="mermaid"][data-state="after"] .zoom-readout .fit { animation: mermaid-after-readout-fit 15s linear both; }
+.demo[data-feature="mermaid"][data-state="after"] .zoom-readout .zoomed { animation: mermaid-after-readout-zoomed 15s linear both; }
+.demo[data-feature="mermaid"][data-state="after"] .zoom-readout .mid { animation: mermaid-after-readout-mid 15s linear both; }
+.demo[data-feature="mermaid"][data-state="after"] .pinch-hint { animation: mermaid-after-pinch 15s ease-in-out both; }
 
 @keyframes mermaid-after-cursor {
-  0%, 10% { left: 640px; top: 450px; }
-  20%, 24% { left: 1023px; top: 226px; }
-  34%, 44% { left: 560px; top: 340px; }
-  54%, 72% { left: 760px; top: 460px; }
-  85%, 100% { left: 640px; top: 450px; }
+  0%, 6.67% { left: 640px; top: 450px; }
+  13.33%, 16.0% { left: 1023px; top: 226px; }
+  25.33%, 58.67% { left: 560px; top: 340px; }
+  66.0%, 84.0% { left: 760px; top: 460px; }
+  90.67%, 100% { left: 640px; top: 450px; }
 }
 
 @keyframes mermaid-after-click {
-  0%, 21.9% { opacity: 0; transform: scale(.2); }
-  22% { opacity: .9; }
-  26%, 35.9% { opacity: 0; transform: scale(1); }
-  36% { opacity: .9; transform: scale(.2); }
-  38.4% { opacity: 0; transform: scale(1); }
-  38.5% { opacity: .9; transform: scale(.2); }
-  40.9%, 43.9% { opacity: 0; transform: scale(1); }
-  44% { opacity: .9; transform: scale(.2); }
-  48%, 100% { opacity: 0; transform: scale(1); }
+  0%, 14.6% { opacity: 0; transform: scale(.2); }
+  14.67% { opacity: .9; }
+  17.33%, 26.6% { opacity: 0; transform: scale(1); }
+  26.67% { opacity: .9; transform: scale(.2); }
+  28.33% { opacity: 0; transform: scale(1); }
+  28.4% { opacity: .9; transform: scale(.2); }
+  30.67%, 58.6% { opacity: 0; transform: scale(1); }
+  58.67% { opacity: .9; transform: scale(.2); }
+  61.33%, 100% { opacity: 0; transform: scale(1); }
 }
 
 @keyframes mermaid-after-lightbox {
-  0%, 24% { opacity: 0; visibility: hidden; }
-  24.1% { opacity: 0; visibility: visible; }
-  26.5%, 72% { opacity: 1; visibility: visible; }
-  75% { opacity: 0; visibility: visible; }
-  75.1%, 100% { opacity: 0; visibility: hidden; }
+  0%, 16.0% { opacity: 0; visibility: hidden; }
+  16.07% { opacity: 0; visibility: visible; }
+  17.67%, 90.67% { opacity: 1; visibility: visible; }
+  92.67% { opacity: 0; visibility: visible; }
+  92.73%, 100% { opacity: 0; visibility: hidden; }
 }
 
 @keyframes mermaid-after-stage {
-  0%, 36% { transform: scale(1.28); }
-  40%, 44% { transform: translate(48px, 41px) scale(2.05); }
-  54%, 60% { transform: translate(248px, 161px) scale(2.05); }
-  63%, 100% { transform: scale(1.28); }
+  0%, 26.67% { transform: scale(1.28); }
+  29.33%, 42.67% { transform: translate(48px, 41px) scale(2.05); }
+  49.33%, 58.67% { transform: translate(20px, 17px) scale(1.6); }
+  66.0%, 76.0% { transform: translate(220px, 137px) scale(1.6); }
+  78.67%, 100% { transform: scale(1.28); }
 }
 
 @keyframes mermaid-after-readout-fit {
-  0%, 38% { opacity: 1; }
-  38.1%, 62.9% { opacity: 0; }
-  63%, 100% { opacity: 1; }
+  0%, 26.67% { opacity: 1; }
+  26.73%, 78.6% { opacity: 0; }
+  78.67%, 100% { opacity: 1; }
 }
 
 @keyframes mermaid-after-readout-zoomed {
-  0%, 38% { opacity: 0; }
-  38.1%, 62.9% { opacity: 1; }
-  63%, 100% { opacity: 0; }
+  0%, 26.67% { opacity: 0; }
+  26.73%, 49.27% { opacity: 1; }
+  49.33%, 100% { opacity: 0; }
+}
+
+@keyframes mermaid-after-readout-mid {
+  0%, 49.27% { opacity: 0; }
+  49.33%, 78.6% { opacity: 1; }
+  78.67%, 100% { opacity: 0; }
+}
+
+@keyframes mermaid-after-pinch {
+  0%, 40.67% { opacity: 0; width: 96px; }
+  42.67% { opacity: 1; width: 96px; }
+  49.33% { opacity: 1; width: 26px; }
+  51.33%, 100% { opacity: 0; width: 26px; }
+}
+
+/* Captions */
+
+.demo-captions b {
+  background: color-mix(in srgb, var(--bgColor-default) 88%, var(--fgColor-default));
+  border: 1px solid var(--borderColor-default);
+  border-radius: 999px;
+  bottom: 36px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  color: var(--fgColor-default);
+  font: 600 22px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  left: 50%;
+  opacity: 0;
+  padding: 14px 26px;
+  position: absolute;
+  transform: translate(-50%, 8px);
+  white-space: nowrap;
+  z-index: 8;
+}
+
+.pinch-hint {
+  height: 18px;
+  left: 560px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 340px;
+  transform: translate(-50%, -50%) rotate(-40deg);
+  width: 96px;
+  z-index: 8;
+}
+
+.pinch-hint::before,
+.pinch-hint::after {
+  background: color-mix(in srgb, var(--fgColor-attention) 55%, transparent);
+  border: 2px solid var(--fgColor-attention);
+  border-radius: 50%;
+  content: "";
+  height: 18px;
+  position: absolute;
+  top: 0;
+  width: 18px;
+}
+
+.pinch-hint::before { left: 0; }
+.pinch-hint::after { right: 0; }
+
+.demo[data-feature="mermaid"][data-state="after"] .demo-captions .c1 { animation: mermaid-after-caption-1 15s ease both; }
+.demo[data-feature="mermaid"][data-state="after"] .demo-captions .c2 { animation: mermaid-after-caption-2 15s ease both; }
+.demo[data-feature="mermaid"][data-state="after"] .demo-captions .c3 { animation: mermaid-after-caption-3 15s ease both; }
+.demo[data-feature="mermaid"][data-state="after"] .demo-captions .c4 { animation: mermaid-after-caption-4 15s ease both; }
+.demo[data-feature="mermaid"][data-state="after"] .demo-captions .c5 { animation: mermaid-after-caption-5 15s ease both; }
+.demo[data-feature="mermaid"][data-state="after"] .demo-captions .c6 { animation: mermaid-after-caption-6 15s ease both; }
+
+@keyframes mermaid-after-caption-1 {
+  0%, 2.67% { opacity: 0; transform: translate(-50%, 8px); }
+  3.97%, 14.0% { opacity: 1; transform: translate(-50%, 0); }
+  15.3%, 100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@keyframes mermaid-after-caption-2 {
+  0%, 20.0% { opacity: 0; transform: translate(-50%, 8px); }
+  21.3%, 34.0% { opacity: 1; transform: translate(-50%, 0); }
+  35.3%, 100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@keyframes mermaid-after-caption-3 {
+  0%, 37.33% { opacity: 0; transform: translate(-50%, 8px); }
+  38.63%, 53.33% { opacity: 1; transform: translate(-50%, 0); }
+  54.63%, 100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@keyframes mermaid-after-caption-4 {
+  0%, 56.0% { opacity: 0; transform: translate(-50%, 8px); }
+  57.3%, 70.67% { opacity: 1; transform: translate(-50%, 0); }
+  71.97%, 100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@keyframes mermaid-after-caption-5 {
+  0%, 73.33% { opacity: 0; transform: translate(-50%, 8px); }
+  74.63%, 84.0% { opacity: 1; transform: translate(-50%, 0); }
+  85.3%, 100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@keyframes mermaid-after-caption-6 {
+  0%, 86.67% { opacity: 0; transform: translate(-50%, 8px); }
+  87.97%, 96.0% { opacity: 1; transform: translate(-50%, 0); }
+  97.3%, 100% { opacity: 0; transform: translate(-50%, 0); }
+}
+
+.demo[data-feature="mermaid"][data-state="before"] .demo-captions .c1 { animation: mermaid-before-caption-1 8s ease both; }
+.demo[data-feature="mermaid"][data-state="before"] .demo-captions .c2 { animation: mermaid-before-caption-2 8s ease both; }
+.demo[data-feature="mermaid"][data-state="before"] .demo-captions .c3 { animation: mermaid-before-caption-3 8s ease both; }
+
+@keyframes mermaid-before-caption-1 {
+  0%, 3.75% { opacity: 0; transform: translate(-50%, 8px); }
+  5.05%, 52.5% { opacity: 1; transform: translate(-50%, 0); }
+  53.8%, 100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@keyframes mermaid-before-caption-2 {
+  0%, 53.75% { opacity: 0; transform: translate(-50%, 8px); }
+  55.05%, 78.75% { opacity: 1; transform: translate(-50%, 0); }
+  80.05%, 100% { opacity: 0; transform: translate(-50%, 0); }
+}
+@keyframes mermaid-before-caption-3 {
+  0%, 81.25% { opacity: 0; transform: translate(-50%, 8px); }
+  82.55%, 98.75% { opacity: 1; transform: translate(-50%, 0); }
+  100.05%, 100% { opacity: 0; transform: translate(-50%, 0); }
 }
