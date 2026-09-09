@@ -30,12 +30,12 @@ Walk the decision tree top-to-bottom and stop at the first match. Note that layo
 
 ### 1.2 Working principles
 
-**Do:**
-
 - Use logical properties (`inline-size`, `block-size`, `margin-inline`, `padding-block`, `inset-inline-start`) for layout dimensions and spacing — see `css` (via `npx -y modern-web-guidance@latest retrieve "css"`) for full coverage.
 - Apply the content-first vs layout-first mental model: flexbox when items dictate flow, grid when you define the skeleton first.
 - Use the `place-*` shorthands (`place-content`, `place-items`, `place-self`) to align across both axes in one declaration.
 - Reach for intrinsic sizing (`min-content`, `max-content`, `fit-content()`) and flexible tracks (`fr`, `minmax()`) before fixed `width`/`height` — fewer media queries, more resilient layouts.
+- Do NOT use `overflow: hidden` to mask layout issues — fix them at the source.
+For example certain replaced elements like `<canvas>`, `<img>`, `<svg>`, `<video>`, `<iframe>` use `display: inline` by default, which can add a gap in certain layouts. Instead of clipping the gap with `overflow`, remove it by applying a block display-outside value (e.g. `display: block`, `grid`, `flex` etc).
 - Use `aspect-ratio` to reserve space for media and prevent layout shift before assets load.
 
 ```css
@@ -205,8 +205,10 @@ Query the size (or computed style) of an ancestor container rather than the view
 
 Baseline status for <dialog>: Widely available. It's been Baseline since 2022-03-14.
 Supported by: Chrome 37 (Aug 2014), Edge 79 (Jan 2020), Firefox 98 (Mar 2022), and Safari 15.4 (Mar 2022).
+
 Baseline status for Popover: Newly available. It's been Baseline since 2025-01-27.
 Supported by: Chrome 116 (Aug 2023), Edge 116 (Aug 2023), Firefox 125 (Apr 2024), Safari 17 (Sep 2023), and Safari iOS 18.3 (Jan 2025).
+
 Anchor positioning is not natively supported by any major browser yet.
 
 **When to use each overlay primitive:**
@@ -228,6 +230,7 @@ Anchor positioning is not natively supported by any major browser yet.
 
 Baseline status for scrollbar-gutter: Newly available. It's been Baseline since 2024-12-11.
 Supported by: Chrome 94 (Sep 2021), Edge 94 (Sep 2021), Firefox 97 (Feb 2022), and Safari 18.2 (Dec 2024).
+
 line-clamp is not natively supported by any major browser yet.
 
 Manage layout shifts, scrollbars, and clipping predictably.
