@@ -155,6 +155,30 @@ const animateMoon = enabled => {
   phaseTimers = phases.map((phase, index) => setTimeout(() => moon.textContent = phase, index * 90));
 };
 
+// Crossfade to the other clip: keep the old frame on top and fade it out once the new one has loaded.
+const swapAnimation = (animation, source) => {
+  const ghost = animation.cloneNode();
+  ghost.classList.add("demo-gif-ghost");
+  ghost.removeAttribute("loading");
+  animation.after(ghost);
+  animation.setAttribute("src", source);
+  const fade = () => {
+    ghost.classList.add("demo-gif-fading");
+    ghost.addEventListener("transitionend", () => ghost.remove(), {once: true});
+    setTimeout(() => ghost.remove(), 600);
+  };
+  if (animation.complete) requestAnimationFrame(fade);
+  else animation.addEventListener("load", fade, {once: true});
+};
+
+const pulseCards = () => {
+  for (const card of cards) {
+    card.classList.remove("comparison-card-pulse");
+    void card.offsetWidth;
+    card.classList.add("comparison-card-pulse");
+  }
+};
+
 const renderComparison = () => {
   const state = comparisonsEnabled ? "after" : "before";
   const action = comparisonsEnabled ? "Disable" : "Enable";
@@ -172,7 +196,7 @@ const renderComparison = () => {
     const animation = panel.querySelector(".demo-gif");
     if (animation) {
       const source = animation.dataset[state];
-      if (animation.getAttribute("src") !== source) animation.setAttribute("src", source);
+      if (animation.getAttribute("src") !== source) swapAnimation(animation, source);
       animation.alt = label;
     }
   }
@@ -203,6 +227,7 @@ comparisonToggle.addEventListener("click", () => {
   comparisonsEnabled = !comparisonsEnabled;
   comparisonToggle.dataset.orbit = comparisonsEnabled ? "on" : "off";
   animateMoon(comparisonsEnabled);
+  pulseCards();
   renderComparison();
 });
 comparisonToggle.querySelector(".comparison-moon").addEventListener("animationend", () => delete comparisonToggle.dataset.orbit);

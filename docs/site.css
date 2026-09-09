@@ -289,6 +289,23 @@ html[data-site-ready] .comparison-card {
   width: 100%;
 }
 
+.demo-gif-ghost {
+  inset: 0;
+  opacity: 1;
+  position: absolute;
+  transition: opacity 320ms ease;
+  z-index: 1;
+}
+
+.demo-gif-ghost.demo-gif-fading {
+  opacity: 0;
+}
+
+@keyframes comparison-card-pulse {
+  0% { box-shadow: 0 0 0 0 hsla(46, 88%, 70%, .85), 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 60%); }
+  100% { box-shadow: 0 0 0 .75rem hsla(46, 88%, 70%, 0), 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 60%); }
+}
+
 .demo-frame {
   border: 0;
   height: 800px;
@@ -435,6 +452,7 @@ html[data-site-ready] .comparison-card {
 @keyframes case-arrive-previous { from { transform: translateX(-2rem); } }
 
 @media (prefers-reduced-motion: no-preference) {
+  .comparison-card-pulse { animation: comparison-card-pulse 520ms ease-out; }
   .comparison-toggle[data-orbit="on"] .comparison-moon { animation: moon-orbit-on 360ms linear; }
   .comparison-toggle[data-orbit="off"] .comparison-moon { animation: moon-orbit-off 360ms linear; }
   .gallery-track[data-direction="next"] .feature-panel[data-active] .comparison-card { animation: case-arrive-next 100ms cubic-bezier(.2, .9, .35, 1); }
