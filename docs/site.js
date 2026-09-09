@@ -48,6 +48,8 @@ let phaseTimers = [];
 
 const renderFrame = frame => {
   if (!frame) return;
+  const replay = replayButtons.get(frame);
+  if (replay) replay.hidden = true;
   frame.style.setProperty("--demo-scale", frame.parentElement.clientWidth / 1280);
   const demoRoot = frame.contentDocument?.documentElement;
   if (!demoRoot) return;
@@ -204,11 +206,34 @@ const frameResizeObserver = new ResizeObserver(entries => {
   for (const {target} of entries) renderFrame(target.querySelector(".demo-frame"));
 });
 panels.forEach(panel => viewedPanels.observe(panel));
+const replayButtons = new Map();
+addEventListener("message", event => {
+  if (event.origin !== location.origin || event.data?.type !== "gibbous-demo-finished") return;
+  for (const [frame, button] of replayButtons) if (frame.contentWindow === event.source) button.hidden = false;
+});
+
 cards.forEach(card => {
   frameResizeObserver.observe(card);
   card.tabIndex = 0;
   card.role = "button";
   card.ariaLabel = `Toggle Gibbous for ${card.closest(".feature-panel").dataset.title}`;
+  const frame = card.querySelector(".demo-frame");
+  if (frame) {
+    const replay = document.createElement("button");
+    replay.type = "button";
+    replay.className = "demo-replay";
+    replay.hidden = true;
+    replay.setAttribute("aria-label", "Replay");
+    replay.title = "Replay";
+    replay.innerHTML = '<svg viewBox="0 0 16 16" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5Z"/></svg>';
+    replay.addEventListener("click", event => {
+      event.stopPropagation();
+      replay.hidden = true;
+      frame.contentWindow.replayGibbousDemo?.();
+    });
+    card.append(replay);
+    replayButtons.set(frame, replay);
+  }
   card.addEventListener("click", () => comparisonToggle.click());
   card.addEventListener("keydown", event => {
     if (event.key !== "Enter" && event.key !== " ") return;

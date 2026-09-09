@@ -287,6 +287,35 @@ html[data-site-ready] .comparison-card {
   100% { box-shadow: 0 0 0 .75rem hsla(46, 88%, 70%, 0), 0 1.5rem 3rem -1.5rem rgb(0 0 0 / 60%); }
 }
 
+.demo-replay {
+  align-items: center;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border: 1px solid var(--gold-border);
+  border-radius: 50%;
+  box-shadow: 0 .5rem 1.5rem rgb(0 0 0 / 45%);
+  color: var(--gold);
+  display: flex;
+  height: 4rem;
+  justify-content: center;
+  left: 50%;
+  padding: 0 0 0 .2rem;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: background-color .16s ease, border-color .16s ease;
+  width: 4rem;
+  z-index: 2;
+}
+
+.demo-replay:hover {
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  border-color: var(--gold);
+}
+
+.demo-replay[hidden] {
+  display: none;
+}
+
 .demo-frame {
   border: 0;
   height: 800px;

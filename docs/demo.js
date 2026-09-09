@@ -276,7 +276,7 @@ const sequenceDiagram = () => {
     ["Detector", 810, 120],
   ];
   const box = (label, cx, width, y) => `<rect class="actor" x="${cx - width / 2}" y="${y}" width="${width}" height="44" rx="4"/><text x="${cx}" y="${y + 27}">${label}</text>`;
-  const arrow = (x1, x2, y, label, dashed = false) => `<line class="message ${dashed ? "dashed" : ""}" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" marker-end="url(#mermaid-arrow)"/><text class="label" x="${(x1 + x2) / 2}" y="${y - 9}">${label}</text>`;
+  const arrow = (x1, x2, y, label, dashed = false, selectable = false) => `<line class="message ${dashed ? "dashed" : ""}" x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" marker-end="url(#mermaid-arrow)"/>${selectable ? `<rect class="text-selection" x="${(x1 + x2) / 2 - label.length * 3.4}" y="${y - 24}" width="${label.length * 6.8}" height="19" rx="2"/>` : ""}<text class="label" x="${(x1 + x2) / 2}" y="${y - 9}">${label}</text>`;
   return `
     <svg class="sequence-diagram" viewBox="0 0 900 460" width="900" height="460" aria-hidden="true">
       <defs><marker id="mermaid-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z"/></marker></defs>
@@ -285,8 +285,8 @@ const sequenceDiagram = () => {
       <rect class="loop-tab" x="300" y="130" width="46" height="22"/><text class="loop-label" x="323" y="146">loop</text>
       <text class="label" x="470" y="147">[Every generated token]</text>
       ${arrow(90, 320, 110, "Configure sampler")}
-      ${arrow(320, 590, 185, "Sample logits with token context")}
-      ${arrow(590, 320, 235, "Return watermarked token", true)}
+      ${arrow(320, 590, 185, "Sample logits with token context", false, true)}
+      ${arrow(590, 320, 235, "Return watermarked token", true, true)}
       ${arrow(90, 810, 300, "Submit generated token IDs")}
       ${arrow(810, 90, 350, "Return score, p-value, and watermark flag", true)}
       ${participants.map(([label, cx, width]) => box(label, cx, width, 20) + box(label, cx, width, 396)).join("")}
@@ -316,7 +316,6 @@ const mermaidScene = state => `
       <div class="mermaid-render">
         <span class="render-actions">${state === "after" ? `<b class="enlarge-button">${icon("screenFull")} Enlarge</b>` : ""}<b>⇔</b><b>⧉</b></span>
         <div class="mermaid-stage">${sequenceDiagram()}</div>
-        <span class="selection-highlight"></span>
         ${mermaidControls()}
       </div>
     </article>
@@ -387,4 +386,12 @@ addEventListener("message", event => {
   renderDemo({...demo.dataset, ...event.data});
 });
 
+// Scenes with a timeline play once; tell the parent when they finish so it can offer a replay.
+demo.addEventListener("animationend", event => {
+  if (event.target === demo.querySelector(".demo-cursor")) parent.postMessage({type: "gibbous-demo-finished"}, location.origin);
+});
+
 window.renderGibbousDemo = renderDemo;
+window.replayGibbousDemo = () => {
+  demo.innerHTML = scenes[demo.dataset.feature](demo.dataset.state);
+};
