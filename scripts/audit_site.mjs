@@ -108,6 +108,8 @@ const expectedAssets = new Set([
   "dashboard-before.webp",
   "hidden-files-after.webp",
   "hidden-files-before.webp",
+  "mermaid-after.webp",
+  "mermaid-before.webp",
   "pull-request-shortcuts-after.webp",
   "pull-request-shortcuts-before.webp",
   "quote-navigation-after.webp",
