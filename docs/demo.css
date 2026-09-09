@@ -1251,6 +1251,24 @@ kbd {
   stroke-width: 1.4;
 }
 
+.demo-cursor .hand-open,
+.demo-cursor .hand-closed {
+  fill: none;
+  left: -9px;
+  opacity: 0;
+  position: absolute;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+  top: -10px;
+}
+
+.demo-cursor .hand-open .outline,
+.demo-cursor .hand-closed .outline {
+  stroke: #1f2328;
+  stroke-width: 4;
+}
+
 .demo-cursor .click-ring {
   border: 3px solid var(--fgColor-attention);
   border-radius: 50%;
@@ -1334,6 +1352,29 @@ kbd {
 .demo[data-feature="mermaid"][data-state="after"] .zoom-readout .zoomed { animation: mermaid-after-readout-zoomed 15s linear both; }
 .demo[data-feature="mermaid"][data-state="after"] .zoom-readout .mid { animation: mermaid-after-readout-mid 15s linear both; }
 .demo[data-feature="mermaid"][data-state="after"] .pinch-hint { animation: mermaid-after-pinch 15s ease-in-out both; }
+.demo[data-feature="mermaid"][data-state="after"] .demo-cursor .arrow { animation: mermaid-after-arrow 15s steps(1, end) both; }
+.demo[data-feature="mermaid"][data-state="after"] .demo-cursor .hand-open { animation: mermaid-after-hand-open 15s steps(1, end) both; }
+.demo[data-feature="mermaid"][data-state="after"] .demo-cursor .hand-closed { animation: mermaid-after-hand-closed 15s steps(1, end) both; }
+
+@keyframes mermaid-after-arrow {
+  0%, 22.67% { opacity: 1; }
+  22.73%, 90.67% { opacity: 0; }
+  90.73%, 100% { opacity: 1; }
+}
+
+@keyframes mermaid-after-hand-open {
+  0%, 22.67% { opacity: 0; }
+  22.73%, 59.33% { opacity: 1; }
+  59.4%, 66.67% { opacity: 0; }
+  66.73%, 90.67% { opacity: 1; }
+  90.73%, 100% { opacity: 0; }
+}
+
+@keyframes mermaid-after-hand-closed {
+  0%, 59.33% { opacity: 0; }
+  59.4%, 66.67% { opacity: 1; }
+  66.73%, 100% { opacity: 0; }
+}
 
 @keyframes mermaid-after-cursor {
   0%, 6.67% { left: 640px; top: 450px; }

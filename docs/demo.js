@@ -300,10 +300,15 @@ const mermaidControls = () => `
     <b class="down">${icon("chevronDown")}</b><b class="zoom-out">−</b>
   </span>`;
 
+const handIcon = (className, paths) => `
+    <svg class="${className}" viewBox="0 0 24 24" width="28" height="28">${paths.map(d => `<path class="outline" d="${d}"/>`).join("")}${paths.map(d => `<path d="${d}"/>`).join("")}</svg>`;
+
 const demoCursor = () => `
   <span class="demo-cursor" aria-hidden="true">
     <span class="click-ring"></span>
-    <svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3 5 20 9.5 15.6 13 22.5 15.8 21.2 12.3 14.5 18 14.5Z"/></svg>
+    <svg class="arrow" viewBox="0 0 24 24" width="26" height="26"><path d="M5 3 5 20 9.5 15.6 13 22.5 15.8 21.2 12.3 14.5 18 14.5Z"/></svg>
+    ${handIcon("hand-open", ["M18 11V6a2 2 0 0 0-4 0v1", "M14 10V4a2 2 0 0 0-4 0v2", "M10 10.5V6a2 2 0 0 0-4 0v8", "M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"])}
+    ${handIcon("hand-closed", ["M18 11.5V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v1.4", "M14 10V8a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2", "M10 9.9V9a2 2 0 0 0-2-2a2 2 0 0 0-2 2v5", "M6 14a2 2 0 0 0-2-2a2 2 0 0 0-2 2", "M18 11a2 2 0 1 1 4 0v3a8 8 0 0 1-8 8h-4a8 8 0 0 1-8-8 2 2 0 1 1 4 0"])}
   </span>`;
 
 const mermaidScene = state => `
