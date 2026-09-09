@@ -86,15 +86,8 @@ html[data-gibbous-mermaid-open] {
   display: inline-flex;
   gap: 6px;
   inset: 8px 8px auto auto !important;
-  opacity: 0;
   position: absolute !important;
-  transition: opacity 80ms ease;
   z-index: 2;
-}
-
-:is(.gibbous-mermaid-surface:hover, .gibbous-mermaid-surface:focus-within)
-  > .gibbous-mermaid-open {
-  opacity: 1;
 }
 
 html[data-gibbous-disabled] .gibbous-mermaid-open {

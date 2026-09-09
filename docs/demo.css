@@ -1141,7 +1141,6 @@ kbd {
 .render-actions .enlarge-button {
   font-size: 12px;
   gap: 5px;
-  opacity: 0;
   padding: 0 8px;
 }
 
@@ -1322,8 +1321,8 @@ kbd {
   30%, 36.3% { transform: scale(1.1); }
   38.8%, 45% { transform: scale(1.2); }
   47.5%, 62.5% { transform: scale(1.3); }
-  65%, 68.8% { transform: translate(100px, 0) scale(1.3); }
-  71.3%, 99.9% { transform: translate(200px, 0) scale(1.3); }
+  65%, 68.8% { transform: translate(-100px, 0) scale(1.3); }
+  71.3%, 99.9% { transform: translate(-200px, 0) scale(1.3); }
   100% { transform: none; }
 }
 
@@ -1342,10 +1341,6 @@ kbd {
 
 .demo[data-feature="mermaid"][data-state="after"] .click-ring {
   animation: mermaid-after-click 10s linear infinite;
-}
-
-.demo[data-feature="mermaid"][data-state="after"] .enlarge-button {
-  animation: mermaid-after-enlarge 10s linear infinite;
 }
 
 .demo[data-feature="mermaid"][data-state="after"] .mermaid-lightbox {
@@ -1382,12 +1377,6 @@ kbd {
   40.9%, 43.9% { opacity: 0; transform: scale(1); }
   44% { opacity: .9; transform: scale(.2); }
   48%, 100% { opacity: 0; transform: scale(1); }
-}
-
-@keyframes mermaid-after-enlarge {
-  0%, 15% { opacity: 0; }
-  17%, 24% { opacity: 1; }
-  26%, 100% { opacity: 0; }
 }
 
 @keyframes mermaid-after-lightbox {
