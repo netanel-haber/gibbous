@@ -1,7 +1,75 @@
-html[data-gibbous-mermaid-expanded] #diagram {
-  cursor: grab;
+html[data-gibbous-mermaid-expanded],
+html[data-gibbous-mermaid-expanded] body {
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-html[data-gibbous-mermaid-dragging] #diagram {
+html[data-gibbous-mermaid-expanded] .render-shell {
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden;
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid-view {
+  height: 100%;
+  position: relative;
+  width: 100%;
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid {
+  cursor: grab;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid.gibbous-animate {
+  transition: transform 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid > svg {
+  display: block;
+  height: 100% !important;
+  margin: 0 !important;
+  max-width: none !important;
+  transform: none !important;
+  transition: none !important;
+  width: 100% !important;
+}
+
+html[data-gibbous-mermaid-dragging] .mermaid {
   cursor: grabbing;
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid-viewer-control-panel {
+  display: none;
+}
+
+.gibbous-mermaid-controls {
+  display: none;
+}
+
+html[data-gibbous-mermaid-expanded] .gibbous-mermaid-controls {
+  align-items: center;
+  bottom: 16px;
+  display: inline-flex;
+  gap: 4px;
+  position: absolute;
+  right: 16px;
+  z-index: 2;
+}
+
+.gibbous-mermaid-controls > .btn {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+  min-width: 32px;
+  padding: 5px 8px;
+}
+
+.gibbous-mermaid-controls > .gibbous-zoom-level {
+  min-width: 56px;
 }

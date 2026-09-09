@@ -82,9 +82,12 @@ html[data-gibbous-mermaid-open] {
 }
 
 .gibbous-mermaid-open {
-  inset: 8px auto auto 8px;
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  inset: 8px 8px auto auto !important;
   opacity: 0;
-  position: absolute;
+  position: absolute !important;
   transition: opacity 80ms ease;
   z-index: 2;
 }
@@ -129,6 +132,10 @@ html[data-gibbous-disabled] .gibbous-mermaid-open {
   inset: 12px 12px auto auto !important;
   position: absolute !important;
   z-index: 3;
+}
+
+.gibbous-mermaid-dialog:focus-visible {
+  outline: none;
 }
 
 :is(.gibbous-eyes-toggle, .gibbous-hide-button, .gibbous-repository-fork) {

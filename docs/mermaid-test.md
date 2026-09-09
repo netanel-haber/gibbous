@@ -1,6 +1,6 @@
 # Mermaid lightbox test
 
-Use Enlarge to open the diagram, double-click to zoom, and drag to pan.
+Use Enlarge to open the diagram. Scroll or double-click to zoom, drag to pan, press 0 to refit, and Esc to close.
 
 ```mermaid
 sequenceDiagram
