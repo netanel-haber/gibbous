@@ -354,11 +354,11 @@ html[data-site-ready] .comparison-card {
 .comparison-toggle {
   background: transparent;
   border: 0;
-  bottom: 2.5rem;
   height: 2.5rem;
   padding: 0;
   position: fixed;
   right: 1.5rem;
+  top: calc(var(--site-header-height) + 1rem);
   width: 11rem;
   z-index: 50;
 }
@@ -466,7 +466,7 @@ html[data-site-ready] .comparison-card {
   .gallery-sticky { display: block; height: auto; overflow: visible; position: static; }
   .gallery-viewport, .gallery-track { height: auto; overflow: visible; }
   .feature-panel { border-top: 1px solid var(--border); padding: 2.5rem 0; position: relative; scroll-margin-top: var(--site-header-height); visibility: visible; }
-  .feature-panel:first-child { border-top: 0; }
+  .feature-panel:first-child { border-top: 0; padding-top: 4.5rem; }
   .feature-heading p { overflow: visible; white-space: normal; }
   .gallery-navigation { display: none; }
   .comparison-content { width: 100%; }
@@ -476,5 +476,5 @@ html[data-site-ready] .comparison-card {
   .site-links { width: 100%; }
   .theme-picker { flex: 1 1 100%; }
   .theme-picker select { flex: 1; max-width: none; }
-  .comparison-toggle { bottom: 1rem; right: 1rem; }
+  .comparison-toggle { right: 1rem; top: calc(var(--site-header-height) + .5rem); }
 }
