@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gibbous",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "GitHub, but with the UX you asked for. https://netanel-haber.github.io/gibbous/",
   "homepage_url": "https://netanel-haber.github.io/gibbous/",
   "permissions": ["storage"],
@@ -25,6 +25,13 @@
         "gibbous.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["https://viewscreen.githubusercontent.com/markdown/mermaid*"],
+      "css": ["mermaid-frame.css"],
+      "js": ["mermaid-frame.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
     }
   ]
 }

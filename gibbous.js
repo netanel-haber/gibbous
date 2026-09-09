@@ -23,6 +23,13 @@
   let quoteRevealController;
   let quoteScrollTarget;
   let quoteScrollTimer;
+  let mermaidDialog;
+  let activeMermaidFrame;
+
+  const moveBefore = (parent, node, before = null) => {
+    if ("moveBefore" in Element.prototype) parent.moveBefore(node, before);
+    else parent.insertBefore(node, before);
+  };
   const expandingRepositoryLists = new WeakSet();
   const repositoryExpansionAttempts = new WeakMap();
   const topRepositoryOrders = new WeakMap();
@@ -80,6 +87,92 @@
     icon.append(path);
     return icon;
   };
+
+  const mountMermaidDialog = () => {
+    if (mermaidDialog?.isConnected) return;
+    mermaidDialog = create(
+      "dialog",
+      {
+        class: "gibbous-mermaid-dialog",
+        closedby: "any",
+        "aria-label": "Enlarged Mermaid diagram",
+      },
+      create("button", {
+        class: "Button Button--secondary Button--small gibbous-mermaid-close",
+        type: "button",
+        onclick: () => mermaidDialog.close(),
+      }, "Close"),
+    );
+    mermaidDialog.addEventListener("close", () => {
+      if (!activeMermaidFrame) return;
+      const {frame, placeholder} = activeMermaidFrame;
+      frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value: false}, new URL(frame.src).origin);
+      if (placeholder.parentNode) {
+        moveBefore(placeholder.parentNode, frame, placeholder);
+        placeholder.remove();
+      } else frame.remove();
+      activeMermaidFrame = undefined;
+    });
+    if (!("closedBy" in HTMLDialogElement.prototype)) {
+      mermaidDialog.addEventListener("click", event => {
+        if (event.target !== mermaidDialog) return;
+        const bounds = mermaidDialog.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right
+          || event.clientY < bounds.top || event.clientY > bounds.bottom) mermaidDialog.close();
+      });
+    }
+    document.body.append(mermaidDialog);
+  };
+
+  const openMermaid = frame => {
+    if (!enabled || activeMermaidFrame) return;
+    mountMermaidDialog();
+    const placeholder = document.createComment("gibbous-mermaid");
+    frame.before(placeholder);
+    activeMermaidFrame = {frame, placeholder};
+    moveBefore(mermaidDialog, frame);
+    mermaidDialog.showModal();
+    frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value: true}, new URL(frame.src).origin);
+  };
+
+  const mountMermaidLightboxes = () => {
+    for (const frame of document.querySelectorAll('iframe[src*="/markdown/mermaid"]')) {
+      if (frame.closest(".gibbous-mermaid-dialog") || frame.classList.contains("gibbous-mermaid-preview")) continue;
+      frame.classList.add("gibbous-mermaid-preview");
+      const surface = frame.parentElement;
+      surface.classList.add("gibbous-mermaid-surface");
+      surface.append(create(
+        "button",
+        {
+          class: "Button Button--secondary Button--small gibbous-mermaid-open",
+          type: "button",
+          "aria-label": "Enlarge Mermaid diagram",
+          onclick: event => {
+            event.stopPropagation();
+            openMermaid(frame);
+          },
+        },
+        "Enlarge",
+      ));
+    }
+  };
+
+  addEventListener("message", event => {
+    if (!["gibbous-open-mermaid", "gibbous-close-mermaid", "gibbous-mermaid-ready"]
+      .includes(event.data?.type)) return;
+    const frame = [...document.querySelectorAll('iframe[src*="/markdown/mermaid"]')]
+      .find(candidate => candidate.contentWindow === event.source && new URL(candidate.src).origin === event.origin);
+    if (!frame) return;
+    if (event.data.type === "gibbous-open-mermaid") openMermaid(frame);
+    else if (event.data.type === "gibbous-close-mermaid" && activeMermaidFrame?.frame === frame) {
+      mermaidDialog.close();
+    } else if (event.data.type === "gibbous-mermaid-ready") {
+      frame.contentWindow.postMessage({
+        type: "gibbous-mermaid-expanded",
+        value: activeMermaidFrame?.frame === frame,
+      }, event.origin);
+    }
+  });
 
   const extensionCall = async (operation, fallback) => {
     if (contextInvalidated) return fallback;
@@ -1366,6 +1459,7 @@
 
   const applyEnabled = value => {
     if (!value) closeHiddenMenus();
+    if (!value && mermaidDialog?.open) mermaidDialog.close();
     enabled = value;
     document.documentElement.toggleAttribute("data-gibbous-disabled", !value);
     updateControl();
@@ -1395,6 +1489,7 @@
 
   function refresh() {
     mountControl();
+    mountMermaidLightboxes();
     expandTopRepositories();
     refreshRepository();
     mountTopRepositories();

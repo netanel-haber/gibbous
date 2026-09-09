@@ -9,6 +9,9 @@ GitHub, but with the UX you want.
 - 👀 button above files view: click to persistently hide files like CNAME in top-level repository views
 - Hides unused buttons like Copilot and Workflows
 - `forked in owner/repository` link to fork on upstream repositories when you have a fork
+- Click Mermaid diagrams to open a large, pannable, zoomable view
+
+[Try the Mermaid lightbox](docs/mermaid-test.md).
 
 ## Install
 
