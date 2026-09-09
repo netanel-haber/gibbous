@@ -1283,8 +1283,8 @@ kbd {
 
 @keyframes mermaid-before-cursor {
   0%, 12.5% { left: 640px; top: 450px; }
-  25%, 57% { left: 1115px; top: 620px; }
-  62%, 76% { left: 1115px; top: 651px; }
+  25%, 57% { left: 1114px; top: 631px; }
+  62%, 76% { left: 1114px; top: 662px; }
   82%, 84% { left: 330px; top: 388px; }
   95%, 100% { left: 600px; top: 440px; }
 }
@@ -1329,7 +1329,7 @@ kbd {
 .demo[data-feature="mermaid"][data-state="after"] .demo-cursor { animation: mermaid-after-cursor 15s ease-in-out both; }
 .demo[data-feature="mermaid"][data-state="after"] .click-ring { animation: mermaid-after-click 15s linear both; }
 .demo[data-feature="mermaid"][data-state="after"] .mermaid-lightbox { animation: mermaid-after-lightbox 15s linear both; }
-.demo[data-feature="mermaid"][data-state="after"] .lightbox-stage { animation: mermaid-after-stage 15s cubic-bezier(.2, .8, .2, 1) both; }
+.demo[data-feature="mermaid"][data-state="after"] .lightbox-stage { animation: mermaid-after-stage 15s ease-in-out both; }
 .demo[data-feature="mermaid"][data-state="after"] .zoom-readout .fit { animation: mermaid-after-readout-fit 15s linear both; }
 .demo[data-feature="mermaid"][data-state="after"] .zoom-readout .zoomed { animation: mermaid-after-readout-zoomed 15s linear both; }
 .demo[data-feature="mermaid"][data-state="after"] .zoom-readout .mid { animation: mermaid-after-readout-mid 15s linear both; }
@@ -1337,9 +1337,9 @@ kbd {
 
 @keyframes mermaid-after-cursor {
   0%, 6.67% { left: 640px; top: 450px; }
-  13.33%, 16.0% { left: 1023px; top: 226px; }
-  25.33%, 58.67% { left: 560px; top: 340px; }
-  66.0%, 84.0% { left: 760px; top: 460px; }
+  13.33%, 16.0% { left: 1028px; top: 251px; }
+  25.33%, 60.0% { left: 560px; top: 340px; }
+  66.67%, 85.33% { left: 760px; top: 460px; }
   90.67%, 100% { left: 640px; top: 450px; }
 }
 
@@ -1350,9 +1350,9 @@ kbd {
   26.67% { opacity: .9; transform: scale(.2); }
   28.33% { opacity: 0; transform: scale(1); }
   28.4% { opacity: .9; transform: scale(.2); }
-  30.67%, 58.6% { opacity: 0; transform: scale(1); }
-  58.67% { opacity: .9; transform: scale(.2); }
-  61.33%, 100% { opacity: 0; transform: scale(1); }
+  30.67%, 59.27% { opacity: 0; transform: scale(1); }
+  59.33% { opacity: .9; transform: scale(.2); }
+  62.0%, 100% { opacity: 0; transform: scale(1); }
 }
 
 @keyframes mermaid-after-lightbox {
@@ -1366,15 +1366,15 @@ kbd {
 @keyframes mermaid-after-stage {
   0%, 26.67% { transform: scale(1.28); }
   29.33%, 42.67% { transform: translate(48px, 41px) scale(2.05); }
-  49.33%, 58.67% { transform: translate(20px, 17px) scale(1.6); }
-  66.0%, 76.0% { transform: translate(220px, 137px) scale(1.6); }
-  78.67%, 100% { transform: scale(1.28); }
+  49.33%, 60.0% { transform: translate(20px, 17px) scale(1.6); }
+  66.67%, 77.33% { transform: translate(220px, 137px) scale(1.6); }
+  80.0%, 100% { transform: scale(1.28); }
 }
 
 @keyframes mermaid-after-readout-fit {
   0%, 26.67% { opacity: 1; }
-  26.73%, 78.6% { opacity: 0; }
-  78.67%, 100% { opacity: 1; }
+  26.73%, 79.93% { opacity: 0; }
+  80.0%, 100% { opacity: 1; }
 }
 
 @keyframes mermaid-after-readout-zoomed {
@@ -1385,8 +1385,8 @@ kbd {
 
 @keyframes mermaid-after-readout-mid {
   0%, 49.27% { opacity: 0; }
-  49.33%, 78.6% { opacity: 1; }
-  78.67%, 100% { opacity: 0; }
+  49.33%, 79.93% { opacity: 1; }
+  80.0%, 100% { opacity: 0; }
 }
 
 @keyframes mermaid-after-pinch {
@@ -1466,12 +1466,12 @@ kbd {
 }
 @keyframes mermaid-after-caption-4 {
   0%, 56.0% { opacity: 0; transform: translate(-50%, 8px); }
-  57.3%, 70.67% { opacity: 1; transform: translate(-50%, 0); }
-  71.97%, 100% { opacity: 0; transform: translate(-50%, 0); }
+  57.3%, 72.0% { opacity: 1; transform: translate(-50%, 0); }
+  73.3%, 100% { opacity: 0; transform: translate(-50%, 0); }
 }
 @keyframes mermaid-after-caption-5 {
-  0%, 73.33% { opacity: 0; transform: translate(-50%, 8px); }
-  74.63%, 84.0% { opacity: 1; transform: translate(-50%, 0); }
+  0%, 74.67% { opacity: 0; transform: translate(-50%, 8px); }
+  75.97%, 84.0% { opacity: 1; transform: translate(-50%, 0); }
   85.3%, 100% { opacity: 0; transform: translate(-50%, 0); }
 }
 @keyframes mermaid-after-caption-6 {
