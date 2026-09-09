@@ -174,7 +174,7 @@ button {
 }
 
 .gallery-scroll {
-  height: 700vh;
+  height: 800vh;
 }
 
 .gallery-sticky {
@@ -279,6 +279,13 @@ html[data-site-ready] .comparison-card {
 .comparison-card noscript,
 .comparison-card noscript img {
   height: 100%;
+  width: 100%;
+}
+
+.demo-gif {
+  display: block;
+  height: 100%;
+  object-fit: cover;
   width: 100%;
 }
 

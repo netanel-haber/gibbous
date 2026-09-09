@@ -18,6 +18,7 @@ const FEATURE_HASHES = {
   "pull-request-shortcuts": "pr-shortcuts",
   "hidden-files": "files-hider",
   "quote-navigation": "quote-replies",
+  mermaid: "mermaid",
 };
 
 const HASH_FEATURES = Object.fromEntries(
@@ -46,6 +47,7 @@ let galleryUpdateScheduled = false;
 let phaseTimers = [];
 
 const renderFrame = frame => {
+  if (!frame) return;
   frame.style.setProperty("--demo-scale", frame.parentElement.clientWidth / 1280);
   const demoRoot = frame.contentDocument?.documentElement;
   if (!demoRoot) return;
@@ -161,9 +163,18 @@ const renderComparison = () => {
   comparisonToggle.ariaLabel = `${action} Gibbous for every example`;
   comparisonToggle.title = `${action} Gibbous (Space)`;
   for (const panel of panels) {
+    const label = `GitHub ${comparisonsEnabled ? "with" : "before"} Gibbous: ${panel.dataset.title}`;
     const frame = panel.querySelector(".demo-frame");
-    frame.title = `GitHub ${comparisonsEnabled ? "with" : "before"} Gibbous: ${panel.dataset.title}`;
-    renderFrame(frame);
+    if (frame) {
+      frame.title = label;
+      renderFrame(frame);
+    }
+    const animation = panel.querySelector(".demo-gif");
+    if (animation) {
+      const source = animation.dataset[state];
+      if (animation.getAttribute("src") !== source) animation.setAttribute("src", source);
+      animation.alt = label;
+    }
   }
 };
 
