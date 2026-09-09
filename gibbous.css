@@ -77,6 +77,10 @@ html:not([data-gibbous-disabled]) .gibbous-mermaid-surface {
   position: relative;
 }
 
+html[data-gibbous-mermaid-open] {
+  overflow: hidden;
+}
+
 .gibbous-mermaid-open {
   inset: 8px auto auto 8px;
   opacity: 0;

@@ -1,4 +1,5 @@
 (() => {
+  const PAN_SPEED = 1.5;
   let expanded = false;
   let drag;
   let x = 0;
@@ -6,6 +7,7 @@
   if (!document.referrer) return;
   const parentOrigin = new URL(document.referrer).origin;
   const diagram = () => document.querySelector("#diagram");
+  const clickControl = label => document.querySelector(`button[aria-label="${label}"]`)?.click();
 
   const reset = () => {
     x = 0;
@@ -18,20 +20,23 @@
       || event.data?.type !== "gibbous-mermaid-expanded") return;
     expanded = Boolean(event.data.value);
     document.documentElement.toggleAttribute("data-gibbous-mermaid-expanded", expanded);
-    if (!expanded) reset();
+    reset();
+    if (expanded) requestAnimationFrame(() => {
+      clickControl("Reset view");
+      clickControl("Zoom in");
+    });
   });
 
   addEventListener("click", event => {
     const target = event.target instanceof Element && event.target;
-    if (!target) return;
-    if (target.closest('button[aria-label="Reset view"]')) {
-      reset();
-      return;
-    }
-    if (target.closest("a, button, .clickable")) return;
-    if (!expanded && target.closest("#diagram")) {
-      parent.postMessage({type: "gibbous-open-mermaid"}, parentOrigin);
-    }
+    if (target?.closest('button[aria-label="Reset view"]')) reset();
+  });
+
+  addEventListener("dblclick", event => {
+    const target = event.target instanceof Element && event.target;
+    if (!expanded || !target?.closest("#diagram") || target.closest("a, .clickable")) return;
+    event.preventDefault();
+    for (let step = 0; step < 2; step++) clickControl("Zoom in");
   });
 
   addEventListener("keydown", event => {
@@ -52,8 +57,8 @@
 
   addEventListener("pointermove", event => {
     if (drag?.id !== event.pointerId) return;
-    x = drag.x + event.clientX - drag.pointerX;
-    y = drag.y + event.clientY - drag.pointerY;
+    x = drag.x + (event.clientX - drag.pointerX) * PAN_SPEED;
+    y = drag.y + (event.clientY - drag.pointerY) * PAN_SPEED;
     diagram().style.translate = `${x}px ${y}px`;
   });
 

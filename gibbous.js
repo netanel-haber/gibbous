@@ -106,6 +106,7 @@
     mermaidDialog.addEventListener("close", () => {
       if (!activeMermaidFrame) return;
       const {frame, placeholder} = activeMermaidFrame;
+      document.documentElement.removeAttribute("data-gibbous-mermaid-open");
       frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value: false}, new URL(frame.src).origin);
       if (placeholder.parentNode) {
         moveBefore(placeholder.parentNode, frame, placeholder);
@@ -131,8 +132,10 @@
     frame.before(placeholder);
     activeMermaidFrame = {frame, placeholder};
     moveBefore(mermaidDialog, frame);
+    document.documentElement.setAttribute("data-gibbous-mermaid-open", "");
     mermaidDialog.showModal();
     frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value: true}, new URL(frame.src).origin);
+    frame.focus();
   };
 
   const mountMermaidLightboxes = () => {
@@ -158,13 +161,11 @@
   };
 
   addEventListener("message", event => {
-    if (!["gibbous-open-mermaid", "gibbous-close-mermaid", "gibbous-mermaid-ready"]
-      .includes(event.data?.type)) return;
+    if (!["gibbous-close-mermaid", "gibbous-mermaid-ready"].includes(event.data?.type)) return;
     const frame = [...document.querySelectorAll('iframe[src*="/markdown/mermaid"]')]
       .find(candidate => candidate.contentWindow === event.source && new URL(candidate.src).origin === event.origin);
     if (!frame) return;
-    if (event.data.type === "gibbous-open-mermaid") openMermaid(frame);
-    else if (event.data.type === "gibbous-close-mermaid" && activeMermaidFrame?.frame === frame) {
+    if (event.data.type === "gibbous-close-mermaid" && activeMermaidFrame?.frame === frame) {
       mermaidDialog.close();
     } else if (event.data.type === "gibbous-mermaid-ready") {
       frame.contentWindow.postMessage({

@@ -1,6 +1,6 @@
 # Mermaid lightbox test
 
-Click the diagram to open it, use GitHub's controls to zoom, and drag to move it.
+Use Enlarge to open the diagram, double-click to zoom, and drag to pan.
 
 ```mermaid
 sequenceDiagram

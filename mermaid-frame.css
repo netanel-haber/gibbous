@@ -1,7 +1,3 @@
-html:not([data-gibbous-mermaid-expanded]) #diagram {
-  cursor: zoom-in;
-}
-
 html[data-gibbous-mermaid-expanded] #diagram {
   cursor: grab;
 }
