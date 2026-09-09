@@ -57,6 +57,7 @@ def capture(chrome: Path, feature: str, state: str, output: Path) -> None:
         "feature": feature,
         "state": state,
         "theme": "dark",
+        "still": "1",
     })
     url = f"{(DOCS / 'demo.html').as_uri()}?{query}"
     run((

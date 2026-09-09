@@ -1499,3 +1499,8 @@ kbd {
   82.55%, 98.75% { opacity: 1; transform: translate(-50%, 0); }
   100.05%, 100% { opacity: 0; transform: translate(-50%, 0); }
 }
+
+/* Static renders (fallback images) freeze every timeline at its first frame. */
+html[data-still] .demo * {
+  animation-play-state: paused !important;
+}

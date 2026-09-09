@@ -374,6 +374,7 @@ const renderDemo = options => {
 };
 
 const params = new URLSearchParams(location.search);
+if (params.has("still")) document.documentElement.dataset.still = "";
 renderDemo({
   feature: params.get("feature"),
   state: params.get("state"),
