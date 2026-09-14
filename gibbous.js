@@ -414,31 +414,36 @@
 
   // Fold the repository tab bar into the global header row when everything fits on one line.
   let headerLayoutScheduled = false;
+  const navigationHomes = new WeakMap();
+
+  const headerRow = header => header.querySelector(':scope > [data-component="Stack"][data-direction="horizontal"], :scope > .AppHeader-globalBar');
 
   const layoutHeader = () => {
-    const header = document.querySelector("header.AppHeader");
-    const globalBar = header?.querySelector(".AppHeader-globalBar");
-    const localBar = header?.querySelector(".AppHeader-localBar");
-    const end = globalBar?.querySelector(".AppHeader-globalBar-end");
-    const navigation = localBar && repositoryNavigation();
-    if (!header || !globalBar || !localBar) return;
+    const navigation = repositoryNavigation();
+    const header = navigation?.closest('header[role="banner"], header.AppHeader')
+      ?? document.querySelector('header[role="banner"]:has(nav[aria-label="Repository"])');
+    const row = header && headerRow(header);
+    if (!header || !row) return;
+    const end = row.querySelector('[data-testid="top-nav-right"], .AppHeader-globalBar-end');
     if (!enabled || !navigation) {
-      if (localBar.parentElement === globalBar) moveBefore(header, localBar, globalBar.nextSibling);
+      const home = navigation && navigationHomes.get(navigation);
+      if (home && navigation.parentElement === row) moveBefore(home.parent, navigation, home.next?.isConnected ? home.next : null);
       header.classList.remove("gibbous-header-merged", "gibbous-header-inline");
       return;
     }
-    if (localBar.parentElement !== globalBar) moveBefore(globalBar, localBar, end ?? null);
+    if (navigation.parentElement !== row) {
+      navigationHomes.set(navigation, {parent: navigation.parentElement, next: navigation.nextSibling});
+      moveBefore(row, navigation, end ?? null);
+    }
     header.classList.add("gibbous-header-merged");
-    // Measure with the nav on its own line so GitHub's responsive nav is not collapsing anything.
+    // Measure with the tabs on their own line so nothing is collapsed, then decide.
     header.classList.remove("gibbous-header-inline");
-    // GitHub stretches the start and end blocks to fill the row, so measure their contents.
-    const contentWidth = element => [...(element?.children ?? [])]
-      .reduce((total, child) => total + child.getBoundingClientRect().width, 0)
-      + Math.max(0, (element?.children.length ?? 1) - 1) * 8;
-    const start = globalBar.querySelector(".AppHeader-globalBar-start");
+    const contentWidth = element => [...element.children]
+      .reduce((total, child) => total + child.getBoundingClientRect().width, 0);
     const list = navigation.querySelector("ul") ?? navigation;
-    const needed = contentWidth(start) + contentWidth(end) + list.scrollWidth + 64;
-    header.classList.toggle("gibbous-header-inline", needed <= globalBar.clientWidth);
+    const others = [...row.children].filter(child => child !== navigation);
+    const needed = others.reduce((total, child) => total + contentWidth(child), 0) + list.scrollWidth + others.length * 32;
+    header.classList.toggle("gibbous-header-inline", needed <= row.clientWidth);
   };
 
   const scheduleHeaderLayout = () => {
