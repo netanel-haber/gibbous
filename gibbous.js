@@ -59,9 +59,9 @@
       "octicon-x",
       "M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z",
     ],
-    kebabHorizontal: [
-      "octicon-kebab-horizontal",
-      "M8 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM1.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm13 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+    listUnordered: [
+      "octicon-list-unordered",
+      "M5.75 2.5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5ZM2 14a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-6a1 1 0 0 1-1 1 1 1 0 1 1 1-1ZM2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z",
     ],
     comment: [
       "octicon-comment",
@@ -1618,13 +1618,37 @@
     const hidden = [...list.querySelectorAll("a [data-content]")]
       .map(label => label.dataset.content)
       .filter(name => name !== "README");
+    // One menu replaces GitHub's Outline button: the collapsed file tabs, then the outline of
+    // whichever document is showing. Reuse GitHub's own icon so nothing looks foreign.
+    const outlineButton = header.querySelector('button[aria-label="Outline"]');
+    const outline = create("div", {class: "gibbous-readme-menu-outline", role: "group", "aria-label": "Outline"});
+    const rebuildOutline = () => {
+      outline.replaceChildren();
+      const headings = [...box.querySelectorAll("article.markdown-body :is(h1, h2, h3, h4, h5, h6)")]
+        .map(heading => ({heading, anchor: heading.parentElement?.querySelector("a.anchor[href]") ?? heading.querySelector("a.anchor[href]")}))
+        .filter(({anchor}) => anchor);
+      if (!headings.length) return;
+      outline.append(create("div", {class: "gibbous-readme-menu-divider", role: "separator"}));
+      for (const {heading, anchor} of headings) {
+        const entry = create(
+          "a",
+          {class: "gibbous-readme-menu-item", role: "menuitem", href: anchor.getAttribute("href"), style: `--outline-level: ${heading.tagName.slice(1)}`},
+          heading.textContent.trim(),
+        );
+        entry.addEventListener("click", () => {
+          menu.removeAttribute("open");
+          selectMyPullRequests(box, false);
+        });
+        outline.append(entry);
+      }
+    };
     const menu = create(
       "details",
       {class: "details-reset details-overlay gibbous-readme-menu"},
       create(
         "summary",
-        {class: "Button Button--invisible Button--iconOnly Button--medium", "aria-label": "More repository files", title: "More repository files"},
-        createOcticon("kebabHorizontal"),
+        {class: "Button Button--invisible Button--iconOnly Button--medium", "aria-label": "Files and outline", title: "Files and outline"},
+        outlineButton?.querySelector("svg")?.cloneNode(true) ?? createOcticon("listUnordered"),
       ),
       create("div", {class: "gibbous-readme-menu-list", role: "menu"}, ...hidden.map(name => {
         const source = list.querySelector(`a [data-content="${name}"]`).closest("a");
@@ -1637,9 +1661,12 @@
           readmeNavigation()?.querySelector(`a [data-content="${name}"]`)?.closest("a")?.click();
         });
         return entry;
-      })),
+      }), outline),
     );
-    if (hidden.length) header.append(menu);
+    menu.addEventListener("toggle", () => {
+      if (menu.open) rebuildOutline();
+    });
+    header.append(menu);
 
     if (!navigation.dataset.gibbousPullsListener) {
       navigation.dataset.gibbousPullsListener = "";

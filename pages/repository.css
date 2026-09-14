@@ -98,7 +98,7 @@ html:not([data-gibbous-disabled]) [data-gibbous-pulls-active] nav[aria-label="Re
 
 [data-gibbous-pulls-selected] > [class*="SharedMarkdownContent"],
 [data-gibbous-pulls-selected] > article.markdown-body,
-[data-gibbous-pulls-selected] > div > button[aria-label="Outline"],
+html:not([data-gibbous-disabled]) [data-gibbous-pulls-active] > div > button[aria-label="Outline"],
 .gibbous-my-pulls {
   display: none;
 }
@@ -186,4 +186,24 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
 
 .gibbous-readme-menu-item .octicon {
   color: var(--fgColor-muted, var(--color-fg-muted));
+}
+
+.gibbous-readme-menu-list {
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+}
+
+.gibbous-readme-menu-outline {
+  display: grid;
+  gap: 2px;
+}
+
+.gibbous-readme-menu-outline .gibbous-readme-menu-item {
+  padding-left: calc(8px + (var(--outline-level, 1) - 1) * 12px);
+  text-decoration: none;
+}
+
+.gibbous-readme-menu-divider {
+  border-top: 1px solid var(--borderColor-muted, var(--color-border-muted));
+  margin: 6px -8px;
 }
