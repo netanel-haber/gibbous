@@ -80,3 +80,105 @@ html:not([data-gibbous-disabled]) .react-directory-row:is(:hover, :focus-within)
 )[hidden] {
   display: none;
 }
+
+/* "My pull requests" tab on the repository overview */
+
+html:not([data-gibbous-disabled]) .gibbous-hidden-readme-tab:not(:has(> a[aria-current="page"])) {
+  display: none !important;
+}
+
+.gibbous-pulls-tab-link .Counter {
+  margin-left: 4px;
+}
+
+[data-gibbous-pulls-selected] > [class*="SharedMarkdownContent"],
+[data-gibbous-pulls-selected] > article.markdown-body,
+[data-gibbous-pulls-selected] > div > button[aria-label="Outline"],
+.gibbous-my-pulls {
+  display: none;
+}
+
+[data-gibbous-pulls-selected] > .gibbous-my-pulls {
+  display: block;
+}
+
+html[data-gibbous-disabled] .gibbous-my-pulls,
+html[data-gibbous-disabled] .gibbous-pulls-tab,
+html[data-gibbous-disabled] .gibbous-readme-menu {
+  display: none !important;
+}
+
+.gibbous-my-pulls {
+  border: 0;
+  border-radius: 0;
+  margin: 0;
+}
+
+.gibbous-my-pull {
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.gibbous-my-pull .markdown-title {
+  font-size: 16px;
+}
+
+.gibbous-my-pull .IssueLabel {
+  margin-left: 4px;
+}
+
+.gibbous-my-pulls-footer {
+  padding: 10px 16px;
+}
+
+.gibbous-readme-menu {
+  position: relative;
+}
+
+.gibbous-readme-menu > summary {
+  list-style: none;
+}
+
+.gibbous-readme-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.gibbous-readme-menu-list {
+  background: var(--overlay-bgColor, var(--color-canvas-overlay));
+  border: 1px solid var(--borderColor-default, var(--color-border-default));
+  border-radius: 12px;
+  box-shadow: var(--shadow-floating-small, 0 8px 24px rgb(0 0 0 / 40%));
+  display: grid;
+  gap: 2px;
+  min-width: 220px;
+  padding: 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 100;
+}
+
+.gibbous-readme-menu-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--fgColor-default, var(--color-fg-default));
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 14px;
+  gap: 8px;
+  padding: 6px 8px;
+  text-align: left;
+  width: 100%;
+}
+
+.gibbous-readme-menu-item:hover {
+  background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg));
+}
+
+.gibbous-readme-menu-item .octicon {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+}

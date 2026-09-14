@@ -59,6 +59,18 @@
       "octicon-x",
       "M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z",
     ],
+    kebabHorizontal: [
+      "octicon-kebab-horizontal",
+      "M8 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM1.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm13 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+    ],
+    comment: [
+      "octicon-comment",
+      "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z",
+    ],
+    pullRequestDraft: [
+      "octicon-git-pull-request-draft",
+      "M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 14a2.25 2.25 0 1 1 0-4.5 2.25 2.25 0 0 1 0 4.5ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM14 7.5a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Zm0-4.25a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Z",
+    ],
     eye: [
       "octicon-eye",
       "M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.83.88 9.576.43 8.898a1.62 1.62 0 0 1 0-1.798c.45-.677 1.367-1.931 2.637-3.022C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z",
@@ -1402,6 +1414,246 @@
     }
   };
 
+  // "My pull requests" tab on the repository overview. Active only when the viewer has open pull
+  // requests here; then the secondary file tabs collapse into a menu and the PR list opens first.
+  const myPullRequestCache = new Map();
+  let myPullRequestsLookup;
+
+  const readmeNavigation = () => document.querySelector('nav[aria-label="Repository files"]');
+
+  const labelStyle = hex => {
+    const value = Number.parseInt(hex.replace("#", ""), 16);
+    if (Number.isNaN(value)) return "";
+    const r = (value >> 16) & 255;
+    const g = (value >> 8) & 255;
+    const b = value & 255;
+    const max = Math.max(r, g, b) / 255;
+    const min = Math.min(r, g, b) / 255;
+    const l = (max + min) / 2;
+    const d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r / 255) h = ((g - b) / 255 / d) % 6;
+      else if (max === g / 255) h = (b - r) / 255 / d + 2;
+      else h = (r - g) / 255 / d + 4;
+      h = Math.round(h * 60);
+      if (h < 0) h += 360;
+    }
+    const sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+    return `--label-r:${r};--label-g:${g};--label-b:${b};--label-h:${h};--label-s:${Math.round(sat * 100)};--label-l:${Math.round(l * 100)};`;
+  };
+
+  const parseClassicPullRequests = root => [...root.querySelectorAll(".js-issue-row")].map(row => {
+    const link = row.querySelector("a.js-navigation-open, a.markdown-title");
+    const opened = row.querySelector(".opened-by");
+    return link && {
+      number: Number(row.id.replace(/\D/g, "")),
+      title: link.textContent.trim(),
+      url: link.getAttribute("href"),
+      draft: Boolean(row.querySelector(".octicon-git-pull-request-draft")),
+      author: opened?.querySelector("a")?.textContent.trim() ?? "",
+      openedAt: opened?.querySelector("relative-time")?.getAttribute("datetime") ?? "",
+      comments: Number(row.querySelector('a[aria-label$="comment"], a[aria-label$="comments"]')?.textContent.trim() ?? 0) || 0,
+      labels: [...row.querySelectorAll(".IssueLabel")].map(label => ({
+        name: label.dataset.name ?? label.textContent.trim(),
+        style: label.getAttribute("style") ?? "",
+      })),
+    };
+  }).filter(Boolean);
+
+  const parseEmbeddedPullRequests = root => {
+    const found = new Map();
+    const walk = node => {
+      if (!node || typeof node !== "object") return;
+      if (Array.isArray(node)) return node.forEach(walk);
+      if (node.__typename === "PullRequest" && node.number && node.title && !found.has(node.number)) {
+        found.set(node.number, {
+          number: node.number,
+          title: node.title,
+          url: node.resourcePath ?? new URL(node.url ?? "/", location.origin).pathname,
+          draft: Boolean(node.isDraft),
+          author: node.author?.login ?? "",
+          openedAt: node.createdAt ?? "",
+          comments: node.totalCommentsCount ?? node.comments?.totalCount ?? 0,
+          labels: (node.labels?.nodes ?? node.labels?.edges?.map(edge => edge.node) ?? [])
+            .map(label => ({name: label.name, style: labelStyle(label.color ?? "")})),
+        });
+      }
+      Object.values(node).forEach(walk);
+    };
+    for (const script of root.querySelectorAll('script[type="application/json"]')) {
+      try {
+        walk(JSON.parse(script.textContent));
+      } catch {
+        // Not every JSON island is ours to read.
+      }
+    }
+    return [...found.values()];
+  };
+
+  const loadMyPullRequests = async (context, viewer) => {
+    const key = `${viewer}|${context.nwo}`;
+    const cached = myPullRequestCache.get(key);
+    if (cached && Date.now() - cached.at < 5 * 60_000) return cached.items;
+    const query = encodeURIComponent(`is:pr is:open author:${viewer} sort:updated-desc`);
+    const response = await fetch(`/${context.nwo}/pulls?q=${query}`, {credentials: "include"});
+    if (!response.ok) throw new Error(`Pull request lookup failed (${response.status})`);
+    const root = new DOMParser().parseFromString(await response.text(), "text/html");
+    const items = parseClassicPullRequests(root);
+    const result = items.length ? items : parseEmbeddedPullRequests(root);
+    myPullRequestCache.set(key, {at: Date.now(), items: result});
+    return result;
+  };
+
+  const renderMyPullRequestRow = item => create(
+    "div",
+    {class: "Box-row d-flex gibbous-my-pull"},
+    create(
+      "span",
+      {class: `flex-shrink-0 pt-1 ${item.draft ? "color-fg-muted" : "color-fg-open"}`, "aria-label": item.draft ? "Draft pull request" : "Open pull request"},
+      createOcticon(item.draft ? "pullRequestDraft" : "pullRequest"),
+    ),
+    create(
+      "div",
+      {class: "flex-auto min-width-0 px-2"},
+      create("a", {class: "Link--primary v-align-middle no-underline h4 markdown-title", href: item.url}, item.title),
+      ...(item.labels.length ? [create(
+        "span",
+        {class: "lh-default d-block d-md-inline ml-md-1"},
+        ...item.labels.map(label => create("span", {class: "IssueLabel hx_IssueLabel v-align-middle", style: label.style}, label.name)),
+      )] : []),
+      create(
+        "div",
+        {class: "mt-1 text-small color-fg-muted"},
+        `#${item.number}`,
+        item.openedAt ? create("span", {}, " opened ", create("relative-time", {datetime: item.openedAt}, new Date(item.openedAt).toLocaleDateString())) : "",
+        item.author ? ` by ${item.author}` : "",
+      ),
+    ),
+    item.comments ? create(
+      "a",
+      {class: "Link--muted flex-shrink-0 d-inline-flex gap-1 pt-1 text-small text-bold", href: item.url, "aria-label": `${item.comments} comments`},
+      createOcticon("comment"),
+      create("span", {}, String(item.comments)),
+    ) : "",
+  );
+
+  const selectMyPullRequests = (box, selected) => {
+    box.toggleAttribute("data-gibbous-pulls-selected", selected);
+    const tab = box.querySelector(".gibbous-pulls-tab-link");
+    if (!tab) return;
+    if (selected) {
+      tab.setAttribute("aria-current", "page");
+      for (const link of readmeNavigation()?.querySelectorAll('a[aria-current="page"]') ?? []) {
+        if (link !== tab) link.removeAttribute("aria-current");
+      }
+    } else tab.removeAttribute("aria-current");
+  };
+
+  const mountMyPullRequestsTab = (context, items) => {
+    const navigation = readmeNavigation();
+    const list = navigation?.querySelector("ul");
+    const readmeItem = [...(list?.children ?? [])].find(item => item.querySelector('[data-content="README"]'));
+    const header = navigation?.parentElement;
+    const box = header?.parentElement;
+    if (!list || !readmeItem || !box) return;
+    const existing = box.querySelector(".gibbous-my-pulls");
+    if (existing?.dataset.nwo === context.nwo && existing.dataset.count === String(items.length)) return;
+    existing?.remove();
+    box.querySelector(".gibbous-pulls-tab")?.remove();
+    box.querySelector(".gibbous-readme-menu")?.remove();
+    box.querySelectorAll(".gibbous-hidden-readme-tab").forEach(item => item.classList.remove("gibbous-hidden-readme-tab"));
+    if (!items.length) {
+      selectMyPullRequests(box, false);
+      return;
+    }
+
+    const sampleLink = readmeItem.querySelector("a");
+    const tabLink = create(
+      "a",
+      {class: `${sampleLink.className} gibbous-pulls-tab-link`, href: `/${context.nwo}/pulls?q=${encodeURIComponent("is:pr is:open author:@me")}`},
+      create("span", {"data-component": "icon"}, createOcticon("pullRequest")),
+      create("span", {"data-component": "text"}, "My pull requests"),
+      create("span", {class: "Counter ml-1"}, String(items.length)),
+    );
+    tabLink.addEventListener("click", event => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+      event.preventDefault();
+      selectMyPullRequests(box, true);
+    });
+    const tab = create("li", {class: `${readmeItem.className} gibbous-pulls-tab`}, tabLink);
+    readmeItem.after(tab);
+
+    const hidden = [...list.children].filter(item => item !== readmeItem && item !== tab && item.querySelector("a[data-content], a [data-content]"));
+    const menu = create(
+      "details",
+      {class: "details-reset details-overlay gibbous-readme-menu"},
+      create(
+        "summary",
+        {class: "Button Button--invisible Button--iconOnly Button--medium", "aria-label": "More repository files", title: "More repository files"},
+        createOcticon("kebabHorizontal"),
+      ),
+      create("div", {class: "gibbous-readme-menu-list", role: "menu"}, ...hidden.map(item => {
+        item.classList.add("gibbous-hidden-readme-tab");
+        const source = item.querySelector("a");
+        const entry = create("button", {class: "gibbous-readme-menu-item", type: "button", role: "menuitem"});
+        entry.append(...[...source.children].map(child => child.cloneNode(true)));
+        entry.addEventListener("click", () => {
+          menu.removeAttribute("open");
+          selectMyPullRequests(box, false);
+          source.click();
+        });
+        return entry;
+      })),
+    );
+    if (hidden.length) header.append(menu);
+
+    if (!navigation.dataset.gibbousPullsListener) {
+      navigation.dataset.gibbousPullsListener = "";
+      navigation.addEventListener("click", event => {
+        const link = event.target instanceof Element && event.target.closest("a");
+        if (link && !link.classList.contains("gibbous-pulls-tab-link") && list.contains(link)) selectMyPullRequests(box, false);
+      });
+    }
+
+    const panel = create(
+      "div",
+      {class: "Box gibbous-my-pulls", "data-nwo": context.nwo, "data-count": String(items.length)},
+      ...items.map(renderMyPullRequestRow),
+      create(
+        "div",
+        {class: "Box-row text-small color-fg-muted gibbous-my-pulls-footer"},
+        create("a", {class: "Link--muted", href: tabLink.href}, "Open in pull requests"),
+      ),
+    );
+    header.after(panel);
+    selectMyPullRequests(box, true);
+  };
+
+  const refreshMyPullRequests = (context, viewer) => {
+    const box = readmeNavigation()?.parentElement?.parentElement;
+    if (!box) return;
+    if (!enabled || !viewer) {
+      box.querySelector(".gibbous-my-pulls")?.remove();
+      box.querySelector(".gibbous-pulls-tab")?.remove();
+      box.querySelector(".gibbous-readme-menu")?.remove();
+      box.querySelectorAll(".gibbous-hidden-readme-tab").forEach(item => item.classList.remove("gibbous-hidden-readme-tab"));
+      selectMyPullRequests(box, false);
+      myPullRequestsLookup = undefined;
+      return;
+    }
+    const lookup = `${viewer}|${context.nwo}`;
+    if (box.dataset.gibbousPullsChecked === lookup) return;
+    box.dataset.gibbousPullsChecked = lookup;
+    myPullRequestsLookup = lookup;
+    loadMyPullRequests(context, viewer).then(items => {
+      if (myPullRequestsLookup === lookup && box.isConnected) mountMyPullRequestsTab(context, items);
+    }).catch(error => {
+      delete box.dataset.gibbousPullsChecked;
+      reportError(error);
+    });
+  };
+
   const resolveUserFork = async (context, viewer) => {
     const lookup = `${viewer}|${context.nwo}|${context.rootNwo}`;
     if (lookup === forkLookup) return;
@@ -1454,6 +1706,7 @@
     mountForkedIn();
     mountHiddenFilesControl(table);
     void loadHiddenNames().catch(reportError);
+    refreshMyPullRequests(context, viewer);
     if (enabled) {
       refreshRows();
       void resolveUserFork(context, viewer);
