@@ -255,19 +255,34 @@ html:not([data-gibbous-disabled]) .gibbous-header-inline [data-testid="top-nav-r
 /* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
 
 html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"],
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"] {
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > *,
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"],
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"] span {
+  flex: none !important;
+  max-width: none !important;
   min-width: 0 !important;
   width: auto !important;
 }
 
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] {
+  padding: 0 10px !important;
+}
+
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [data-component="buttonContent"] {
+  column-gap: 8px;
+  display: inline-flex !important;
+  grid-template-columns: none;
+}
+
 html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"] [class*="Search-module__placeholder"] {
-  align-items: center;
   display: inline-flex;
   font-size: 0;
+  line-height: 0;
 }
 
 html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"] [class*="Search-module__kbd"] {
   font-size: 12px;
+  line-height: 18px;
   margin: 0;
 }
 
