@@ -352,6 +352,11 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
     align-items: center !important;
     transform: none !important;
   }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li.gibbous-pull-request-shortcuts > a {
+    align-self: center !important;
+    block-size: 28px !important;
+  }
 }
 
 /* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
