@@ -217,7 +217,8 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
 @media (min-width: 1012px) {
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) {
     align-items: center !important;
-    block-size: 64px;
+    block-size: 64px !important;
+    min-block-size: 0 !important;
     column-gap: 16px;
     display: grid !important;
     grid-template-columns: max-content max-content minmax(0, 1fr) max-content max-content;
@@ -263,6 +264,8 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) nav[aria-label="Breadcrumbs"] {
     grid-column: 1;
     inline-size: max-content !important;
+    min-inline-size: 320px !important;
+    overflow: visible !important;
     margin: 0 !important;
     max-inline-size: none !important;
     padding: 0 !important;
@@ -285,7 +288,7 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] {
     align-items: stretch !important;
     align-self: stretch !important;
-    block-size: auto !important;
+    block-size: 64px !important;
     border: 0 !important;
     box-shadow: none !important;
     display: flex !important;
@@ -309,7 +312,7 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul {
     align-items: stretch !important;
     align-self: stretch !important;
-    block-size: auto !important;
+    block-size: 64px !important;
     border: 0 !important;
     box-shadow: none !important;
     column-gap: 8px !important;
@@ -329,7 +332,7 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li {
     align-items: stretch !important;
     align-self: stretch !important;
-    block-size: auto !important;
+    block-size: 64px !important;
     display: inline-flex !important;
     margin: 0 !important;
     max-block-size: none !important;
@@ -340,7 +343,8 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li > a {
     align-items: center !important;
     align-self: stretch !important;
-    block-size: auto !important;
+    block-size: 64px !important;
+    line-height: 20px !important;
     display: inline-flex !important;
     margin: 0 !important;
     max-block-size: none !important;
