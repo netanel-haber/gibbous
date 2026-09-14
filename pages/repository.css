@@ -255,8 +255,11 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] {
+    align-items: stretch !important;
     align-self: stretch !important;
     border: 0 !important;
+    box-shadow: none !important;
+    display: flex !important;
     flex: 1 1 0 !important;
     margin: 0 !important;
     max-inline-size: none !important;
@@ -265,13 +268,25 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
     padding: 0 !important;
   }
 
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"]::before,
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"]::after,
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul::before,
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul::after {
+    display: none !important;
+  }
+
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul {
     align-items: stretch !important;
-    block-size: 100% !important;
+    align-self: stretch !important;
+    block-size: auto !important;
+    border: 0 !important;
+    box-shadow: none !important;
     column-gap: 8px !important;
     display: flex !important;
+    flex: 1 1 0 !important;
     flex-wrap: nowrap !important;
     margin: 0 !important;
+    min-block-size: 0 !important;
     padding: 0 !important;
   }
 
@@ -280,14 +295,24 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li {
-    align-items: center !important;
+    align-items: stretch !important;
     display: inline-flex !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li > a {
     align-items: center !important;
-    block-size: 100% !important;
+    block-size: auto !important;
     display: inline-flex !important;
+    margin: 0 !important;
+    padding-block: 0 !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li.gibbous-pull-request-shortcuts {
+    align-items: center !important;
+    align-self: center !important;
+    transform: none !important;
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__searchButtonGroup"] {
@@ -318,6 +343,7 @@ html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] s
 html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] {
   align-items: center !important;
   block-size: 32px !important;
+  border-radius: 6px !important;
   display: inline-flex !important;
   padding: 0 8px !important;
 }
