@@ -412,51 +412,6 @@
     }
   };
 
-  // Fold the repository tab bar into the global header row when everything fits on one line.
-  let headerLayoutScheduled = false;
-  const navigationHomes = new WeakMap();
-
-  const headerRow = header => header.querySelector(':scope > [data-component="Stack"][data-direction="horizontal"], :scope > .AppHeader-globalBar');
-
-  const layoutHeader = () => {
-    const navigation = repositoryNavigation();
-    const header = navigation?.closest('header[role="banner"], header.AppHeader')
-      ?? document.querySelector('header[role="banner"]:has(nav[aria-label="Repository"])');
-    const row = header && headerRow(header);
-    if (!header || !row) return;
-    const end = row.querySelector('[data-testid="top-nav-right"], .AppHeader-globalBar-end');
-    if (!enabled || !navigation) {
-      const home = navigation && navigationHomes.get(navigation);
-      if (home && navigation.parentElement === row) moveBefore(home.parent, navigation, home.next?.isConnected ? home.next : null);
-      header.classList.remove("gibbous-header-merged", "gibbous-header-inline");
-      return;
-    }
-    if (navigation.parentElement !== row) {
-      navigationHomes.set(navigation, {parent: navigation.parentElement, next: navigation.nextSibling});
-      moveBefore(row, navigation, end ?? null);
-    }
-    header.classList.add("gibbous-header-merged");
-    // Measure with the tabs on their own line so nothing is collapsed, then decide.
-    header.classList.remove("gibbous-header-inline");
-    const contentWidth = element => [...element.children]
-      .reduce((total, child) => total + child.getBoundingClientRect().width, 0);
-    const list = navigation.querySelector("ul") ?? navigation;
-    const others = [...row.children].filter(child => child !== navigation);
-    const needed = others.reduce((total, child) => total + contentWidth(child), 0) + list.scrollWidth + others.length * 32;
-    const inline = needed <= row.clientWidth;
-    header.classList.toggle("gibbous-header-inline", inline);
-    console.debug("Gibbous header layout", {inline, needed: Math.round(needed), available: row.clientWidth, tabs: list.scrollWidth, blocks: others.map(child => Math.round(contentWidth(child)))});
-  };
-
-  const scheduleHeaderLayout = () => {
-    if (headerLayoutScheduled) return;
-    headerLayoutScheduled = true;
-    requestAnimationFrame(() => {
-      headerLayoutScheduled = false;
-      layoutHeader();
-    });
-  };
-
   const markSuggestedWorkflows = () => {
     const heading = [...document.querySelectorAll("h1, h2, h3")]
       .find(element => element.textContent.trim() === "Suggested workflows");
@@ -1938,7 +1893,6 @@
 
   function refresh() {
     mountControl();
-    layoutHeader();
     mountMermaidLightboxes();
     expandTopRepositories();
     refreshRepository();
@@ -1986,6 +1940,5 @@
   addEventListener("wheel", releaseQuoteTarget, {passive: true});
   addEventListener("keydown", releaseQuoteTarget);
   addEventListener("resize", scheduleRefresh);
-  addEventListener("resize", scheduleHeaderLayout);
   refresh();
 })();

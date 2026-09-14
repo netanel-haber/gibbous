@@ -208,101 +208,103 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   margin: 6px -8px;
 }
 
-/* Repository tabs folded into the global header row */
+/* Repository tabs on the same line as the global header.
+   The DOM is left exactly as GitHub renders it: the top row is flattened with display: contents so
+   the header lays out left, center, tabs, and right on one flex line. */
 
-html:not([data-gibbous-disabled]) .gibbous-header-merged > :is([data-component="Stack"][data-direction="horizontal"], .AppHeader-globalBar) {
-  align-items: center;
-  display: flex !important;
-  flex-wrap: wrap !important;
-}
+@media (min-width: 1012px) {
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) {
+    align-items: stretch !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+  }
 
-html:not([data-gibbous-disabled]) .gibbous-header-merged nav[aria-label="Repository"] {
-  flex: 1 1 100%;
-  max-width: none !important;
-  min-width: 0;
-  order: 9;
-  width: auto !important;
-}
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) > [data-component="Stack"][data-direction="horizontal"] {
+    display: contents !important;
+  }
 
-html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Repository"] {
-  align-self: stretch;
-  flex: 1 1 0 !important;
-  margin: 0 !important;
-  order: 0;
-  overflow: hidden;
-  padding: 0 8px !important;
-}
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-left"],
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"],
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-right"] {
+    align-items: center !important;
+    flex: 0 0 auto !important;
+    max-width: none !important;
+    width: auto !important;
+  }
 
-html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Repository"] > ul {
-  align-items: stretch;
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-}
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-left"] { order: 1; }
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"] { order: 2; }
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-right"] { margin-left: auto; order: 4; }
 
-html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Repository"] > ul > li {
-  display: inline-flex;
-}
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] {
+    align-self: stretch !important;
+    border: 0 !important;
+    flex: 1 1 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    order: 3;
+    overflow: hidden !important;
+    padding: 0 8px !important;
+    width: auto !important;
+  }
 
-html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Repository"] > ul > li > a {
-  align-items: center;
-  display: inline-flex;
-  height: 100%;
-}
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul {
+    align-items: stretch !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 
-html:not([data-gibbous-disabled]) .gibbous-header-inline :is([data-testid="top-nav-left"], [data-testid="top-nav-center"], [data-testid="top-nav-right"]) {
-  flex: 0 0 auto !important;
-  width: auto !important;
-}
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li {
+    display: inline-flex !important;
+  }
 
-html:not([data-gibbous-disabled]) .gibbous-header-inline [data-testid="top-nav-right"] {
-  margin-left: auto;
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li > a {
+    align-items: center !important;
+    display: inline-flex !important;
+    height: 100% !important;
+  }
 }
 
 /* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
 
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] {
-  flex: none !important;
-  justify-self: start;
-  max-width: none !important;
-  min-width: 0 !important;
-  width: max-content !important;
-}
-
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"],
 html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > *,
 html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"],
 html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] span {
   flex: none !important;
   max-width: none !important;
   min-width: 0 !important;
-  width: auto !important;
+  width: max-content !important;
 }
 
 html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] {
-  padding: 0 10px !important;
+  padding: 0 8px !important;
 }
 
 html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [data-component="buttonContent"] {
-  column-gap: 8px;
+  column-gap: 6px !important;
   display: inline-flex !important;
-  grid-template-columns: none;
+  grid-template-columns: none !important;
+  justify-content: flex-start !important;
 }
 
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"] [class*="Search-module__placeholder"] {
-  display: inline-flex;
-  font-size: 0;
-  line-height: 0;
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [class*="Search-module__placeholder"] {
+  display: inline-flex !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
 }
 
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"] [class*="Search-module__kbd"] {
-  font-size: 12px;
-  line-height: 18px;
-  margin: 0;
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [class*="Search-module__kbd"] {
+  font-size: 12px !important;
+  line-height: 18px !important;
+  margin: 0 !important;
 }
 
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > :has(.js-activate-command-palette),
-html:not([data-gibbous-disabled]) .AppHeader-commandPalette-button {
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > :has(.js-activate-command-palette) {
   display: none !important;
 }
