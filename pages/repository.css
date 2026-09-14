@@ -207,3 +207,89 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   border-top: 1px solid var(--borderColor-muted, var(--color-border-muted));
   margin: 6px -8px;
 }
+
+/* Repository tabs folded into the global header row */
+
+html:not([data-gibbous-disabled]) .gibbous-header-merged .AppHeader-globalBar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-header-merged .AppHeader-localBar {
+  border: 0;
+  flex: 1 1 100%;
+  margin: 0;
+  min-width: 0;
+  order: 3;
+  padding: 0;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-header-merged .AppHeader-localBar nav {
+  border-bottom: 0;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-header-inline .AppHeader-localBar {
+  align-self: stretch;
+  flex: 1 1 auto;
+  order: 0;
+  overflow: hidden;
+  padding: 0 8px;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-header-inline .AppHeader-localBar nav {
+  height: 100%;
+  padding: 0 !important;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-header-inline .AppHeader-localBar :is(.UnderlineNav-body, ul) {
+  align-items: stretch;
+  display: flex;
+  flex-wrap: nowrap;
+  height: 100%;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-header-inline .AppHeader-localBar li {
+  display: inline-flex;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-header-inline .AppHeader-localBar .UnderlineNav-item {
+  align-items: center;
+  display: inline-flex;
+  height: 100%;
+  margin: 0;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-header-inline .AppHeader-globalBar-end {
+  flex: none;
+}
+
+/* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
+
+html:not([data-gibbous-disabled]) .AppHeader-search {
+  flex: none;
+  min-width: 0;
+  width: auto;
+}
+
+html:not([data-gibbous-disabled]) .AppHeader-search .AppHeader-searchButton {
+  gap: 6px;
+  min-width: 0;
+  padding: 0 8px;
+  width: auto;
+}
+
+html:not([data-gibbous-disabled]) .AppHeader-search .search-input-placeholder {
+  align-items: center;
+  display: inline-flex;
+  font-size: 0;
+}
+
+html:not([data-gibbous-disabled]) .AppHeader-search .search-input-placeholder kbd {
+  font-size: 12px;
+}
+
+html:not([data-gibbous-disabled]) .AppHeader-search > :not(qbsearch-input),
+html:not([data-gibbous-disabled]) .AppHeader-search qbsearch-input ~ * {
+  display: none;
+}

@@ -412,6 +412,40 @@
     }
   };
 
+  // Fold the repository tab bar into the global header row when everything fits on one line.
+  let headerLayoutScheduled = false;
+
+  const layoutHeader = () => {
+    const header = document.querySelector("header.AppHeader");
+    const globalBar = header?.querySelector(".AppHeader-globalBar");
+    const localBar = header?.querySelector(".AppHeader-localBar");
+    const end = globalBar?.querySelector(".AppHeader-globalBar-end");
+    const navigation = localBar && repositoryNavigation();
+    if (!header || !globalBar || !localBar) return;
+    if (!enabled || !navigation) {
+      if (localBar.parentElement === globalBar) moveBefore(header, localBar, globalBar.nextSibling);
+      header.classList.remove("gibbous-header-merged", "gibbous-header-inline");
+      return;
+    }
+    if (localBar.parentElement !== globalBar) moveBefore(globalBar, localBar, end ?? null);
+    header.classList.add("gibbous-header-merged");
+    // Measure with the nav on its own line so GitHub's responsive nav is not collapsing anything.
+    header.classList.remove("gibbous-header-inline");
+    const start = globalBar.querySelector(".AppHeader-globalBar-start");
+    const list = navigation.querySelector("ul") ?? navigation;
+    const needed = (start?.offsetWidth ?? 0) + (end?.offsetWidth ?? 0) + list.scrollWidth + 48;
+    header.classList.toggle("gibbous-header-inline", needed <= globalBar.clientWidth);
+  };
+
+  const scheduleHeaderLayout = () => {
+    if (headerLayoutScheduled) return;
+    headerLayoutScheduled = true;
+    requestAnimationFrame(() => {
+      headerLayoutScheduled = false;
+      layoutHeader();
+    });
+  };
+
   const markSuggestedWorkflows = () => {
     const heading = [...document.querySelectorAll("h1, h2, h3")]
       .find(element => element.textContent.trim() === "Suggested workflows");
@@ -1893,6 +1927,7 @@
 
   function refresh() {
     mountControl();
+    layoutHeader();
     mountMermaidLightboxes();
     expandTopRepositories();
     refreshRepository();
@@ -1940,5 +1975,6 @@
   addEventListener("wheel", releaseQuoteTarget, {passive: true});
   addEventListener("keydown", releaseQuoteTarget);
   addEventListener("resize", scheduleRefresh);
+  addEventListener("resize", scheduleHeaderLayout);
   refresh();
 })();
