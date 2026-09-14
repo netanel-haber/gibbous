@@ -1593,7 +1593,7 @@
     existing?.remove();
     box.querySelector(".gibbous-pulls-tab")?.remove();
     box.querySelector(".gibbous-readme-menu")?.remove();
-    box.querySelectorAll(".gibbous-hidden-readme-tab").forEach(item => item.classList.remove("gibbous-hidden-readme-tab"));
+    box.toggleAttribute("data-gibbous-pulls-active", items.length > 0);
     if (!items.length) {
       selectMyPullRequests(box, false);
       return;
@@ -1615,7 +1615,9 @@
     const tab = create("li", {class: `${readmeItem.className} gibbous-pulls-tab`}, tabLink);
     readmeItem.after(tab);
 
-    const hidden = [...list.children].filter(item => item !== readmeItem && item !== tab && item.querySelector("a[data-content], a [data-content]"));
+    const hidden = [...list.querySelectorAll("a [data-content]")]
+      .map(label => label.dataset.content)
+      .filter(name => name !== "README");
     const menu = create(
       "details",
       {class: "details-reset details-overlay gibbous-readme-menu"},
@@ -1624,15 +1626,15 @@
         {class: "Button Button--invisible Button--iconOnly Button--medium", "aria-label": "More repository files", title: "More repository files"},
         createOcticon("kebabHorizontal"),
       ),
-      create("div", {class: "gibbous-readme-menu-list", role: "menu"}, ...hidden.map(item => {
-        item.classList.add("gibbous-hidden-readme-tab");
-        const source = item.querySelector("a");
+      create("div", {class: "gibbous-readme-menu-list", role: "menu"}, ...hidden.map(name => {
+        const source = list.querySelector(`a [data-content="${name}"]`).closest("a");
         const entry = create("button", {class: "gibbous-readme-menu-item", type: "button", role: "menuitem"});
         entry.append(...[...source.children].map(child => child.cloneNode(true)));
         entry.addEventListener("click", () => {
           menu.removeAttribute("open");
           selectMyPullRequests(box, false);
-          source.click();
+          // GitHub may have re-rendered the tab since we mounted; find the live anchor by name.
+          readmeNavigation()?.querySelector(`a [data-content="${name}"]`)?.closest("a")?.click();
         });
         return entry;
       })),
@@ -1668,7 +1670,7 @@
       box.querySelector(".gibbous-my-pulls")?.remove();
       box.querySelector(".gibbous-pulls-tab")?.remove();
       box.querySelector(".gibbous-readme-menu")?.remove();
-      box.querySelectorAll(".gibbous-hidden-readme-tab").forEach(item => item.classList.remove("gibbous-hidden-readme-tab"));
+      box.removeAttribute("data-gibbous-pulls-active");
       selectMyPullRequests(box, false);
       myPullRequestsLookup = undefined;
       return;

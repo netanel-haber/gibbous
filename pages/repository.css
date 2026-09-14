@@ -83,7 +83,12 @@ html:not([data-gibbous-disabled]) .react-directory-row:is(:hover, :focus-within)
 
 /* "My pull requests" tab on the repository overview */
 
-html:not([data-gibbous-disabled]) .gibbous-hidden-readme-tab:not(:has(> a[aria-current="page"])) {
+/* Hide the secondary file tabs by name so GitHub re-rendering the list cannot bring them back,
+   and hide GitHub's own overflow menu so the items are not offered twice. */
+html:not([data-gibbous-disabled]) [data-gibbous-pulls-active] nav[aria-label="Repository files"] li:has(
+  > a:not([aria-current="page"]):not(.gibbous-pulls-tab-link) [data-content]:not([data-content="README"])
+),
+html:not([data-gibbous-disabled]) [data-gibbous-pulls-active] nav[aria-label="Repository files"] [class*="MoreButtonContainer"] {
   display: none !important;
 }
 
