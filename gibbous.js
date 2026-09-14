@@ -492,45 +492,78 @@
     })
     .filter(({text}) => text.length >= 24);
 
-  const parseQuoteComment = (comment, id = `issuecomment-${comment.id}`) => {
-    const body = new DOMParser().parseFromString(comment.body_html ?? "", "text/html").body;
-    const quotes = quoteBlocks(body).map(({text}) => text);
-    body.querySelectorAll("blockquote").forEach(quote => quote.remove());
+  // Comments come from the page itself; only comments GitHub has collapsed behind "Load more" are
+  // fetched, and then from GitHub's own timeline endpoint rather than the rate-limited REST API.
+  const parseTimelineComment = root => {
+    const body = root.querySelector(".comment-body");
+    if (!body) return;
+    const content = body.cloneNode(true);
+    const quotes = quoteBlocks(content).map(({text}) => text);
+    content.querySelectorAll("blockquote").forEach(quote => quote.remove());
+    const id = /^issuecomment-\d+$/.test(root.id) ? root.id : "pullrequest-body";
+    const permalink = root.querySelector("a.js-timestamp[href]")?.getAttribute("href");
     return {
       id,
-      url: comment.html_url,
-      user: comment.user?.login ?? "someone",
-      createdAt: comment.created_at,
-      html: comment.body_html ?? "",
-      text: normalizeQuote(body.textContent),
+      url: new URL(permalink ?? `#${id}`, location.href).href,
+      user: root.querySelector(".author")?.textContent.trim() ?? "someone",
+      createdAt: root.querySelector("relative-time")?.getAttribute("datetime") ?? "",
+      html: body.innerHTML,
+      text: normalizeQuote(content.textContent),
       quotes,
     };
+  };
+
+  const collectTimeline = root => {
+    const entries = [];
+    const pullBody = root.querySelector(".js-command-palette-pull-body");
+    const pullComment = pullBody && parseTimelineComment(pullBody);
+    if (pullComment) entries.push({comment: pullComment});
+    const scope = root.querySelector(".js-discussion") ?? root;
+    for (const node of scope.querySelectorAll('[id^="issuecomment-"], form.ajax-pagination-form')) {
+      if (node instanceof HTMLFormElement) {
+        const action = node.getAttribute("action");
+        if (action?.includes("/timeline_more_items")) entries.push({more: new URL(action, location.href).href});
+      } else if (/^issuecomment-\d+$/.test(node.id)) {
+        const comment = parseTimelineComment(node);
+        if (comment) entries.push({comment});
+      }
+    }
+    return entries;
+  };
+
+  const timelineChunks = new Map();
+
+  const fetchTimelineChunk = async url => {
+    const response = await fetch(url, {
+      credentials: "include",
+      headers: {Accept: "text/html", "X-Requested-With": "XMLHttpRequest"},
+    });
+    if (!response.ok) throw new Error(`GitHub returned ${response.status} for hidden comments.`);
+    return collectTimeline(new DOMParser().parseFromString(await response.text(), "text/html").body);
+  };
+
+  const expandTimeline = async (entries, depth = 0) => {
+    const comments = [];
+    for (const entry of entries) {
+      if (entry.comment) {
+        comments.push(entry.comment);
+        continue;
+      }
+      if (depth >= 4) continue;
+      let chunk = timelineChunks.get(entry.more);
+      if (!chunk) {
+        chunk = await fetchTimelineChunk(entry.more);
+        timelineChunks.set(entry.more, chunk);
+        void storageSet({quoteChunks: {version: 7, savedAt: Date.now(), chunks: Object.fromEntries(timelineChunks)}}).catch(reportError);
+      }
+      comments.push(...await expandTimeline(chunk, depth + 1));
+    }
+    return comments;
   };
 
   const currentQuoteContext = () => {
     const match = location.pathname.match(/^\/([^/]+\/[^/]+)\/pull\/(\d+)\/?$/);
     return match && {key: `${match[1]}#${match[2]}`, nwo: match[1], number: match[2]};
-  };
-
-  const fetchQuoteComments = async ({nwo, number}) => {
-    const repository = nwo.split("/").map(encodeURIComponent).join("/");
-    const issueUrl = `https://api.github.com/repos/${repository}/issues/${number}`;
-    const request = async url => {
-      const response = await fetch(url, {
-        headers: {Accept: "application/vnd.github.full+json", "X-GitHub-Api-Version": "2022-11-28"},
-      });
-      if (response.ok) return response.json();
-      const message = [403, 429].includes(response.status)
-        ? "GitHub rate limit reached; try again later."
-        : `GitHub API returned ${response.status}.`;
-      throw new Error(message);
-    };
-    const comments = [parseQuoteComment(await request(issueUrl), "pullrequest-body")];
-    for (let page = 1; ; page++) {
-      const batch = await request(`${issueUrl}/comments?per_page=100&page=${page}`);
-      comments.push(...batch.map(comment => parseQuoteComment(comment)));
-      if (batch.length < 100) return comments;
-    }
   };
 
   const quoteCommentRoot = comment => comment.id === "pullrequest-body"
@@ -904,28 +937,64 @@
     }
   };
 
-  const loadQuoteMatches = async context => {
-    const stored = await storageGet(["quoteComments", "quoteChoices"]);
-    const cached = stored?.quoteComments?.version === 6 && stored.quoteComments;
+  let quoteLoadRequested = false;
+  let quoteHiddenLoaded = false;
+  let quoteSignature = "";
+  let quoteObserver;
+
+  const timelineSignature = () => [...document.querySelectorAll(
+    '.js-discussion [id^="issuecomment-"], .js-discussion form.ajax-pagination-form',
+  )].map(node => node.id || node.getAttribute("action")).filter(Boolean).join("|");
+
+  const loadQuoteMatches = async (context, includeHidden = false) => {
+    const stored = await storageGet(["quoteChoices", "quoteChunks"]);
     quoteChoices = stored?.quoteChoices ?? quoteChoices;
+    if (stored?.quoteChunks?.version === 7 && Date.now() - stored.quoteChunks.savedAt < 30 * 60_000) {
+      for (const [url, chunk] of Object.entries(stored.quoteChunks.chunks)) timelineChunks.set(url, chunk);
+    }
+    const entries = collectTimeline(document);
+    quoteSignature = timelineSignature();
+    const hasHidden = entries.some(entry => entry.more);
     let comments;
     try {
-      comments = cached?.key === context.key && Date.now() - cached.savedAt < 30 * 60_000
-        ? cached.comments
-        : await fetchQuoteComments(context);
-      if (comments !== cached?.comments) {
-        await storageSet({quoteComments: {version: 6, key: context.key, savedAt: Date.now(), comments}});
-      }
+      comments = includeHidden && hasHidden
+        ? await expandTimeline(entries)
+        : entries.filter(entry => entry.comment).map(entry => entry.comment);
+      quoteHiddenLoaded = includeHidden && hasHidden;
       quoteError = "";
     } catch (error) {
-      if (cached?.key !== context.key) throw error;
-      comments = cached.comments;
-      quoteError = `Using cached quote links — ${error.message}`;
+      comments = entries.filter(entry => entry.comment).map(entry => entry.comment);
+      quoteError = `Hidden comments unavailable — ${error.message}`;
     }
     const matches = await findQuoteMatches(comments);
     if (quoteContextKey !== context.key) return;
     quoteMatches = matches;
     refreshQuoteLinks();
+    // Only reach for collapsed comments when a quote on the page has no visible source.
+    if (!includeHidden && hasHidden && matches.some(match => !match.sources.length)) {
+      void loadQuoteMatches(context, true).catch(reportError);
+    }
+  };
+
+  const startQuoteLoad = context => {
+    if (quoteLoadRequested) return;
+    quoteLoadRequested = true;
+    quoteObserver?.disconnect();
+    void loadQuoteMatches(context).catch(error => {
+      if (quoteContextKey !== context.key) return;
+      quoteError = `Quote links unavailable — ${error.message}`;
+      refreshQuoteLinks();
+    });
+  };
+
+  // Resolve lazily: nothing runs until a quoted reply actually scrolls into view.
+  const watchQuotes = context => {
+    quoteObserver ??= new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) startQuoteLoad(context);
+    }, {rootMargin: "200px 0px"});
+    for (const blockquote of document.querySelectorAll(".js-discussion .comment-body blockquote, .js-command-palette-pull-body .comment-body blockquote")) {
+      quoteObserver.observe(blockquote);
+    }
   };
 
   const refreshQuoteLinks = () => {
@@ -943,11 +1012,21 @@
       quoteContextKey = context.key;
       quoteMatches = [];
       quoteError = "";
-      void loadQuoteMatches(context).catch(error => {
-        if (quoteContextKey !== context.key) return;
-        quoteError = `Quote links unavailable — ${error.message}`;
-        refreshQuoteLinks();
-      });
+      quoteLoadRequested = false;
+      quoteHiddenLoaded = false;
+      quoteSignature = "";
+      quoteObserver?.disconnect();
+      quoteObserver = undefined;
+    }
+    if (!quoteLoadRequested) {
+      watchQuotes(context);
+      return;
+    }
+    // Comments the visitor loaded since we matched are free to fold in: no request needed.
+    const signature = timelineSignature();
+    if (quoteSignature && signature !== quoteSignature) {
+      quoteSignature = signature;
+      void loadQuoteMatches(context, quoteHiddenLoaded).catch(reportError);
     }
 
     for (const match of quoteMatches) {
