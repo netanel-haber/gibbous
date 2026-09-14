@@ -209,43 +209,62 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
 }
 
 /* Repository tabs on the same line as the global header.
-   The DOM is left exactly as GitHub renders it. The top row and its center block are flattened
-   with display: contents, so the header itself is one flex row: menu and logo, breadcrumb, tabs
-   (taking the remaining space), search, then the account actions. */
+   The DOM is left exactly as GitHub renders it. The header becomes a five-column grid:
+   menu and logo | breadcrumb | tabs | search | account actions. The top row is flattened with
+   display: contents; the center block keeps a real box (GitHub's breadcrumb measures it) spanning
+   the middle three columns as a subgrid, so the tabs sit in the gap between breadcrumb and search. */
 
 @media (min-width: 1012px) {
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) {
     align-items: center !important;
     block-size: 64px;
     column-gap: 16px;
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
+    display: grid !important;
+    grid-template-columns: max-content max-content minmax(0, 1fr) max-content max-content;
+    grid-template-rows: 100%;
     padding-inline: 16px;
   }
 
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) > [data-component="Stack"][data-direction="horizontal"],
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"] {
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) > [data-component="Stack"][data-direction="horizontal"] {
     display: contents !important;
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) :is([data-testid="top-nav-left"], [data-testid="top-nav-right"]) {
     align-items: center !important;
     column-gap: 8px !important;
-    flex: none !important;
+    display: flex !important;
+    grid-row: 1;
     inline-size: max-content !important;
     max-inline-size: none !important;
     padding: 0 !important;
   }
 
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-left"] { order: 1; }
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-left"] { grid-column: 1; }
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-right"] { grid-column: 5; }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"] {
+    align-items: center !important;
+    column-gap: 16px !important;
+    display: grid !important;
+    grid-column: 2 / 5;
+    grid-row: 1;
+    grid-template-columns: subgrid !important;
+    inline-size: auto !important;
+    max-inline-size: none !important;
+    min-inline-size: 0 !important;
+    padding: 0 !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"] > :not(nav[aria-label="Breadcrumbs"], [class*="Search-module__searchButtonGroup"], [class*="Search-module__smallSearchButton"]) {
+    grid-area: 1 / 1 / 2 / -1;
+    justify-self: start;
+  }
 
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) nav[aria-label="Breadcrumbs"] {
-    flex: none !important;
+    grid-column: 1;
     inline-size: max-content !important;
     margin: 0 !important;
     max-inline-size: none !important;
-    order: 2;
     padding: 0 !important;
   }
 
@@ -254,17 +273,29 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
     inline-size: max-content !important;
   }
 
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__searchButtonGroup"] {
+    grid-column: 3;
+    margin: 0 !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__smallSearchButton"] {
+    display: none !important;
+  }
+
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] {
     align-items: stretch !important;
     align-self: stretch !important;
+    block-size: auto !important;
     border: 0 !important;
     box-shadow: none !important;
     display: flex !important;
-    flex: 1 1 0 !important;
+    grid-column: 3;
+    grid-row: 1;
     margin: 0 !important;
+    max-block-size: none !important;
     max-inline-size: none !important;
+    min-block-size: 0 !important;
     min-inline-size: 0 !important;
-    order: 3;
     padding: 0 !important;
   }
 
@@ -286,6 +317,7 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
     flex: 1 1 0 !important;
     flex-wrap: nowrap !important;
     margin: 0 !important;
+    max-block-size: none !important;
     min-block-size: 0 !important;
     padding: 0 !important;
   }
@@ -296,44 +328,40 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
 
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li {
     align-items: stretch !important;
+    align-self: stretch !important;
+    block-size: auto !important;
     display: inline-flex !important;
     margin: 0 !important;
+    max-block-size: none !important;
+    min-block-size: 0 !important;
     padding: 0 !important;
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li > a {
     align-items: center !important;
+    align-self: stretch !important;
     block-size: auto !important;
     display: inline-flex !important;
     margin: 0 !important;
+    max-block-size: none !important;
+    min-block-size: 0 !important;
     padding-block: 0 !important;
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li.gibbous-pull-request-shortcuts {
     align-items: center !important;
-    align-self: center !important;
     transform: none !important;
   }
-
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__searchButtonGroup"] {
-    flex: none !important;
-    margin: 0 !important;
-    order: 4;
-  }
-
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__smallSearchButton"] {
-    display: none !important;
-  }
-
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-right"] { order: 5; }
 }
 
 /* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
 
 html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"],
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > *,
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > [class*="ButtonGroup-Item"],
 html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"],
-html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] span {
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] > [data-component="buttonContent"],
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [data-component="text"],
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [class*="Search-module__placeholder"] {
   flex: none !important;
   inline-size: max-content !important;
   max-inline-size: none !important;
