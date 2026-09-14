@@ -1491,16 +1491,47 @@
     return [...found.values()];
   };
 
-  const loadMyPullRequests = async (context, viewer) => {
-    const key = `${viewer}|${context.nwo}`;
-    const cached = myPullRequestCache.get(key);
-    if (cached && Date.now() - cached.at < 5 * 60_000) return cached.items;
+  // The public search API answers for public repositories without a token; the signed-in pulls
+  // page is client-rendered, so HTML parsing is only a fallback for private repositories.
+  const searchMyPullRequests = async (context, viewer) => {
+    const query = encodeURIComponent(`repo:${context.nwo} is:pr is:open author:${viewer}`);
+    const response = await fetch(`https://api.github.com/search/issues?q=${query}&sort=updated&per_page=50`, {
+      headers: {Accept: "application/vnd.github+json"},
+    });
+    if (!response.ok) throw new Error(`Search API ${response.status}`);
+    const {items = []} = await response.json();
+    return items.filter(item => item.pull_request).map(item => ({
+      number: item.number,
+      title: item.title,
+      url: new URL(item.html_url).pathname,
+      draft: Boolean(item.draft),
+      author: item.user?.login ?? "",
+      openedAt: item.created_at ?? "",
+      comments: item.comments ?? 0,
+      labels: (item.labels ?? []).map(label => ({name: label.name, style: labelStyle(label.color ?? "")})),
+    }));
+  };
+
+  const scrapeMyPullRequests = async (context, viewer) => {
     const query = encodeURIComponent(`is:pr is:open author:${viewer} sort:updated-desc`);
     const response = await fetch(`/${context.nwo}/pulls?q=${query}`, {credentials: "include"});
     if (!response.ok) throw new Error(`Pull request lookup failed (${response.status})`);
     const root = new DOMParser().parseFromString(await response.text(), "text/html");
     const items = parseClassicPullRequests(root);
-    const result = items.length ? items : parseEmbeddedPullRequests(root);
+    return items.length ? items : parseEmbeddedPullRequests(root);
+  };
+
+  const loadMyPullRequests = async (context, viewer) => {
+    const key = `${viewer}|${context.nwo}`;
+    const cached = myPullRequestCache.get(key);
+    if (cached && Date.now() - cached.at < 5 * 60_000) return cached.items;
+    let result;
+    try {
+      result = await searchMyPullRequests(context, viewer);
+    } catch (error) {
+      reportError(error);
+      result = await scrapeMyPullRequests(context, viewer);
+    }
     myPullRequestCache.set(key, {at: Date.now(), items: result});
     return result;
   };
