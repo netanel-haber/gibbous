@@ -212,19 +212,22 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
 
 html:not([data-gibbous-disabled]) .gibbous-header-merged > :is([data-component="Stack"][data-direction="horizontal"], .AppHeader-globalBar) {
   align-items: center;
-  display: flex;
+  display: flex !important;
   flex-wrap: wrap !important;
 }
 
 html:not([data-gibbous-disabled]) .gibbous-header-merged nav[aria-label="Repository"] {
   flex: 1 1 100%;
+  max-width: none !important;
   min-width: 0;
   order: 9;
+  width: auto !important;
 }
 
 html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Repository"] {
   align-self: stretch;
-  flex: 1 1 auto;
+  flex: 1 1 0 !important;
+  margin: 0 !important;
   order: 0;
   overflow: hidden;
   padding: 0 8px !important;
@@ -232,9 +235,11 @@ html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Reposit
 
 html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Repository"] > ul {
   align-items: stretch;
-  display: flex;
+  display: flex !important;
   flex-wrap: nowrap !important;
   height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Repository"] > ul > li {
@@ -247,17 +252,28 @@ html:not([data-gibbous-disabled]) .gibbous-header-inline nav[aria-label="Reposit
   height: 100%;
 }
 
-html:not([data-gibbous-disabled]) .gibbous-header-inline [data-testid="top-nav-center"],
+html:not([data-gibbous-disabled]) .gibbous-header-inline :is([data-testid="top-nav-left"], [data-testid="top-nav-center"], [data-testid="top-nav-right"]) {
+  flex: 0 0 auto !important;
+  width: auto !important;
+}
+
 html:not([data-gibbous-disabled]) .gibbous-header-inline [data-testid="top-nav-right"] {
-  flex: none;
+  margin-left: auto;
 }
 
 /* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
 
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"],
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] {
+  flex: none !important;
+  justify-self: start;
+  max-width: none !important;
+  min-width: 0 !important;
+  width: max-content !important;
+}
+
 html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > *,
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"],
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButton"] span {
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"],
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] span {
   flex: none !important;
   max-width: none !important;
   min-width: 0 !important;

@@ -443,7 +443,9 @@
     const list = navigation.querySelector("ul") ?? navigation;
     const others = [...row.children].filter(child => child !== navigation);
     const needed = others.reduce((total, child) => total + contentWidth(child), 0) + list.scrollWidth + others.length * 32;
-    header.classList.toggle("gibbous-header-inline", needed <= row.clientWidth);
+    const inline = needed <= row.clientWidth;
+    header.classList.toggle("gibbous-header-inline", inline);
+    console.debug("Gibbous header layout", {inline, needed: Math.round(needed), available: row.clientWidth, tabs: list.scrollWidth, blocks: others.map(child => Math.round(contentWidth(child)))});
   };
 
   const scheduleHeaderLayout = () => {
