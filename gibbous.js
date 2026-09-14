@@ -431,9 +431,13 @@
     header.classList.add("gibbous-header-merged");
     // Measure with the nav on its own line so GitHub's responsive nav is not collapsing anything.
     header.classList.remove("gibbous-header-inline");
+    // GitHub stretches the start and end blocks to fill the row, so measure their contents.
+    const contentWidth = element => [...(element?.children ?? [])]
+      .reduce((total, child) => total + child.getBoundingClientRect().width, 0)
+      + Math.max(0, (element?.children.length ?? 1) - 1) * 8;
     const start = globalBar.querySelector(".AppHeader-globalBar-start");
     const list = navigation.querySelector("ul") ?? navigation;
-    const needed = (start?.offsetWidth ?? 0) + (end?.offsetWidth ?? 0) + list.scrollWidth + 48;
+    const needed = contentWidth(start) + contentWidth(end) + list.scrollWidth + 64;
     header.classList.toggle("gibbous-header-inline", needed <= globalBar.clientWidth);
   };
 

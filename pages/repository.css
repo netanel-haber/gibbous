@@ -266,30 +266,36 @@ html:not([data-gibbous-disabled]) .gibbous-header-inline .AppHeader-globalBar-en
 
 /* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
 
-html:not([data-gibbous-disabled]) .AppHeader-search {
-  flex: none;
-  min-width: 0;
-  width: auto;
+html:not([data-gibbous-disabled]) :is(
+  .AppHeader-search,
+  .AppHeader-search qbsearch-input,
+  .AppHeader-search .search-input,
+  .AppHeader-search [class*="FormControl-input-wrap"],
+  .AppHeader-search .AppHeader-searchButton
+) {
+  flex: none !important;
+  min-width: 0 !important;
+  width: auto !important;
 }
 
 html:not([data-gibbous-disabled]) .AppHeader-search .AppHeader-searchButton {
-  gap: 6px;
-  min-width: 0;
-  padding: 0 8px;
-  width: auto;
-}
-
-html:not([data-gibbous-disabled]) .AppHeader-search .search-input-placeholder {
   align-items: center;
   display: inline-flex;
-  font-size: 0;
+  font-size: 0 !important;
+  gap: 6px;
+  padding: 0 8px !important;
 }
 
-html:not([data-gibbous-disabled]) .AppHeader-search .search-input-placeholder kbd {
+html:not([data-gibbous-disabled]) .AppHeader-search .AppHeader-searchButton kbd {
   font-size: 12px;
+  margin: 0;
 }
 
-html:not([data-gibbous-disabled]) .AppHeader-search > :not(qbsearch-input),
-html:not([data-gibbous-disabled]) .AppHeader-search qbsearch-input ~ * {
-  display: none;
+html:not([data-gibbous-disabled]) .AppHeader-search .AppHeader-searchButton svg {
+  flex: none;
+}
+
+html:not([data-gibbous-disabled]) .AppHeader-commandPalette-button,
+html:not([data-gibbous-disabled]) .AppHeader-search qbsearch-input ~ *:not(dialog) {
+  display: none !important;
 }
