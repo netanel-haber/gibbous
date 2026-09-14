@@ -212,17 +212,19 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
    The DOM is left exactly as GitHub renders it. The header becomes a five-column grid:
    menu and logo | breadcrumb | tabs | search | account actions. The top row is flattened with
    display: contents; the center block keeps a real box (GitHub's breadcrumb measures it) spanning
-   the middle three columns as a subgrid, so the tabs sit in the gap between breadcrumb and search. */
+   the middle three columns as a subgrid, so the tabs sit in the gap between breadcrumb and search.
+   Primer's tab bar keeps its own 48px geometry and overflow detection; it is only centered on the
+   row and kept to a single line, and the layout switches on only when everything fits. */
 
-@media (min-width: 1012px) {
+@media (min-width: 1500px) {
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) {
     align-items: center !important;
     block-size: 64px !important;
-    min-block-size: 0 !important;
     column-gap: 16px;
     display: grid !important;
     grid-template-columns: max-content max-content minmax(0, 1fr) max-content max-content;
     grid-template-rows: 100%;
+    min-block-size: 0 !important;
     padding-inline: 16px;
   }
 
@@ -264,10 +266,10 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) nav[aria-label="Breadcrumbs"] {
     grid-column: 1;
     inline-size: max-content !important;
-    min-inline-size: 320px !important;
-    overflow: visible !important;
     margin: 0 !important;
     max-inline-size: none !important;
+    min-inline-size: 240px !important;
+    overflow: visible !important;
     padding: 0 !important;
   }
 
@@ -285,81 +287,31 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
     display: none !important;
   }
 
+  /* The tab bar: Primer geometry untouched, just centered on the row and kept to one line. */
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] {
-    align-items: stretch !important;
-    align-self: stretch !important;
-    block-size: 64px !important;
+    align-self: center !important;
     border: 0 !important;
     box-shadow: none !important;
-    display: flex !important;
     grid-column: 3;
     grid-row: 1;
+    inline-size: auto !important;
     margin: 0 !important;
-    max-block-size: none !important;
     max-inline-size: none !important;
-    min-block-size: 0 !important;
     min-inline-size: 0 !important;
-    padding: 0 !important;
-  }
-
-  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"]::before,
-  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"]::after,
-  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul::before,
-  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul::after {
-    display: none !important;
+    padding-inline: 0 !important;
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul {
-    align-items: stretch !important;
-    align-self: stretch !important;
-    block-size: 64px !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    column-gap: 8px !important;
-    display: flex !important;
-    flex: 1 1 0 !important;
     flex-wrap: nowrap !important;
-    margin: 0 !important;
-    max-block-size: none !important;
-    min-block-size: 0 !important;
-    padding: 0 !important;
   }
 
-  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li[role="presentation"] {
-    display: none !important;
-  }
-
-  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li {
-    align-items: stretch !important;
-    align-self: stretch !important;
-    block-size: 64px !important;
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul [data-component="icon"] {
     display: inline-flex !important;
-    margin: 0 !important;
-    max-block-size: none !important;
-    min-block-size: 0 !important;
-    padding: 0 !important;
-  }
-
-  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li > a {
-    align-items: center !important;
-    align-self: stretch !important;
-    block-size: 64px !important;
-    line-height: 20px !important;
-    display: inline-flex !important;
-    margin: 0 !important;
-    max-block-size: none !important;
-    min-block-size: 0 !important;
-    padding-block: 0 !important;
   }
 
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li.gibbous-pull-request-shortcuts {
-    align-items: center !important;
-    transform: none !important;
-  }
-
-  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li.gibbous-pull-request-shortcuts > a {
     align-self: center !important;
-    block-size: 28px !important;
+    transform: none !important;
   }
 }
 
