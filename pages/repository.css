@@ -219,7 +219,7 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
 @media (min-width: 1500px) {
   html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) {
     align-items: center !important;
-    block-size: 64px !important;
+    block-size: 56px !important;
     column-gap: 16px;
     display: grid !important;
     grid-template-columns: max-content max-content minmax(0, 1fr) max-content max-content;
@@ -309,8 +309,11 @@ html[data-gibbous-disabled] .gibbous-readme-menu {
     display: inline-flex !important;
   }
 
+  /* Primer's tab text sits in the top 32px of the list; put the shortcut buttons on that line. */
   html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li.gibbous-pull-request-shortcuts {
-    align-self: center !important;
+    align-self: flex-start !important;
+    block-size: 28px !important;
+    margin-block-start: 2px !important;
     transform: none !important;
   }
 }
