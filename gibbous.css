@@ -516,3 +516,112 @@ html:not([data-gibbous-disabled]) .feed-content .dashboard > .Stack h2 {
 html:not([data-gibbous-disabled]) .feed-main {
   max-width: 900px;
 }
+
+/* Classic dashboard main column and account row, matching the new dashboard */
+
+html:not([data-gibbous-disabled])[data-gibbous-classic-dashboard] .feed-main > main > :not(.gibbous-classic-dashboard),
+html:not([data-gibbous-disabled])[data-gibbous-classic-dashboard] .feed-content main > :not(.gibbous-classic-dashboard) {
+  display: none !important;
+}
+
+html:not([data-gibbous-disabled]) .gibbous-classic-dashboard {
+  display: grid;
+  gap: 40px;
+  margin: 24px auto 0;
+  max-width: 884px;
+  min-height: 60vh;
+}
+
+.gibbous-dashboard-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.gibbous-dashboard-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.gibbous-dashboard-heading a {
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.gibbous-dashboard-list {
+  border: 1px solid var(--borderColor-default, var(--color-border-default));
+  border-radius: 6px;
+}
+
+.gibbous-dashboard-row {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.gibbous-dashboard-row + .gibbous-dashboard-row {
+  border-top: 1px solid var(--borderColor-default, var(--color-border-default));
+}
+
+.gibbous-dashboard-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.gibbous-dashboard-title {
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.gibbous-dashboard-meta {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.gibbous-dashboard-comments {
+  align-items: center;
+  display: inline-flex;
+  font-size: 12px;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.gibbous-dashboard-empty {
+  color: var(--fgColor-default, var(--color-fg-default));
+  padding: 24px 16px;
+}
+
+html:not([data-gibbous-disabled]) .feed-left-sidebar div:has(> .d-flex > select-panel[id^="switch_dashboard_context"]) {
+  border-bottom: 1px solid var(--borderColor-default, var(--color-border-default));
+  margin-bottom: 16px !important;
+  padding: 8px 0 20px !important;
+}
+
+html:not([data-gibbous-disabled]) .feed-left-sidebar .d-flex:has(> select-panel[id^="switch_dashboard_context"]) > img.avatar {
+  height: 40px !important;
+  width: 40px !important;
+}
+
+html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] .Button-label {
+  display: grid;
+}
+
+html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] .Button-label > span:last-child {
+  font-weight: 600;
+}
+
+html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] .Button-label::after {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+  content: "Your personal account";
+  font-size: 12px;
+  font-weight: 400;
+}
+
+html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] .Button-label > span:first-child {
+  display: none;
+}

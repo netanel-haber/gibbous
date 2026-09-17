@@ -59,6 +59,10 @@
       "octicon-x",
       "M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z",
     ],
+    issueOpened: [
+      "octicon-issue-opened",
+      "M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z",
+    ],
     listUnordered: [
       "octicon-list-unordered",
       "M5.75 2.5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5ZM2 14a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-6a1 1 0 0 1-1 1 1 1 0 1 1 1-1ZM2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z",
@@ -1793,6 +1797,121 @@
     });
   };
 
+  // Classic dashboard with Gibbous on: replace the feed column with the same "Pull requests" and
+  // "Issues" lists the new dashboard shows, so both dashboards render the one Gibbous experience.
+  const classicDashboardCache = new Map();
+  let classicDashboardLookup;
+
+  const classicDashboardMain = () => {
+    if (!["/", "/dashboard"].includes(location.pathname)) return;
+    if (document.querySelector('[data-testid="dashboard-repositories"]')) return;
+    const feed = document.querySelector(".feed-left-sidebar .js-repos-container");
+    const main = document.querySelector(".feed-main > main, .feed-content main");
+    return feed && main ? main : undefined;
+  };
+
+  const searchDashboardItems = async (viewer, kind) => {
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    const scope = kind === "pr" ? `is:pr author:${viewer}` : `is:issue involves:${viewer}`;
+    const query = encodeURIComponent(`${scope} is:open updated:>=${since}`);
+    const response = await fetch(`https://api.github.com/search/issues?q=${query}&sort=updated&per_page=10`, {
+      headers: {Accept: "application/vnd.github+json"},
+    });
+    if (!response.ok) throw new Error(`Search API ${response.status}`);
+    const {items = []} = await response.json();
+    return items.map(item => ({
+      number: item.number,
+      title: item.title,
+      url: new URL(item.html_url).pathname,
+      nwo: item.repository_url.replace(/^.*\/repos\//, ""),
+      draft: Boolean(item.draft),
+      author: item.user?.login ?? "",
+      updatedAt: item.updated_at ?? "",
+      comments: item.comments ?? 0,
+      pullRequest: Boolean(item.pull_request),
+    }));
+  };
+
+  const loadDashboardItems = async viewer => {
+    const cached = classicDashboardCache.get(viewer);
+    if (cached && Date.now() - cached.at < 5 * 60_000) return cached.items;
+    const [pulls, issues] = await Promise.all([searchDashboardItems(viewer, "pr"), searchDashboardItems(viewer, "issue")]);
+    const items = {pulls, issues};
+    classicDashboardCache.set(viewer, {at: Date.now(), items});
+    return items;
+  };
+
+  const renderDashboardRow = item => create(
+    "div",
+    {class: "gibbous-dashboard-row"},
+    create(
+      "span",
+      {class: item.pullRequest ? (item.draft ? "color-fg-muted" : "color-fg-open") : "color-fg-open", "aria-hidden": "true"},
+      createOcticon(item.pullRequest ? (item.draft ? "pullRequestDraft" : "pullRequest") : "issueOpened"),
+    ),
+    create(
+      "div",
+      {class: "gibbous-dashboard-copy"},
+      create("a", {class: "Link--primary gibbous-dashboard-title", href: item.url}, item.title),
+      create(
+        "div",
+        {class: "gibbous-dashboard-meta"},
+        `${item.nwo}#${item.number} · Opened by ${item.author} · Updated `,
+        create("relative-time", {datetime: item.updatedAt}, new Date(item.updatedAt).toLocaleDateString()),
+      ),
+    ),
+    item.comments ? create(
+      "a",
+      {class: "Link--muted gibbous-dashboard-comments", href: item.url, "aria-label": `${item.comments} comments`},
+      createOcticon("comment"),
+      create("span", {}, String(item.comments)),
+    ) : "",
+  );
+
+  const renderDashboardSection = (title, href, items, empty) => create(
+    "section",
+    {class: "gibbous-dashboard-section"},
+    create(
+      "div",
+      {class: "gibbous-dashboard-heading"},
+      create("h2", {}, title),
+      create("a", {class: "Link--primary", href}, "View all"),
+    ),
+    create(
+      "div",
+      {class: "Box gibbous-dashboard-list"},
+      ...(items.length ? items.map(renderDashboardRow) : [create("div", {class: "gibbous-dashboard-empty"}, empty)]),
+    ),
+  );
+
+  const mountClassicDashboard = () => {
+    const main = classicDashboardMain();
+    const existing = document.querySelector(".gibbous-classic-dashboard");
+    if (!main || !enabled) {
+      existing?.remove();
+      document.documentElement.removeAttribute("data-gibbous-classic-dashboard");
+      classicDashboardLookup = undefined;
+      return;
+    }
+    document.documentElement.setAttribute("data-gibbous-classic-dashboard", "");
+    const viewer = viewerLogin();
+    if (!viewer) return;
+    if (existing?.isConnected && classicDashboardLookup === viewer) return;
+    classicDashboardLookup = viewer;
+    const container = existing ?? create("div", {class: "gibbous-classic-dashboard"});
+    if (container.parentElement !== main) main.prepend(container);
+    loadDashboardItems(viewer).then(({pulls, issues}) => {
+      if (!container.isConnected || classicDashboardLookup !== viewer) return;
+      container.replaceChildren(
+        renderDashboardSection("Pull requests", `/pulls?q=${encodeURIComponent("is:open is:pr author:@me")}`, pulls, "No pull requests found, try a different filter."),
+        renderDashboardSection("Issues", `/issues?q=${encodeURIComponent("is:open is:issue involves:@me")}`, issues, "No issues found, try a different filter."),
+      );
+    }).catch(error => {
+      classicDashboardLookup = undefined;
+      reportError(error);
+    });
+  };
+
   const resolveUserFork = async (context, viewer) => {
     const lookup = `${viewer}|${context.nwo}|${context.rootNwo}`;
     if (lookup === forkLookup) return;
@@ -1893,6 +2012,7 @@
 
   function refresh() {
     mountControl();
+    mountClassicDashboard();
     mountMermaidLightboxes();
     expandTopRepositories();
     refreshRepository();
