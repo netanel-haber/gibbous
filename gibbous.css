@@ -525,11 +525,16 @@ html:not([data-gibbous-disabled])[data-gibbous-classic-dashboard] .feed-content 
 }
 
 html:not([data-gibbous-disabled]) .gibbous-classic-dashboard {
+  align-content: start;
   display: grid;
-  gap: 40px;
+  gap: 32px;
   margin: 24px auto 0;
   max-width: 884px;
   min-height: 60vh;
+}
+
+.gibbous-dashboard-row {
+  align-items: center;
 }
 
 .gibbous-dashboard-heading {
@@ -607,21 +612,21 @@ html:not([data-gibbous-disabled]) .feed-left-sidebar .d-flex:has(> select-panel[
   width: 40px !important;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] .Button-label {
+html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] button[data-test-selector="account-context"] .Button-label {
   display: grid;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] .Button-label > span:last-child {
+html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] button[data-test-selector="account-context"] .Button-label > span:last-child {
   font-weight: 600;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] .Button-label::after {
+html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] button[data-test-selector="account-context"] .Button-label::after {
   color: var(--fgColor-muted, var(--color-fg-muted));
   content: "Your personal account";
   font-size: 12px;
   font-weight: 400;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] .Button-label > span:first-child {
+html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] button[data-test-selector="account-context"] .Button-label > span:first-child {
   display: none;
 }
