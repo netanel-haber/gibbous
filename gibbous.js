@@ -1191,13 +1191,13 @@
   );
 
   const repositorySearchButton = root => root.querySelector(
-    '[data-testid="dynamic-side-panel-items-search-button"], button:has(svg.octicon-search)',
+    '[data-testid="dynamic-side-panel-items-search-button"], button:has(svg.octicon-search), a[href="/new"]',
   );
 
   const dashboardRepositorySurface = () => {
     if (!["/", "/dashboard"].includes(location.pathname)) return;
-    // Only the new dashboard experience; the classic feed sidebar is left untouched.
-    const root = document.querySelector('[data-testid="dashboard-repositories"]');
+    const root = document.querySelector('[data-testid="dashboard-repositories"]')
+      ?? document.querySelector(".feed-left-sidebar .js-repos-container");
     const list = root && [...root.querySelectorAll("ul")]
       .find(candidate => repositoryEntries(candidate).length);
     if (!list) return;
@@ -1212,7 +1212,7 @@
     const lists = new Set([...document.querySelectorAll(selector)].map(repository => repository.closest("ul")));
     const surfaces = [...lists].filter(Boolean).flatMap(list => {
       const dialog = list.closest('[role="dialog"]');
-      const dashboard = list.closest('[data-testid="dashboard-repositories"]');
+      const dashboard = list.closest('[data-testid="dashboard-repositories"], .feed-left-sidebar');
       const root = dialog ?? dashboard;
       if (!root) return [];
       return [{
@@ -1278,7 +1278,7 @@
       || originalOrder.get(left.repository.pathname) - originalOrder.get(right.repository.pathname),
     );
     const firstSort = !list.classList.contains("gibbous-top-repositories-list");
-    const scroller = list.closest('[data-component="ScrollableRegion"], [role="dialog"]');
+    const scroller = list.closest('[data-component="ScrollableRegion"], .js-left-column-scroll-container, [role="dialog"]');
     const scrollTop = scroller?.scrollTop;
     const rows = new Set(sorted.map(({row}) => row));
     scroller?.classList.add("gibbous-top-repositories-scroll");

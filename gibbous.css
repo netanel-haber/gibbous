@@ -278,6 +278,31 @@ li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository)
   max-width: calc(100% - 4.5rem);
 }
 
+/* Classic dashboard sidebar: the name link uses lh-0, which collapses an inline-block to zero
+   height, so keep it inline there and pad the flex row for the buttons instead. */
+.feed-left-sidebar li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
+  .gibbous-top-repository-link {
+  display: inline !important;
+  max-width: none !important;
+}
+
+.feed-left-sidebar li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository)) > .d-flex {
+  padding-inline-end: 2.5rem;
+}
+
+.feed-left-sidebar li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository) > .d-flex {
+  padding-inline-end: 4.5rem;
+}
+
+.feed-left-sidebar li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
+  > :is(.gibbous-repository-fork, .gibbous-hide-repository) {
+  top: calc(50% + 4px) !important;
+}
+
+.feed-left-sidebar .gibbous-hidden-repositories-control {
+  margin-inline-end: 8px;
+}
+
 .gibbous-repository-fork {
   align-items: center;
   border-radius: 6px;
