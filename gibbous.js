@@ -112,7 +112,8 @@
     for (const nwo of hiddenRepositories) {
       const href = cssString(`/${nwo}`);
       rules.push(
-        `html:not([data-gibbous-disabled]) li:has(a[data-testid="dynamic-side-panel-items-item"][href=${href} i]),`
+        // Innermost li only: the new dashboard nests the repository list inside a NavList group li.
+        `html:not([data-gibbous-disabled]) li:not(:has(li)):has(a[data-testid="dynamic-side-panel-items-item"][href=${href} i]),`
         + `html:not([data-gibbous-disabled]) .js-dashboard-repos-list > li:has(a[href=${href} i]) { display: none !important; }`,
       );
     }
