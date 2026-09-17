@@ -17,9 +17,7 @@
 html:not([data-gibbous-disabled]) :is(
   [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]),
   [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]) + [class*="__itemDivider__"],
-  .dashboard-changelog,
   [class*="CopilotChatInputPartial-module__inputContainer"],
-  .feed-left-sidebar nav:has(a[href="/feed"]),
   li[data-component="ActionList.Item"]:has(
     [data-testid="side-nav-menu-item-FEED"],
     [data-testid="side-nav-menu-item-PROJECTS"],
