@@ -609,6 +609,13 @@ html:not([data-gibbous-disabled]) .feed-left-sidebar div:has(> .d-flex > select-
   padding: 8px 0 20px !important;
 }
 
+/* The new dashboard keeps an (emptied) "Home / Feed" nav wrapper and its own <hr> under the
+   account row; the Gibbous account divider replaces both, so drop them and their spacing. */
+html:not([data-gibbous-disabled]) .feed-left-sidebar .dashboard-sidebar div:has(> nav[aria-label="Site navigation"]),
+html:not([data-gibbous-disabled]) .feed-left-sidebar .dashboard-sidebar > * > hr {
+  display: none !important;
+}
+
 html:not([data-gibbous-disabled]) .feed-left-sidebar .d-flex:has(> select-panel[id^="switch_dashboard_context"]) > img.avatar {
   height: 40px !important;
   width: 40px !important;
