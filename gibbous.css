@@ -519,8 +519,10 @@ html:not([data-gibbous-disabled]) .feed-main {
 
 /* Classic dashboard main column and account row, matching the new dashboard */
 
-html:not([data-gibbous-disabled])[data-gibbous-classic-dashboard] .feed-main > main > :not(.gibbous-classic-dashboard),
-html:not([data-gibbous-disabled])[data-gibbous-classic-dashboard] .feed-content main > :not(.gibbous-classic-dashboard) {
+/* Hide the classic feed column from the first paint; the stylesheet lands at document_start, so
+   this does not wait for the script. The classic feed layout only exists on the dashboard. */
+html:not([data-gibbous-disabled]) body:has(.feed-left-sidebar .js-repos-container):not(:has([data-testid="dashboard-repositories"]))
+  .dashboard-route main > :not(.gibbous-classic-dashboard) {
   display: none !important;
 }
 
@@ -629,4 +631,13 @@ html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_da
 
 html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_dashboard_context"] button[data-test-selector="account-context"] .Button-label > span:first-child {
   display: none;
+}
+
+.gibbous-dashboard-skeleton {
+  background: var(--bgColor-muted, var(--color-canvas-subtle));
+  border-radius: 4px;
+  height: 14px;
+  margin: 6px 0;
+  opacity: .6;
+  width: 60%;
 }

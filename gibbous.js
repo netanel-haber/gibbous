@@ -1900,6 +1900,13 @@
     classicDashboardLookup = viewer;
     const container = existing ?? create("div", {class: "gibbous-classic-dashboard"});
     if (container.parentElement !== main) main.prepend(container);
+    if (!container.childElementCount) {
+      const skeleton = () => create("div", {class: "gibbous-dashboard-row"}, create("div", {class: "gibbous-dashboard-copy"}, create("div", {class: "gibbous-dashboard-skeleton"}), create("div", {class: "gibbous-dashboard-skeleton", style: "width: 35%"})));
+      container.replaceChildren(
+        create("section", {class: "gibbous-dashboard-section"}, create("div", {class: "gibbous-dashboard-heading"}, create("h2", {}, "Pull requests")), create("div", {class: "Box gibbous-dashboard-list"}, skeleton())),
+        create("section", {class: "gibbous-dashboard-section"}, create("div", {class: "gibbous-dashboard-heading"}, create("h2", {}, "Issues")), create("div", {class: "Box gibbous-dashboard-list"}, skeleton())),
+      );
+    }
     loadDashboardItems(viewer).then(({pulls, issues}) => {
       if (!container.isConnected || classicDashboardLookup !== viewer) return;
       container.replaceChildren(
