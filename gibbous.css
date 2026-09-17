@@ -616,6 +616,14 @@ html:not([data-gibbous-disabled]) .feed-left-sidebar .dashboard-sidebar > * > hr
   display: none !important;
 }
 
+/* The React repository list brings its own inset padding, so the account block's trailing
+   padding and margin would stack on top of the Gibbous divider's spacing. */
+html:not([data-gibbous-disabled]) body:has([data-testid="dashboard-repositories"]) .feed-left-sidebar .dashboard-sidebar
+  div:has(> div > .d-flex > select-panel[id^="switch_dashboard_context"]) {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
 html:not([data-gibbous-disabled]) .feed-left-sidebar .d-flex:has(> select-panel[id^="switch_dashboard_context"]) > img.avatar {
   height: 40px !important;
   width: 40px !important;
