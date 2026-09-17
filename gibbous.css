@@ -19,7 +19,7 @@ html:not([data-gibbous-disabled]) :is(
   .feed-right-sidebar,
   .copilotPreview__container,
   .dashboard-changelog,
-  .feed-left-sidebar .js-repos-container .hide-sm.hide-md a[href="/new"],
+  .js-repos-container .hide-sm.hide-md a[href="/new"],
   [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]),
   [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]) + [class*="__itemDivider__"],
   [class*="CopilotChatInputPartial-module__inputContainer"],
@@ -285,26 +285,21 @@ li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository)
 
 /* Classic dashboard sidebar: the name link uses lh-0, which collapses an inline-block to zero
    height, so keep it inline there and pad the flex row for the buttons instead. */
-.feed-left-sidebar li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
+.js-dashboard-repos-list > li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
   .gibbous-top-repository-link {
   display: inline !important;
   max-width: none !important;
 }
 
-.feed-left-sidebar li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository)) > .d-flex {
+.js-dashboard-repos-list > li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository)) > .d-flex {
   padding-inline-end: 2.5rem;
 }
 
-.feed-left-sidebar li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository) > .d-flex {
+.js-dashboard-repos-list > li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository) > .d-flex {
   padding-inline-end: 4.5rem;
 }
 
-.feed-left-sidebar li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
-  > :is(.gibbous-repository-fork, .gibbous-hide-repository) {
-  top: calc(50% + 4px) !important;
-}
-
-.feed-left-sidebar .gibbous-hidden-repositories-control {
+.js-repos-container .gibbous-hidden-repositories-control {
   margin-inline-end: 8px;
 }
 
@@ -471,7 +466,7 @@ html:not([data-gibbous-disabled])
 
 /* Classic dashboard, Gibbous on: shape it like the Gibbous new-experience dashboard. */
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar .js-dashboard-repos-list > li > .d-flex {
+html:not([data-gibbous-disabled]) .js-dashboard-repos-list > li > .d-flex {
   align-items: center;
   border-radius: 6px;
   margin-top: 0 !important;
@@ -480,17 +475,17 @@ html:not([data-gibbous-disabled]) .feed-left-sidebar .js-dashboard-repos-list > 
   padding-inline-start: 8px;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar .js-dashboard-repos-list > li > .d-flex:hover {
+html:not([data-gibbous-disabled]) .js-dashboard-repos-list > li > .d-flex:hover {
   background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg));
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar .js-dashboard-repos-list .markdown-title {
+html:not([data-gibbous-disabled]) .js-dashboard-repos-list .markdown-title {
   display: inline !important;
   line-height: 20px !important;
   margin-bottom: 0 !important;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar .js-dashboard-repos-list .wb-break-word {
+html:not([data-gibbous-disabled]) .js-dashboard-repos-list .wb-break-word {
   line-height: 20px;
   min-width: 0;
   overflow: hidden;
@@ -498,19 +493,20 @@ html:not([data-gibbous-disabled]) .feed-left-sidebar .js-dashboard-repos-list .w
   white-space: nowrap;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar .js-your-repositories-search {
+html:not([data-gibbous-disabled]) .js-repos-container .js-your-repositories-search {
   margin-bottom: 8px !important;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar .js-more-repos-form button {
+html:not([data-gibbous-disabled]) .js-repos-container .js-more-repos-form button {
   border-top: 0 !important;
   margin-top: 8px !important;
   padding-inline-start: 8px !important;
 }
 
-html:not([data-gibbous-disabled]) .feed-left-sidebar li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
-  > :is(.gibbous-repository-fork, .gibbous-hide-repository) {
-  top: 50% !important;
+html:not([data-gibbous-disabled]) .js-repos-container h2#dashboard-top-repositories-heading {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+  font-size: 12px;
+  font-weight: 600;
 }
 
 html:not([data-gibbous-disabled]) .feed-content .dashboard > .Stack h2 {
