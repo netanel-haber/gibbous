@@ -1,11 +1,35 @@
 (() => {
   if (matchMedia("(max-width: 767px)").matches) return;
 
-  let enabled = true;
+  // First paint must already be right. chrome.storage is async, so the settings that decide what
+  // the page looks like are mirrored into localStorage (synchronous, same origin) and read here,
+  // before GitHub's <body> exists. chrome.storage.local stays the source of truth; the mirror is
+  // rewritten whenever it changes.
+  const MIRROR_KEY = "gibbous";
+  const readMirror = () => {
+    try {
+      const value = JSON.parse(localStorage.getItem(MIRROR_KEY) ?? "{}");
+      return value && typeof value === "object" ? value : {};
+    } catch {
+      return {};
+    }
+  };
+  const writeMirror = patch => {
+    try {
+      localStorage.setItem(MIRROR_KEY, JSON.stringify({...readMirror(), ...patch}));
+    } catch {
+      // Storage may be full or blocked; the async path still applies everything, just later.
+    }
+  };
+  const mirror = readMirror();
+  let enabled = mirror.enabled !== false;
+  document.documentElement.toggleAttribute("data-gibbous-disabled", !enabled);
+  let ready = false;
   let contextInvalidated = false;
   let repositoryKey;
   let hiddenNames = [];
-  let hiddenRepositories = [];
+  let hiddenRepositories = Array.isArray(mirror.hiddenRepositories) ? mirror.hiddenRepositories : [];
+  let mirroredHiddenNames = mirror.hiddenNames && typeof mirror.hiddenNames === "object" ? mirror.hiddenNames : {};
   let loadedHiddenNamesKey;
   let forkLookup;
   let userFork;
@@ -39,6 +63,70 @@
   const hiddenRepositoryControls = new WeakMap();
   let resolvingRepositoryForks = false;
   let hiddenItemsControlId = 0;
+
+  // Everything fetched from GitHub is persisted so a revisit paints the last known result in the
+  // same frame the DOM appears, then revalidates quietly. Buckets: myPulls, dashboard, forks,
+  // userForks. Entries are {value, at}.
+  const CACHE_ENTRY_LIMIT = 80;
+  const MINUTE = 60_000;
+  let cache = {};
+  let cacheWriteTimer;
+  const revalidating = new Set();
+  const cacheEntry = (bucket, key) => cache[bucket]?.[key];
+  const cacheFresh = (entry, maxAge) => Boolean(entry) && Date.now() - entry.at < maxAge;
+  const cacheSet = (bucket, key, value) => {
+    const entries = (cache[bucket] ??= {});
+    entries[key] = {value, at: Date.now()};
+    const keys = Object.keys(entries);
+    if (keys.length > CACHE_ENTRY_LIMIT) {
+      keys.sort((left, right) => entries[left].at - entries[right].at)
+        .slice(0, keys.length - CACHE_ENTRY_LIMIT)
+        .forEach(stale => delete entries[stale]);
+    }
+    clearTimeout(cacheWriteTimer);
+    cacheWriteTimer = setTimeout(() => void storageSet({cache}).catch(reportError), 200);
+  };
+  // Returns the cached value right away (possibly stale) and, when it is stale, fetches a fresh one
+  // once and hands it to onFresh. Errors keep the stale value on screen.
+  const cached = (bucket, key, maxAge, fetcher, onFresh) => {
+    const entry = cacheEntry(bucket, key);
+    const token = `${bucket}\n${key}`;
+    if (!cacheFresh(entry, maxAge) && !revalidating.has(token)) {
+      revalidating.add(token);
+      fetcher().then(value => {
+        cacheSet(bucket, key, value);
+        if (JSON.stringify(value) !== JSON.stringify(entry?.value)) onFresh(value);
+      }).catch(reportError).finally(() => revalidating.delete(token));
+    }
+    return entry?.value;
+  };
+
+  // Rules for what the user has hidden are generated from the mirror and inserted before any
+  // paint, so hidden files and repositories never appear even for a frame. The JS below still
+  // toggles the same classes; this stylesheet just gets there first.
+  const cssString = value => JSON.stringify(String(value));
+  const firstPaintStyle = document.createElement("style");
+  firstPaintStyle.id = "gibbous-first-paint";
+  const renderFirstPaintStyle = () => {
+    const rules = [];
+    for (const nwo of hiddenRepositories) {
+      const href = cssString(`/${nwo}`);
+      rules.push(
+        `html:not([data-gibbous-disabled]) li:has(a[data-testid="dynamic-side-panel-items-item"][href=${href} i]),`
+        + `html:not([data-gibbous-disabled]) .js-dashboard-repos-list > li:has(a[href=${href} i]) { display: none !important; }`,
+      );
+    }
+    for (const [rootNwo, names] of Object.entries(mirroredHiddenNames)) {
+      if (!Array.isArray(names) || !names.length) continue;
+      const scope = `html:not([data-gibbous-disabled]):has(meta[name="octolytics-dimension-repository_network_root_nwo"][content=${cssString(rootNwo)} i])`;
+      const rows = names.map(name => `tr.react-directory-row:has(a.Link--primary[title=${cssString(name)}])`).join(",");
+      rules.push(`${scope} table[aria-labelledby="folders-and-files"] :is(${rows}) { display: none !important; }`);
+    }
+    const text = rules.join("\n");
+    if (firstPaintStyle.textContent !== text) firstPaintStyle.textContent = text;
+    if (!firstPaintStyle.isConnected) (document.head ?? document.documentElement).append(firstPaintStyle);
+  };
+  renderFirstPaintStyle();
 
   const create = (tag, attributes = {}, ...children) => {
     const node = document.createElement(tag);
@@ -306,6 +394,13 @@
     const next = normalizeNames(names);
     if (sameNames(next, hiddenNames)) return;
     hiddenNames = next;
+    if (repositoryKey) {
+      const entries = Object.entries(mirroredHiddenNames).filter(([key]) => key !== repositoryKey).slice(-40);
+      if (next.length) entries.push([repositoryKey, next]);
+      mirroredHiddenNames = Object.fromEntries(entries);
+      writeMirror({hiddenNames: mirroredHiddenNames});
+      renderFirstPaintStyle();
+    }
     hiddenFilesControl?.render();
     if (enabled) refreshRows();
   };
@@ -314,6 +409,8 @@
     const next = [...new Set(normalizeNames(names).map(name => name.replace(/^\/+|\/+$/g, "").toLowerCase()))];
     if (sameNames(next, hiddenRepositories)) return;
     hiddenRepositories = next;
+    writeMirror({hiddenRepositories: next});
+    renderFirstPaintStyle();
     for (const surface of topRepositorySurfaces()) repositoryExpansionAttempts.delete(surface.root);
     mountTopRepositories();
     expandTopRepositories();
@@ -1322,7 +1419,8 @@
             const fork = candidate?.isFork && candidate.rootNwo.toLowerCase() === rootNwo.toLowerCase()
               ? `/${candidate.nwo}`
               : null;
-            if (!knownRepositoryForks.has(key)) knownRepositoryForks.set(key, fork);
+            knownRepositoryForks.set(key, fork);
+            cacheSet("forks", key, fork);
           } catch {
             if (!knownRepositoryForks.has(key)) knownRepositoryForks.set(key, null);
           }
@@ -1341,7 +1439,9 @@
       if (!match || match[1].toLowerCase() === viewer) continue;
       const rootNwo = `${match[1]}/${match[2]}`;
       const key = rootNwo.toLowerCase();
-      if (knownRepositoryForks.has(key) || queuedRepositoryForks.has(key)) continue;
+      if (queuedRepositoryForks.has(key)) continue;
+      const entry = cacheEntry("forks", key);
+      if (knownRepositoryForks.has(key) && (!entry || cacheFresh(entry, entry.value ? 24 * 60 * MINUTE : 10 * MINUTE))) continue;
       queuedRepositoryForks.add(key);
       repositoryForkQueue.push({key, rootNwo, candidateNwo: `${viewer}/${match[2]}`});
     }
@@ -1499,7 +1599,6 @@
 
   // "My pull requests" tab on the repository overview. Active only when the viewer has open pull
   // requests here; then the secondary file tabs collapse into a menu and the PR list opens first.
-  const myPullRequestCache = new Map();
   let myPullRequestsLookup;
 
   const readmeNavigation = () => document.querySelector('nav[aria-label="Repository files"]');
@@ -1604,19 +1703,13 @@
     return items.length ? items : parseEmbeddedPullRequests(root);
   };
 
-  const loadMyPullRequests = async (context, viewer) => {
-    const key = `${viewer}|${context.nwo}`;
-    const cached = myPullRequestCache.get(key);
-    if (cached && Date.now() - cached.at < 5 * 60_000) return cached.items;
-    let result;
+  const fetchMyPullRequests = async (context, viewer) => {
     try {
-      result = await searchMyPullRequests(context, viewer);
+      return await searchMyPullRequests(context, viewer);
     } catch (error) {
       reportError(error);
-      result = await scrapeMyPullRequests(context, viewer);
+      return scrapeMyPullRequests(context, viewer);
     }
-    myPullRequestCache.set(key, {at: Date.now(), items: result});
-    return result;
   };
 
   const renderMyPullRequestRow = item => create(
@@ -1672,7 +1765,8 @@
     const box = header?.parentElement;
     if (!list || !readmeItem || !box) return;
     const existing = box.querySelector(".gibbous-my-pulls");
-    if (existing?.dataset.nwo === context.nwo && existing.dataset.count === String(items.length)) return;
+    const signature = JSON.stringify(items);
+    if (existing?.dataset.nwo === context.nwo && existing.dataset.signature === signature) return;
     existing?.remove();
     box.querySelector(".gibbous-pulls-tab")?.remove();
     box.querySelector(".gibbous-readme-menu")?.remove();
@@ -1761,7 +1855,7 @@
 
     const panel = create(
       "div",
-      {class: "Box gibbous-my-pulls", "data-nwo": context.nwo, "data-count": String(items.length)},
+      {class: "Box gibbous-my-pulls", "data-nwo": context.nwo, "data-count": String(items.length), "data-signature": signature},
       ...items.map(renderMyPullRequestRow),
       create(
         "div",
@@ -1786,20 +1880,15 @@
       return;
     }
     const lookup = `${viewer}|${context.nwo}`;
-    if (box.dataset.gibbousPullsChecked === lookup) return;
-    box.dataset.gibbousPullsChecked = lookup;
     myPullRequestsLookup = lookup;
-    loadMyPullRequests(context, viewer).then(items => {
-      if (myPullRequestsLookup === lookup && box.isConnected) mountMyPullRequestsTab(context, items);
-    }).catch(error => {
-      delete box.dataset.gibbousPullsChecked;
-      reportError(error);
+    const items = cached("myPulls", lookup, 5 * MINUTE, () => fetchMyPullRequests(context, viewer), fresh => {
+      if (myPullRequestsLookup === lookup && box.isConnected) mountMyPullRequestsTab(context, fresh);
     });
+    if (items) mountMyPullRequestsTab(context, items);
   };
 
   // Classic dashboard with Gibbous on: replace the feed column with the same "Pull requests" and
   // "Issues" lists the new dashboard shows, so both dashboards render the one Gibbous experience.
-  const classicDashboardCache = new Map();
   let classicDashboardLookup;
 
   const classicDashboardMain = () => {
@@ -1832,13 +1921,9 @@
     }));
   };
 
-  const loadDashboardItems = async viewer => {
-    const cached = classicDashboardCache.get(viewer);
-    if (cached && Date.now() - cached.at < 5 * 60_000) return cached.items;
+  const fetchDashboardItems = async viewer => {
     const [pulls, issues] = await Promise.all([searchDashboardItems(viewer, "pr"), searchDashboardItems(viewer, "issue")]);
-    const items = {pulls, issues};
-    classicDashboardCache.set(viewer, {at: Date.now(), items});
-    return items;
+    return {pulls, issues};
   };
 
   const renderDashboardRow = item => create(
@@ -1900,23 +1985,21 @@
     classicDashboardLookup = viewer;
     const container = existing ?? create("div", {class: "gibbous-classic-dashboard"});
     if (container.parentElement !== main) main.prepend(container);
-    if (!container.childElementCount) {
+    const render = ({pulls, issues}) => container.replaceChildren(
+      renderDashboardSection("Pull requests", `/pulls?q=${encodeURIComponent("is:open is:pr author:@me")}`, pulls, "No pull requests found, try a different filter."),
+      renderDashboardSection("Issues", `/issues?q=${encodeURIComponent("is:open is:issue involves:@me")}`, issues, "No issues found, try a different filter."),
+    );
+    const items = cached("dashboard", viewer, 5 * MINUTE, () => fetchDashboardItems(viewer), fresh => {
+      if (container.isConnected && classicDashboardLookup === viewer) render(fresh);
+    });
+    if (items) render(items);
+    else if (!container.childElementCount) {
       const skeleton = () => create("div", {class: "gibbous-dashboard-row"}, create("div", {class: "gibbous-dashboard-copy"}, create("div", {class: "gibbous-dashboard-skeleton"}), create("div", {class: "gibbous-dashboard-skeleton", style: "width: 35%"})));
       container.replaceChildren(
         create("section", {class: "gibbous-dashboard-section"}, create("div", {class: "gibbous-dashboard-heading"}, create("h2", {}, "Pull requests")), create("div", {class: "Box gibbous-dashboard-list"}, skeleton())),
         create("section", {class: "gibbous-dashboard-section"}, create("div", {class: "gibbous-dashboard-heading"}, create("h2", {}, "Issues")), create("div", {class: "Box gibbous-dashboard-list"}, skeleton())),
       );
     }
-    loadDashboardItems(viewer).then(({pulls, issues}) => {
-      if (!container.isConnected || classicDashboardLookup !== viewer) return;
-      container.replaceChildren(
-        renderDashboardSection("Pull requests", `/pulls?q=${encodeURIComponent("is:open is:pr author:@me")}`, pulls, "No pull requests found, try a different filter."),
-        renderDashboardSection("Issues", `/issues?q=${encodeURIComponent("is:open is:issue involves:@me")}`, issues, "No issues found, try a different filter."),
-      );
-    }).catch(error => {
-      classicDashboardLookup = undefined;
-      reportError(error);
-    });
   };
 
   const resolveUserFork = async (context, viewer) => {
@@ -1928,18 +2011,24 @@
     if (!viewer || context.isFork) return;
     const candidateNwo = `${viewer}/${context.rootNwo.split("/").at(-1)}`;
     if (candidateNwo.toLowerCase() === context.nwo.toLowerCase()) return;
-    try {
+    const entry = cacheEntry("userForks", lookup);
+    const known = cached("userForks", lookup, entry?.value ? 24 * 60 * MINUTE : 10 * MINUTE, async () => {
       const response = await fetch(`/${candidateNwo}`, {credentials: "include"});
-      if (!response.ok) return;
+      if (!response.ok) return null;
       const candidate = readRepositoryContext(
         new DOMParser().parseFromString(await response.text(), "text/html"),
       );
-      if (forkLookup === lookup && candidate?.isFork && candidate.rootNwo.toLowerCase() === context.rootNwo.toLowerCase()) {
-        userFork = candidate.nwo;
-        updateFork();
-      }
-    } catch {
-      if (forkLookup === lookup) updateFork();
+      return candidate?.isFork && candidate.rootNwo.toLowerCase() === context.rootNwo.toLowerCase()
+        ? candidate.nwo
+        : null;
+    }, fresh => {
+      if (forkLookup !== lookup) return;
+      userFork = fresh ?? undefined;
+      updateFork();
+    });
+    if (known) {
+      userFork = known;
+      updateFork();
     }
   };
 
@@ -1991,6 +2080,7 @@
     if (!value) closeHiddenMenus();
     if (!value && mermaidDialog?.open) mermaidDialog.close();
     enabled = value;
+    writeMirror({enabled: value});
     document.documentElement.toggleAttribute("data-gibbous-disabled", !value);
     updateControl();
     refresh();
@@ -2018,6 +2108,7 @@
   };
 
   function refresh() {
+    if (!ready) return;
     mountControl();
     mountClassicDashboard();
     mountMermaidLightboxes();
@@ -2030,6 +2121,7 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (changes.enabled) applyEnabled(changes.enabled.newValue ?? true);
+    if (changes.cache && changes.cache.newValue && typeof changes.cache.newValue === "object") cache = changes.cache.newValue;
     if (changes.quoteChoices) {
       quoteChoices = changes.quoteChoices.newValue ?? {};
       document.querySelectorAll(".gibbous-quote-rail-replies").forEach(node => node.remove());
@@ -2041,8 +2133,14 @@
   });
 
   void (async () => {
-    const stored = await storageGet({enabled: true, hiddenRepositories: []});
+    const stored = await storageGet({enabled: true, hiddenRepositories: [], cache: {}});
     if (!stored) return;
+    cache = stored.cache && typeof stored.cache === "object" ? stored.cache : {};
+    for (const [key, entry] of Object.entries(cache.forks ?? {})) {
+      if (entry && typeof entry === "object" && "value" in entry) knownRepositoryForks.set(key, entry.value);
+    }
+    writeMirror({enabled: stored.enabled, hiddenRepositories: stored.hiddenRepositories});
+    ready = true;
     setHiddenRepositories(stored.hiddenRepositories);
     applyEnabled(stored.enabled);
   })().catch(reportError);
@@ -2058,7 +2156,7 @@
   };
 
   new MutationObserver(records => {
-    if (enabled && records.some(record => record.target instanceof Element && record.target.closest('[role="dialog"]'))) {
+    if (ready && enabled && records.some(record => record.target instanceof Element && record.target.closest('[role="dialog"]'))) {
       mountTopRepositories();
     }
     scheduleRefresh();
