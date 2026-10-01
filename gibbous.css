@@ -40,17 +40,14 @@ html:not([data-gibbous-disabled]) :is(
   display: none !important;
 }
 
-html:not([data-gibbous-disabled])
-  [role="dialog"]:has([data-testid="side-nav-menu-item-HOME"])
-  > [data-component="Stack"] {
-  padding-bottom: 0 !important;
-}
+html:not([data-gibbous-disabled]) [role="dialog"]:has([data-testid="side-nav-menu-item-HOME"]) {
+  & > [data-component="Stack"] {
+    padding-bottom: 0 !important;
+  }
 
-html:not([data-gibbous-disabled])
-  [role="dialog"]:has([data-testid="side-nav-menu-item-HOME"])
-  > [data-component="ScrollableRegion"]
-  > .p-2 {
-  padding-top: 0 !important;
+  & > [data-component="ScrollableRegion"] > .p-2 {
+    padding-top: 0 !important;
+  }
 }
 
 :is(
@@ -60,15 +57,14 @@ html:not([data-gibbous-disabled])
   .gibbous-forked-in a
 ) {
   box-shadow: inset 0 0 0 1px var(--gibbous-accent);
+
+  &:is(:hover, :focus, .gibbous-pull-request-shortcut-active) {
+    background: var(--gibbous-accent-hover) !important;
+  }
 }
 
-:is(
-  .gibbous-header-button,
-  .gibbous-list-button,
-  .gibbous-pull-request-shortcut,
-  .gibbous-forked-in a
-):is(:hover, :focus),
-.gibbous-pull-request-shortcut-active {
+.gibbous-quote-button:is(:hover, :focus-visible),
+.gibbous-quote-option[aria-current="true"] {
   background: var(--gibbous-accent-hover) !important;
 }
 
@@ -91,10 +87,6 @@ html[data-gibbous-mermaid-open] {
   inset: 8px 8px auto auto !important;
   position: absolute !important;
   z-index: 2;
-}
-
-html[data-gibbous-disabled] .gibbous-mermaid-open {
-  display: none;
 }
 
 .gibbous-mermaid-dialog {
@@ -151,36 +143,25 @@ html[data-gibbous-disabled] .gibbous-mermaid-open {
   box-shadow: none !important;
   height: 28px;
   width: 28px;
+
+  &:is(:hover, :focus-visible) {
+    background: var(--gibbous-action-hover) !important;
+    color: color-mix(
+      in srgb,
+      rgb(246 214 112) 30%,
+      var(--fgColor-default, var(--color-fg-default))
+    ) !important;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg));
+    outline-offset: -2px;
+  }
 }
 
 .gibbous-hidden-files-control .gibbous-eyes-toggle {
   height: var(--control-medium-size, 32px);
   width: var(--control-medium-size, 32px);
-}
-
-:is(
-  .gibbous-hidden-repositories-control .gibbous-eyes-toggle,
-  .gibbous-hide-button,
-  .gibbous-repository-fork
-):is(
-  :hover,
-  :focus-visible
-) {
-  background: var(--gibbous-action-hover) !important;
-  color: color-mix(
-    in srgb,
-    rgb(246 214 112) 30%,
-    var(--fgColor-default, var(--color-fg-default))
-  ) !important;
-}
-
-:is(
-  .gibbous-hidden-repositories-control .gibbous-eyes-toggle,
-  .gibbous-hide-button,
-  .gibbous-repository-fork
-):focus-visible {
-  outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg));
-  outline-offset: -2px;
 }
 
 .gibbous-hidden-items-control {
@@ -207,8 +188,7 @@ html:not([data-gibbous-disabled]) .gibbous-top-repositories-scroll {
   order: var(--gibbous-repository-order, 0);
 }
 
-.gibbous-eyes-toggle[hidden],
-html[data-gibbous-disabled] .gibbous-hide-button {
+html[data-gibbous-disabled] :is(.gibbous-hide-button, .gibbous-mermaid-open) {
   display: none !important;
 }
 
@@ -258,49 +238,44 @@ html[data-gibbous-disabled] .gibbous-hide-button {
   white-space: nowrap;
 }
 
+/* Rows with fork and hide buttons keep --gibbous-row-actions free at the end for them. */
 li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository)) {
+  --gibbous-row-actions: 2.5rem;
   position: relative !important;
+
+  & > [data-testid="dynamic-side-panel-items-item"],
+  .js-dashboard-repos-list > & > .d-flex {
+    padding-inline-end: var(--gibbous-row-actions);
+  }
+
+  & .gibbous-top-repository-link:not([data-testid="dynamic-side-panel-items-item"]) {
+    display: inline-block;
+    max-width: calc(100% - var(--gibbous-row-actions));
+  }
+
+  /* Classic dashboard sidebar: the name link uses lh-0, which collapses an inline-block to zero
+     height, so keep it inline there and pad the flex row for the buttons instead. */
+  .js-dashboard-repos-list > & .gibbous-top-repository-link {
+    display: inline !important;
+    max-width: none !important;
+  }
 }
 
-li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
-  > [data-testid="dynamic-side-panel-items-item"] {
-  padding-inline-end: 2.5rem;
-}
-
-li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository)
-  > [data-testid="dynamic-side-panel-items-item"] {
-  padding-inline-end: 4.5rem;
-}
-
-li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
-  .gibbous-top-repository-link:not([data-testid="dynamic-side-panel-items-item"]) {
-  display: inline-block;
-  max-width: calc(100% - 2.5rem);
-}
-
-li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository)
-  .gibbous-top-repository-link:not([data-testid="dynamic-side-panel-items-item"]) {
-  max-width: calc(100% - 4.5rem);
-}
-
-/* Classic dashboard sidebar: the name link uses lh-0, which collapses an inline-block to zero
-   height, so keep it inline there and pad the flex row for the buttons instead. */
-.js-dashboard-repos-list > li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository))
-  .gibbous-top-repository-link {
-  display: inline !important;
-  max-width: none !important;
-}
-
-.js-dashboard-repos-list > li:has(> :is(.gibbous-repository-fork, .gibbous-hide-repository)) > .d-flex {
-  padding-inline-end: 2.5rem;
-}
-
-.js-dashboard-repos-list > li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository) > .d-flex {
-  padding-inline-end: 4.5rem;
+li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository) {
+  --gibbous-row-actions: 4.5rem;
 }
 
 .js-repos-container .gibbous-hidden-repositories-control {
   margin-inline-end: 8px;
+}
+
+.gibbous-repository-fork,
+.gibbous-hide-repository {
+  inset-inline-end: 4px !important;
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%);
+  z-index: 2;
 }
 
 .gibbous-repository-fork {
@@ -308,23 +283,13 @@ li:has(> .gibbous-repository-fork):has(> .gibbous-hide-repository)
   border-radius: 6px;
   box-sizing: border-box;
   display: inline-flex !important;
-  inset-inline-end: 4px !important;
   justify-content: center;
-  position: absolute !important;
   text-decoration: none !important;
-  top: 50% !important;
-  transform: translateY(-50%);
-  z-index: 2;
 }
 
 .gibbous-hide-repository {
-  inset-inline-end: 4px !important;
   opacity: 0;
   pointer-events: none;
-  position: absolute !important;
-  top: 50% !important;
-  transform: translateY(-50%);
-  z-index: 2;
 }
 
 li:has(> .gibbous-repository-fork) > .gibbous-hide-repository {
@@ -387,10 +352,6 @@ html:not([data-gibbous-disabled])
 
 .gibbous-quote-button.Button--iconOnly {
   padding-inline: 0 !important;
-}
-
-.gibbous-quote-button:is(:hover, :focus-visible) {
-  background: var(--gibbous-accent-hover) !important;
 }
 
 .gibbous-quote-missing {
@@ -458,10 +419,6 @@ html:not([data-gibbous-disabled])
   overflow-y: auto;
   position-area: block-end span-inline-end;
   width: max-content;
-}
-
-.gibbous-quote-option[aria-current="true"] {
-  background: var(--gibbous-accent-hover) !important;
 }
 
 /* Classic dashboard, Gibbous on: shape it like the Gibbous new-experience dashboard. */
@@ -535,10 +492,6 @@ html:not([data-gibbous-disabled]) .gibbous-classic-dashboard {
   min-height: 60vh;
 }
 
-.gibbous-dashboard-row {
-  align-items: center;
-}
-
 .gibbous-dashboard-heading {
   align-items: center;
   display: flex;
@@ -555,11 +508,6 @@ html:not([data-gibbous-disabled]) .gibbous-classic-dashboard {
 .gibbous-dashboard-heading a {
   font-size: 14px;
   text-decoration: none;
-}
-
-.gibbous-dashboard-list {
-  border: 1px solid var(--borderColor-default, var(--color-border-default));
-  border-radius: 6px;
 }
 
 .gibbous-dashboard-row {
@@ -655,4 +603,544 @@ html:not([data-gibbous-disabled]) .feed-left-sidebar select-panel[id^="switch_da
   margin: 6px 0;
   opacity: .6;
   width: 60%;
+}
+
+/* Repository pages */
+
+html:not([data-gibbous-disabled]):has(meta[name="octolytics-dimension-repository_nwo"]) nav:is(
+  [aria-label="Repository"],
+  [aria-label="Repository navigation"]
+) li:has(> a:is(
+  [href$="/agents"],
+  [href$="/discussions"],
+  [href$="/projects"],
+  [href$="/wiki"],
+  [href$="/security"],
+  [href$="/pulse"]
+)),
+html:not([data-gibbous-disabled]) :is(
+  .gibbous-hidden-repository-tab,
+  .gibbous-suggested-workflows,
+  .gibbous-file-excluded
+) {
+  display: none !important;
+}
+
+/* Owners, people with push access, and people with a fork already know the repository: drop the
+   topics, the resource and social links, the sidebar sections other than releases, contributors
+   and languages, and the Watch and Fork buttons. The gate is data-gibbous-repository-insider. */
+
+html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) :is(
+  [data-gibbous-section="other"],
+  [data-gibbous-section="about"] > :not(h2, [class*="SidebarAbout-module__description"], [class*="SidebarAbout-module__websiteRow"]),
+  [data-gibbous-section="about"]:not(:has(> [class*="SidebarAbout-module__description"], > [class*="SidebarAbout-module__websiteRow"])),
+  [data-testid="repo-header-actions"] > li:has([data-testid="notifications-subscriptions-menu-button"], [data-testid="fork-button"]),
+  [data-testid="responsive-social-buttons"] > :is([data-testid="notifications-subscriptions-menu-button"], :has([data-testid="fork-button"])),
+  .pagehead-actions > li:has(#repository-details-watch-button, notifications-list-subscription-form, #fork-button),
+  [class*="CodeViewSidebar-module__borderGrid"] [class*="SidebarSection-module__moreLink"]
+) {
+  display: none !important;
+}
+
+/* The Tags panel replaces the overview's "N Tags" button. */
+html:not([data-gibbous-disabled]):has(.gibbous-sidebar-tags) a[class*="OverviewContent-module__Button"][href$="/tags"] {
+  display: none !important;
+}
+
+/* Releases and Tags side by side; every other section spans both columns. */
+html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) [class*="CodeViewSidebar-module__borderGrid"]:has(> .gibbous-sidebar-tags) {
+  grid-template-columns: 1fr 1fr;
+
+  & > :not([data-gibbous-section="releases"], .gibbous-sidebar-tags) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* No column gap, so the two top borders run as one line; the space goes inside Tags instead. */
+.gibbous-sidebar-tags {
+  padding-inline-start: 16px !important;
+}
+
+.gibbous-sidebar-tag {
+  color: var(--fgColor-default, var(--color-fg-default)) !important;
+  display: flex;
+  gap: 8px;
+  text-decoration: none !important;
+}
+
+.gibbous-sidebar-tag > .octicon {
+  color: var(--fgColor-success, var(--color-success-fg));
+  flex: none;
+  margin-top: 4px;
+}
+
+.gibbous-sidebar-tag > span {
+  min-width: 0;
+}
+
+.gibbous-sidebar-tag strong {
+  display: block;
+  font-weight: var(--base-text-weight-semibold, 600);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gibbous-sidebar-tag relative-time {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+  display: block;
+  font-size: var(--text-body-size-small, 12px);
+}
+
+.gibbous-pull-request-shortcuts {
+  align-self: center;
+  display: inline-flex;
+  gap: 2px;
+  margin-left: -8px;
+  transform: translateY(-3px);
+}
+
+.gibbous-pull-request-shortcut:not(.gibbous-pull-request-shortcut-active) {
+  opacity: 0.75;
+}
+
+/* The hide button sits in the gutter left of the file table, away from the name. The button is a
+   transparent strip as tall as its row reaching to the table, so the strips stack into one column:
+   the pointer never drops out of a row on the way to a button, or moving along the column. The
+   visible button is its ::before. The table stops clipping so the gutter shows; the last row's
+   corner cells keep its hover inside the radius. */
+html:not([data-gibbous-disabled]) table[aria-labelledby="folders-and-files"]:has(.gibbous-hide-file) {
+  overflow: visible !important;
+}
+
+.react-directory-row-name-cell-large-screen:has(> .gibbous-hide-file) {
+  position: relative;
+}
+
+tr.react-directory-row:nth-last-child(1 of .react-directory-row) > .react-directory-row-name-cell-large-screen:has(> .gibbous-hide-file) {
+  border-bottom-left-radius: var(--borderRadius-medium, 6px);
+}
+
+tr.react-directory-row:nth-last-child(1 of .react-directory-row):has(.gibbous-hide-file) > td:last-child {
+  border-bottom-right-radius: var(--borderRadius-medium, 6px);
+}
+
+.gibbous-hide-button.gibbous-hide-file {
+  align-items: center;
+  display: flex !important;
+  height: auto !important;
+  inset-block: calc(-1 * var(--borderWidth-thin, 1px)) 0;
+  inset-inline-end: 100%;
+  justify-content: flex-start;
+  opacity: 0;
+  outline: none !important;
+  padding: 0 0 0 6px !important;
+  position: absolute !important;
+  width: 36px !important;
+}
+
+.gibbous-hide-file::before {
+  border: var(--borderWidth-thin, 1px) solid var(--borderColor-default, var(--color-border-default));
+  border-radius: var(--borderRadius-medium, 6px);
+  box-sizing: border-box;
+  content: "";
+  height: 28px;
+  inset-inline-start: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+}
+
+.gibbous-hide-file > svg {
+  position: relative;
+}
+
+.gibbous-hide-button.gibbous-hide-file:is(:hover, :focus-visible) {
+  background: none !important;
+}
+
+.gibbous-hide-file:is(:hover, :focus-visible)::before {
+  background: var(--gibbous-action-hover);
+}
+
+.gibbous-hide-file:focus-visible::before {
+  outline: 2px solid var(--focus-outlineColor, var(--color-accent-fg));
+  outline-offset: -2px;
+}
+
+html:not([data-gibbous-disabled]) .react-directory-row:is(:hover, :focus-within) .gibbous-hide-file {
+  opacity: 1;
+}
+
+/* Pointing at the hide button lights up the Hidden files button, where the file will go. */
+html:not([data-gibbous-disabled]):has(.gibbous-hide-file:is(:hover, :focus-visible)) .gibbous-hidden-files-control .gibbous-eyes-toggle {
+  background: var(--gibbous-accent) !important;
+  box-shadow: 0 0 0 2px rgb(246 214 112 / 85%) !important;
+  color: var(--fgColor-default, var(--color-fg-default)) !important;
+}
+
+.gibbous-forked-in {
+  display: block;
+}
+
+.gibbous-forked-in a {
+  border-radius: 3px;
+  margin: -1px -4px;
+  padding: 1px 4px;
+}
+
+/* Gibbous tabs in the README bar: My pull requests, Contributors, Languages */
+
+/* Hide the secondary file tabs by name so GitHub re-rendering the list cannot bring them back,
+   and hide GitHub's own overflow menu so the items are not offered twice. */
+html:not([data-gibbous-disabled]) [data-gibbous-tabs-active] nav[aria-label="Repository files"] li:has(
+  > a:not([aria-current="page"]):not(.gibbous-tab-link) [data-content]:not([data-content="README"])
+),
+html:not([data-gibbous-disabled]) [data-gibbous-tabs-active] nav[aria-label="Repository files"] [class*="MoreButtonContainer"] {
+  display: none !important;
+}
+
+[data-gibbous-tab] > :is([class*="SharedMarkdownContent"], article.markdown-body),
+html:not([data-gibbous-disabled]) [data-gibbous-tabs-active] > div > button[aria-label="Outline"] {
+  display: none;
+}
+
+/* Edit only applies to the README; hide it whenever another file tab or My pull requests is showing. */
+html:not([data-gibbous-disabled]) div:has(> nav[aria-label="Repository files"]):not(
+  :has(> nav[aria-label="Repository files"] a[aria-current="page"] [data-content="README"])
+) > button[class*="OverviewRepoFiles-module__editButton"] {
+  display: none;
+}
+
+/* The sidebar sections that became tabs. */
+html[data-gibbous-repository-insider]:not([data-gibbous-disabled]):has(.gibbous-tab-link[data-tab="contributors"]) [data-gibbous-section="contributors"],
+html[data-gibbous-repository-insider]:not([data-gibbous-disabled]):has(.gibbous-tab-link[data-tab="languages"]) [data-gibbous-section="languages"],
+html[data-gibbous-disabled] :is(.gibbous-tab-panel, .gibbous-tab, .gibbous-readme-menu) {
+  display: none !important;
+}
+
+.gibbous-tab-panel:not([data-tab="pulls"]) {
+  padding: 16px;
+}
+
+/* GitHub rounds the first Box-row's top corners, which curls into the box's side border here. */
+.gibbous-tab-panel > .Box-row {
+  border-radius: 0 !important;
+}
+
+.gibbous-my-pull {
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.gibbous-my-pull .markdown-title {
+  font-size: 16px;
+}
+
+.gibbous-my-pull .IssueLabel {
+  margin-left: 4px;
+}
+
+.gibbous-readme-menu {
+  position: relative;
+}
+
+.gibbous-readme-menu-list {
+  background: var(--overlay-bgColor, var(--color-canvas-overlay));
+  border: 1px solid var(--borderColor-default, var(--color-border-default));
+  border-radius: 12px;
+  box-shadow: var(--shadow-floating-small, 0 8px 24px rgb(0 0 0 / 40%));
+  display: grid;
+  gap: 2px;
+  max-height: min(70vh, 560px);
+  min-width: 220px;
+  overflow-y: auto;
+  padding: 8px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 100;
+}
+
+.gibbous-readme-menu-item {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: var(--fgColor-default, var(--color-fg-default));
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: 14px;
+  gap: 8px;
+  padding: 6px 8px;
+  text-align: left;
+  width: 100%;
+}
+
+.gibbous-readme-menu-item:hover {
+  background: var(--control-transparent-bgColor-hover, var(--color-action-list-item-default-hover-bg));
+}
+
+.gibbous-readme-menu-item .octicon {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+}
+
+.gibbous-readme-menu-outline {
+  display: grid;
+  gap: 2px;
+}
+
+.gibbous-readme-menu-outline .gibbous-readme-menu-item {
+  padding-left: calc(8px + (var(--outline-level, 1) - 1) * 12px);
+  text-decoration: none;
+}
+
+.gibbous-readme-menu-divider {
+  border-top: 1px solid var(--borderColor-muted, var(--color-border-muted));
+  margin: 6px -8px;
+}
+
+/* Repository tabs on the same line as the global header.
+   The DOM is left exactly as GitHub renders it. The header becomes a five-column grid:
+   menu and logo | breadcrumb | tabs | search | account actions. The top row is flattened with
+   display: contents; the center block keeps a real box (GitHub's breadcrumb measures it) spanning
+   the middle three columns as a subgrid, so the tabs sit in the gap between breadcrumb and search.
+   Primer's tab bar keeps its own 48px geometry and overflow detection; it is only centered on the
+   row and kept to a single line, and the layout switches on only when everything fits. */
+
+@media (min-width: 1500px) {
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) {
+    align-items: center !important;
+    block-size: 56px !important;
+    column-gap: 16px;
+    display: grid !important;
+    grid-template-columns: max-content max-content minmax(0, 1fr) max-content max-content;
+    grid-template-rows: 100%;
+    min-block-size: 0 !important;
+    padding-inline: 16px;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) > [data-component="Stack"][data-direction="horizontal"] {
+    display: contents !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) :is([data-testid="top-nav-left"], [data-testid="top-nav-right"]) {
+    align-items: center !important;
+    column-gap: 8px !important;
+    display: flex !important;
+    grid-row: 1;
+    inline-size: max-content !important;
+    max-inline-size: none !important;
+    padding: 0 !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-left"] { grid-column: 1; }
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-right"] { grid-column: 5; }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"] {
+    align-items: center !important;
+    column-gap: 16px !important;
+    display: grid !important;
+    grid-column: 2 / 5;
+    grid-row: 1;
+    grid-template-columns: subgrid !important;
+    inline-size: auto !important;
+    max-inline-size: none !important;
+    min-inline-size: 0 !important;
+    padding: 0 !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"] > :not(nav[aria-label="Breadcrumbs"], [class*="Search-module__searchButtonGroup"], [class*="Search-module__smallSearchButton"]) {
+    grid-area: 1 / 1 / 2 / -1;
+    justify-self: start;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) nav[aria-label="Breadcrumbs"] {
+    grid-column: 1;
+    inline-size: max-content !important;
+    margin: 0 !important;
+    max-inline-size: none !important;
+    min-inline-size: 240px !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) nav[aria-label="Breadcrumbs"] > ol {
+    flex-wrap: nowrap !important;
+    inline-size: max-content !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__searchButtonGroup"] {
+    grid-column: 3;
+    margin: 0 !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__smallSearchButton"] {
+    display: none !important;
+  }
+
+  /* The tab bar: Primer geometry untouched, just centered on the row and kept to one line. */
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] {
+    align-self: center !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    grid-column: 3;
+    grid-row: 1;
+    inline-size: auto !important;
+    margin: 0 !important;
+    max-inline-size: none !important;
+    min-inline-size: 0 !important;
+    padding-inline: 0 !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul {
+    flex-wrap: nowrap !important;
+  }
+
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul [data-component="icon"] {
+    display: inline-flex !important;
+  }
+
+  /* Primer's tab text sits in the top 32px of the list; put the shortcut buttons on that line. */
+  html:not([data-gibbous-disabled]) header.GlobalNav > nav[aria-label="Repository"] > ul > li.gibbous-pull-request-shortcuts {
+    align-self: flex-start !important;
+    block-size: 28px !important;
+    margin-block-start: 2px !important;
+    transform: none !important;
+  }
+}
+
+/* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
+
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"],
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > [class*="ButtonGroup-Item"],
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"],
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] > [data-component="buttonContent"],
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [data-component="text"],
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [class*="Search-module__placeholder"] {
+  flex: none !important;
+  inline-size: max-content !important;
+  max-inline-size: none !important;
+  min-inline-size: 0 !important;
+}
+
+html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] {
+  align-items: center !important;
+  block-size: 32px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  padding: 0 8px !important;
+
+  & :is([data-component="buttonContent"], [data-component="leadingVisual"], [data-component="text"]) {
+    align-items: center !important;
+    display: inline-flex !important;
+    grid-template-columns: none !important;
+    margin: 0 !important;
+  }
+
+  & [data-component="buttonContent"] {
+    column-gap: 6px !important;
+  }
+
+  & [class*="Search-module__placeholder"] {
+    align-items: center !important;
+    display: inline-flex !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+  }
+
+  & [class*="Search-module__kbd"] {
+    block-size: 16px !important;
+    display: inline-grid !important;
+    font-size: 12px !important;
+    inline-size: 16px !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    place-items: center !important;
+  }
+}
+
+html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > :has(.js-activate-command-palette) {
+  display: none !important;
+}
+
+/* Inside the Mermaid viewer frame GitHub embeds (the only place these attributes exist) */
+
+html[data-gibbous-mermaid-expanded],
+html[data-gibbous-mermaid-expanded] body {
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html[data-gibbous-mermaid-expanded] .render-shell {
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden;
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid-view {
+  height: 100%;
+  position: relative;
+  width: 100%;
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid {
+  cursor: grab;
+  left: 0;
+  position: absolute;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid.gibbous-animate {
+  transition: transform 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid > svg {
+  display: block;
+  height: 100% !important;
+  margin: 0 !important;
+  max-width: none !important;
+  transform: none !important;
+  transition: none !important;
+  width: 100% !important;
+}
+
+html[data-gibbous-mermaid-dragging] .mermaid {
+  cursor: grabbing;
+}
+
+html[data-gibbous-mermaid-expanded] .mermaid-viewer-control-panel {
+  display: none;
+}
+
+.gibbous-mermaid-controls {
+  display: none;
+}
+
+html[data-gibbous-mermaid-expanded] .gibbous-mermaid-controls {
+  align-items: center;
+  bottom: 16px;
+  display: inline-flex;
+  gap: 4px;
+  position: absolute;
+  right: 16px;
+  z-index: 2;
+}
+
+.gibbous-mermaid-controls > .btn {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+  min-width: 32px;
+  padding: 5px 8px;
+}
+
+.gibbous-mermaid-controls > .gibbous-zoom-level {
+  min-width: 56px;
 }

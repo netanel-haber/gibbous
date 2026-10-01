@@ -9,10 +9,29 @@ GitHub, but with the UX you want.
 - 👀 button above files view: click to persistently hide files like CNAME in top-level repository views
 - Hides unused buttons like Copilot and Workflows
 - `forked in owner/repository` link to fork on upstream repositories when you have a fork
+- On repositories you own, can push to, or have forked: no topics, resource links, social stats, Watch or Fork buttons, or sidebar extras; releases sit beside a tags panel, and contributors and languages become tabs next to `README`
 - `My pull requests` tab on repositories where you have open pull requests, shown first; the license, conduct, contributing, and security tabs move into a `⋯` menu
 - Enlarge Mermaid diagrams into a lightbox: scroll or double-click to zoom, drag to pan, Esc to close
 
-[Try the Mermaid lightbox](docs/mermaid-test.md).
+### Try the Mermaid lightbox
+
+With Gibbous on, use Enlarge on this diagram: scroll or double-click to zoom, drag to pan, press 0 to refit, and Esc to close.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant GPUWatermarkSampler
+    participant GumbelWatermark
+    participant Detector
+
+    Client->>GPUWatermarkSampler: Configure sampler
+    loop Every generated token
+        GPUWatermarkSampler->>GumbelWatermark: Sample logits with token context
+        GumbelWatermark-->>GPUWatermarkSampler: Return watermarked token
+    end
+    Client->>Detector: Submit generated token IDs
+    Detector-->>Client: Return score, p-value, and watermark flag
+```
 
 ## Install
 

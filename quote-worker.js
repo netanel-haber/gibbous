@@ -54,7 +54,6 @@ const findQuoteMatches = comments => {
   const ensureTime = () => {
     if (performance.now() > deadline) throw new Error("Quote matching timed out.");
   };
-  const lengths = comments.map(comment => [...comment.text].length);
   const previousByLength = new Map();
   const matches = [];
   for (const [replyIndex, reply] of comments.entries()) {
@@ -87,10 +86,8 @@ const findQuoteMatches = comments => {
         fullSourceIndices,
       });
     }
-    const length = lengths[replyIndex];
-    const indices = previousByLength.get(length) ?? [];
-    indices.push(replyIndex);
-    previousByLength.set(length, indices);
+    const length = [...reply.text].length;
+    previousByLength.set(length, [...(previousByLength.get(length) ?? []), replyIndex]);
   }
   return matches;
 };

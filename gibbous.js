@@ -1,5 +1,247 @@
+// One content script for three places, each section guarded by where it runs:
+// GitHub's theme mirrored to the Gibbous site (both sites), the Mermaid viewer frame GitHub
+// embeds (zoom and pan once enlarged), and GitHub itself.
+
 (() => {
-  if (matchMedia("(max-width: 767px)").matches) return;
+  const themes = new Set([
+    "light",
+    "light-high-contrast",
+    "light-colorblind",
+    "light-colorblind-high-contrast",
+    "dark",
+    "dark-high-contrast",
+    "dark-colorblind",
+    "dark-colorblind-high-contrast",
+    "dark-dimmed",
+    "dark-dimmed-high-contrast",
+  ]);
+  const root = document.documentElement;
+
+  const exposeStoredTheme = async () => {
+    const {githubTheme} = await chrome.storage.local.get("githubTheme");
+    if (themes.has(githubTheme)) root.dataset.githubTheme = githubTheme;
+    chrome.storage.onChanged.addListener((changes, area) => {
+      const theme = changes.githubTheme?.newValue;
+      if (area === "local" && themes.has(theme)) root.dataset.githubTheme = theme;
+    });
+  };
+
+  const activeGitHubTheme = () => {
+    const colorMode = root.dataset.colorMode;
+    const mode = colorMode === "auto"
+      ? matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+      : colorMode;
+    return root.dataset[`${mode}Theme`]?.replaceAll("_", "-");
+  };
+
+  const storeGitHubTheme = async () => {
+    const theme = activeGitHubTheme();
+    if (themes.has(theme)) await chrome.storage.local.set({githubTheme: theme});
+  };
+
+  const main = async () => {
+    if (location.hostname === "netanel-haber.github.io") {
+      await exposeStoredTheme();
+      return;
+    }
+    if (location.hostname !== "github.com") return;
+    new MutationObserver(() => void storeGitHubTheme()).observe(root, {
+      attributes: true,
+      attributeFilter: ["data-color-mode", "data-light-theme", "data-dark-theme"],
+    });
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => void storeGitHubTheme());
+    await storeGitHubTheme();
+  };
+
+  void main().catch(error => console.error("Gibbous could not synchronize the GitHub theme.", error));
+})();
+
+(() => {
+  if (location.hostname !== "viewscreen.githubusercontent.com" || !document.referrer) return;
+  const parentOrigin = new URL(document.referrer).origin;
+  const MAX_SCALE = 8;
+  const PADDING = 48;
+  const VISIBLE_EDGE = 96;
+  const ZOOM_STEP = 1.25;
+  const DOUBLE_CLICK_ZOOM = 1.6;
+  const root = document.documentElement;
+  let expanded = false;
+  let scale = 1;
+  let fitScale = 1;
+  let x = 0;
+  let y = 0;
+  let width = 0;
+  let height = 0;
+  let drag;
+  let controls;
+  let zoomLabel;
+
+  const svg = () => document.querySelector(".mermaid-view svg");
+  const stage = () => svg()?.parentElement;
+  const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
+  const clampScale = value => clamp(value, fitScale / 2, MAX_SCALE);
+
+  const measure = () => {
+    const diagram = svg();
+    const box = diagram?.viewBox?.baseVal;
+    width = box?.width || diagram?.getBoundingClientRect().width || 0;
+    height = box?.height || diagram?.getBoundingClientRect().height || 0;
+    return width > 0 && height > 0;
+  };
+
+  const apply = animate => {
+    const target = stage();
+    if (!target) return;
+    target.classList.toggle("gibbous-animate", animate);
+    target.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+    if (zoomLabel) zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+  };
+
+  // Moves the diagram, keeping at least VISIBLE_EDGE of it on screen.
+  const place = (nextX, nextY, animate) => {
+    x = clamp(nextX, VISIBLE_EDGE - width * scale, innerWidth - VISIBLE_EDGE);
+    y = clamp(nextY, VISIBLE_EDGE - height * scale, innerHeight - VISIBLE_EDGE);
+    apply(animate);
+  };
+
+  const fit = animate => {
+    if (!measure()) return;
+    const target = stage();
+    target.style.width = `${width}px`;
+    target.style.height = `${height}px`;
+    svg().style.transform = "";
+    fitScale = Math.min((innerWidth - 2 * PADDING) / width, (innerHeight - 2 * PADDING) / height, MAX_SCALE);
+    scale = fitScale;
+    x = (innerWidth - width * scale) / 2;
+    y = (innerHeight - height * scale) / 2;
+    apply(animate);
+  };
+
+  const zoomAt = (factor, clientX, clientY, animate = true) => {
+    const next = clampScale(scale * factor);
+    const ratio = next / scale;
+    scale = next;
+    place(clientX - (clientX - x) * ratio, clientY - (clientY - y) * ratio, animate);
+  };
+
+  const button = (label, text, onclick) => {
+    const node = document.createElement("button");
+    node.type = "button";
+    node.className = "btn";
+    node.setAttribute("aria-label", label);
+    node.title = label;
+    node.textContent = text;
+    node.addEventListener("click", onclick);
+    return node;
+  };
+
+  const mountControls = () => {
+    if (controls) return;
+    controls = document.createElement("div");
+    controls.className = "gibbous-mermaid-controls";
+    zoomLabel = button("Fit to view", "100%", () => fit(true));
+    zoomLabel.classList.add("gibbous-zoom-level");
+    controls.append(
+      button("Zoom out", "−", () => zoomAt(1 / ZOOM_STEP, innerWidth / 2, innerHeight / 2)),
+      zoomLabel,
+      button("Zoom in", "+", () => zoomAt(ZOOM_STEP, innerWidth / 2, innerHeight / 2)),
+    );
+    document.body.append(controls);
+  };
+
+  const collapse = () => {
+    const target = stage();
+    if (target) {
+      target.classList.remove("gibbous-animate");
+      target.style.removeProperty("transform");
+      target.style.removeProperty("width");
+      target.style.removeProperty("height");
+    }
+    drag = undefined;
+    root.removeAttribute("data-gibbous-mermaid-dragging");
+  };
+
+  const setExpanded = value => {
+    expanded = value;
+    root.toggleAttribute("data-gibbous-mermaid-expanded", expanded);
+    if (!expanded) return collapse();
+    mountControls();
+    requestAnimationFrame(() => fit(false));
+  };
+
+  addEventListener("message", event => {
+    if (event.source !== parent || event.origin !== parentOrigin
+      || event.data?.type !== "gibbous-mermaid-expanded") return;
+    setExpanded(Boolean(event.data.value));
+  });
+
+  // GitHub re-renders the diagram when the frame is resized; refit when it does.
+  new MutationObserver(() => {
+    if (expanded) requestAnimationFrame(() => fit(false));
+  }).observe(document.querySelector(".mermaid-view") ?? document.body, {childList: true});
+  addEventListener("resize", () => {
+    if (expanded) fit(false);
+  });
+
+  const onDiagram = event => {
+    const target = event.target instanceof Element && event.target;
+    return expanded && target && !target.closest("a, .clickable, button");
+  };
+
+  addEventListener("dblclick", event => {
+    if (!onDiagram(event)) return;
+    event.preventDefault();
+    zoomAt(DOUBLE_CLICK_ZOOM, event.clientX, event.clientY);
+  });
+
+  addEventListener("wheel", event => {
+    if (!expanded) return;
+    event.preventDefault();
+    const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+    const factor = Math.exp(-delta * (event.ctrlKey ? 0.01 : 0.0025));
+    zoomAt(factor, event.clientX, event.clientY, false);
+  }, {passive: false});
+
+  addEventListener("keydown", event => {
+    if (!expanded || event.altKey || event.metaKey) return;
+    const center = [innerWidth / 2, innerHeight / 2];
+    const step = event.shiftKey ? 240 : 80;
+    const pan = {ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step]}[event.key];
+    if (event.key === "Escape") parent.postMessage({type: "gibbous-close-mermaid"}, parentOrigin);
+    else if (event.key === "+" || event.key === "=") zoomAt(ZOOM_STEP, ...center);
+    else if (event.key === "-" || event.key === "_") zoomAt(1 / ZOOM_STEP, ...center);
+    else if (event.key === "0") fit(true);
+    else if (pan) place(x + pan[0], y + pan[1], true);
+    else return;
+    event.preventDefault();
+  });
+
+  addEventListener("pointerdown", event => {
+    if (!onDiagram(event) || event.button !== 0) return;
+    event.preventDefault();
+    root.setPointerCapture?.(event.pointerId);
+    drag = {id: event.pointerId, clientX: event.clientX, clientY: event.clientY, x, y};
+    root.setAttribute("data-gibbous-mermaid-dragging", "");
+  });
+
+  addEventListener("pointermove", event => {
+    if (drag?.id !== event.pointerId) return;
+    place(drag.x + event.clientX - drag.clientX, drag.y + event.clientY - drag.clientY, false);
+  });
+
+  const finishDrag = event => {
+    if (drag?.id !== event.pointerId) return;
+    drag = undefined;
+    root.removeAttribute("data-gibbous-mermaid-dragging");
+  };
+  addEventListener("pointerup", finishDrag);
+  addEventListener("pointercancel", finishDrag);
+
+  parent.postMessage({type: "gibbous-mermaid-ready"}, parentOrigin);
+})();
+
+(() => {
+  if (location.hostname !== "github.com" || matchMedia("(max-width: 767px)").matches) return;
 
   // First paint must already be right. chrome.storage is async, so the settings that decide what
   // the page looks like are mirrored into localStorage (synchronous, same origin) and read here,
@@ -50,10 +292,6 @@
   let mermaidDialog;
   let activeMermaidFrame;
 
-  const moveBefore = (parent, node, before = null) => {
-    if ("moveBefore" in Element.prototype) parent.moveBefore(node, before);
-    else parent.insertBefore(node, before);
-  };
   const expandingRepositoryLists = new WeakSet();
   const repositoryExpansionAttempts = new WeakMap();
   const topRepositoryOrders = new WeakMap();
@@ -66,7 +304,7 @@
 
   // Everything fetched from GitHub is persisted so a revisit paints the last known result in the
   // same frame the DOM appears, then revalidates quietly. Buckets: myPulls, dashboard, forks,
-  // userForks. Entries are {value, at}.
+  // userForks, pushAccess, tags. Entries are {value, at}.
   const CACHE_ENTRY_LIMIT = 80;
   const MINUTE = 60_000;
   let cache = {};
@@ -139,64 +377,34 @@
     return node;
   };
 
+  // Octicon paths by octicon name; the icon gets GitHub's own octicon-<name> class.
   const octicons = {
-    screenFull: [
-      "octicon-screen-full",
-      "M2 3.75C2 2.784 2.784 2 3.75 2h2.5a.75.75 0 0 1 0 1.5h-2.5a.25.25 0 0 0-.25.25v2.5a.75.75 0 0 1-1.5 0Zm7.75-1.75a.75.75 0 0 0 0 1.5h2.5a.25.25 0 0 1 .25.25v2.5a.75.75 0 0 0 1.5 0v-2.5A1.75 1.75 0 0 0 12.25 2ZM2.75 9a.75.75 0 0 1 .75.75v2.5c0 .138.112.25.25.25h2.5a.75.75 0 0 1 0 1.5h-2.5A1.75 1.75 0 0 1 2 12.25v-2.5A.75.75 0 0 1 2.75 9Zm10.5 0a.75.75 0 0 1 .75.75v2.5A1.75 1.75 0 0 1 12.25 14h-2.5a.75.75 0 0 1 0-1.5h2.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 .75-.75Z",
-    ],
-    x: [
-      "octicon-x",
-      "M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z",
-    ],
-    issueOpened: [
-      "octicon-issue-opened",
-      "M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z",
-    ],
-    listUnordered: [
-      "octicon-list-unordered",
-      "M5.75 2.5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5ZM2 14a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-6a1 1 0 0 1-1 1 1 1 0 1 1 1-1ZM2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z",
-    ],
-    comment: [
-      "octicon-comment",
-      "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z",
-    ],
-    pullRequestDraft: [
-      "octicon-git-pull-request-draft",
-      "M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 14a2.25 2.25 0 1 1 0-4.5 2.25 2.25 0 0 1 0 4.5ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM14 7.5a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Zm0-4.25a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Z",
-    ],
-    eye: [
-      "octicon-eye",
-      "M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.83.88 9.576.43 8.898a1.62 1.62 0 0 1 0-1.798c.45-.677 1.367-1.931 2.637-3.022C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z",
-    ],
-    eyeClosed: [
-      "octicon-eye-closed",
-      "M.143 2.31a.75.75 0 0 1 1.047-.167l14.5 10.5a.75.75 0 1 1-.88 1.214l-2.248-1.628C11.346 13.19 9.792 14 8 14c-1.981 0-3.67-.992-4.933-2.078C1.797 10.832.88 9.577.43 8.9a1.619 1.619 0 0 1 0-1.797c.353-.533.995-1.42 1.868-2.305L.31 3.357A.75.75 0 0 1 .143 2.31Zm1.536 5.622A.12.12 0 0 0 1.657 8c0 .021.006.045.022.068.412.621 1.242 1.75 2.366 2.717C5.175 11.758 6.527 12.5 8 12.5c1.195 0 2.31-.488 3.29-1.191L9.063 9.695A2 2 0 0 1 6.058 7.52L3.529 5.688a14.207 14.207 0 0 0-1.85 2.244ZM8 3.5c-.516 0-1.017.09-1.499.251a.75.75 0 1 1-.473-1.423A6.207 6.207 0 0 1 8 2c1.981 0 3.67.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.11.166-.248.365-.41.587a.75.75 0 1 1-1.21-.887c.148-.201.272-.382.371-.53a.119.119 0 0 0 0-.137c-.412-.621-1.242-1.75-2.366-2.717C10.825 4.242 9.473 3.5 8 3.5Z",
-    ],
-    pullRequest: [
-      "octicon-git-pull-request",
-      "M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z",
-    ],
-    pullRequestClosed: [
-      "octicon-git-pull-request-closed",
-      "M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 5.5a.75.75 0 0 1 .75.75v3.378a2.251 2.251 0 1 1-1.5 0V7.25a.75.75 0 0 1 .75-.75Zm-2.03-5.273a.75.75 0 0 1 1.06 0l.97.97.97-.97a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.97.97.97.97a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-.97-.97-.97.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l.97-.97-.97-.97a.75.75 0 0 1 0-1.06ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0 0-1.5ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z",
-    ],
-    repoForked: [
-      "octicon-repo-forked",
-      "M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z",
-    ],
+    "screen-full": "M2 3.75C2 2.784 2.784 2 3.75 2h2.5a.75.75 0 0 1 0 1.5h-2.5a.25.25 0 0 0-.25.25v2.5a.75.75 0 0 1-1.5 0Zm7.75-1.75a.75.75 0 0 0 0 1.5h2.5a.25.25 0 0 1 .25.25v2.5a.75.75 0 0 0 1.5 0v-2.5A1.75 1.75 0 0 0 12.25 2ZM2.75 9a.75.75 0 0 1 .75.75v2.5c0 .138.112.25.25.25h2.5a.75.75 0 0 1 0 1.5h-2.5A1.75 1.75 0 0 1 2 12.25v-2.5A.75.75 0 0 1 2.75 9Zm10.5 0a.75.75 0 0 1 .75.75v2.5A1.75 1.75 0 0 1 12.25 14h-2.5a.75.75 0 0 1 0-1.5h2.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 .75-.75Z",
+    "x": "M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z",
+    "issue-opened": "M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z",
+    "list-unordered": "M5.75 2.5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5Zm0 5h8.5a.75.75 0 0 1 0 1.5h-8.5a.75.75 0 0 1 0-1.5ZM2 14a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1-6a1 1 0 0 1-1 1 1 1 0 1 1 1-1ZM2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z",
+    "comment": "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z",
+    "git-pull-request-draft": "M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 14a2.25 2.25 0 1 1 0-4.5 2.25 2.25 0 0 1 0 4.5ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM14 7.5a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Zm0-4.25a1.25 1.25 0 1 1-2.5 0 1.25 1.25 0 0 1 2.5 0Z",
+    "eye": "M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.83.88 9.576.43 8.898a1.62 1.62 0 0 1 0-1.798c.45-.677 1.367-1.931 2.637-3.022C4.33 2.992 6.019 2 8 2ZM1.679 7.932a.12.12 0 0 0 0 .136c.411.622 1.241 1.75 2.366 2.717C5.176 11.758 6.527 12.5 8 12.5c1.473 0 2.825-.742 3.955-1.715 1.124-.967 1.954-2.096 2.366-2.717a.12.12 0 0 0 0-.136c-.412-.621-1.242-1.75-2.366-2.717C10.824 4.242 9.473 3.5 8 3.5c-1.473 0-2.825.742-3.955 1.715-1.124.967-1.954 2.096-2.366 2.717ZM8 10a2 2 0 1 1-.001-3.999A2 2 0 0 1 8 10Z",
+    "eye-closed": "M.143 2.31a.75.75 0 0 1 1.047-.167l14.5 10.5a.75.75 0 1 1-.88 1.214l-2.248-1.628C11.346 13.19 9.792 14 8 14c-1.981 0-3.67-.992-4.933-2.078C1.797 10.832.88 9.577.43 8.9a1.619 1.619 0 0 1 0-1.797c.353-.533.995-1.42 1.868-2.305L.31 3.357A.75.75 0 0 1 .143 2.31Zm1.536 5.622A.12.12 0 0 0 1.657 8c0 .021.006.045.022.068.412.621 1.242 1.75 2.366 2.717C5.175 11.758 6.527 12.5 8 12.5c1.195 0 2.31-.488 3.29-1.191L9.063 9.695A2 2 0 0 1 6.058 7.52L3.529 5.688a14.207 14.207 0 0 0-1.85 2.244ZM8 3.5c-.516 0-1.017.09-1.499.251a.75.75 0 1 1-.473-1.423A6.207 6.207 0 0 1 8 2c1.981 0 3.67.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.11.166-.248.365-.41.587a.75.75 0 1 1-1.21-.887c.148-.201.272-.382.371-.53a.119.119 0 0 0 0-.137c-.412-.621-1.242-1.75-2.366-2.717C10.825 4.242 9.473 3.5 8 3.5Z",
+    "git-pull-request": "M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z",
+    "git-pull-request-closed": "M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 5.5a.75.75 0 0 1 .75.75v3.378a2.251 2.251 0 1 1-1.5 0V7.25a.75.75 0 0 1 .75-.75Zm-2.03-5.273a.75.75 0 0 1 1.06 0l.97.97.97-.97a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.97.97.97.97a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-.97-.97-.97.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l.97-.97-.97-.97a.75.75 0 0 1 0-1.06ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0 0-1.5ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z",
+    "people": "M2 5.5a3.5 3.5 0 1 1 5.898 2.549 5.508 5.508 0 0 1 3.034 4.084.75.75 0 1 1-1.482.235 4 4 0 0 0-7.9 0 .75.75 0 0 1-1.482-.236A5.507 5.507 0 0 1 3.102 8.05 3.493 3.493 0 0 1 2 5.5ZM11 4a3.001 3.001 0 0 1 2.22 5.018 5.01 5.01 0 0 1 2.56 3.012.749.749 0 0 1-.885.954.752.752 0 0 1-.549-.514 3.507 3.507 0 0 0-2.522-2.372.75.75 0 0 1-.574-.73v-.352a.75.75 0 0 1 .416-.672A1.5 1.5 0 0 0 11 5.5.75.75 0 0 1 11 4Zm-5.5-.5a2 2 0 1 0-.001 3.999A2 2 0 0 0 5.5 3.5Z",
+    "code": "m11.28 3.22 4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L13.94 8l-3.72-3.72a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215Zm-6.56 0a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L2.06 8l3.72 3.72a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L.47 8.53a.75.75 0 0 1 0-1.06Z",
+    "tag": "M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z",
+    "repo-forked": "M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z",
   };
 
   const createOcticon = name => {
-    const [className, pathData] = octicons[name];
     const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     icon.setAttribute("aria-hidden", "true");
-    icon.setAttribute("class", `octicon ${className}`);
+    icon.setAttribute("class", `octicon octicon-${name}`);
     icon.setAttribute("fill", "currentColor");
     icon.setAttribute("height", "16");
     icon.setAttribute("viewBox", "0 0 16 16");
     icon.setAttribute("width", "16");
-    path.setAttribute("d", pathData);
+    path.setAttribute("d", octicons[name]);
     icon.append(path);
     return icon;
   };
@@ -224,19 +432,11 @@
       document.documentElement.removeAttribute("data-gibbous-mermaid-open");
       frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value: false}, new URL(frame.src).origin);
       if (placeholder.parentNode) {
-        moveBefore(placeholder.parentNode, frame, placeholder);
+        placeholder.parentNode.moveBefore(frame, placeholder);
         placeholder.remove();
       } else frame.remove();
       activeMermaidFrame = undefined;
     });
-    if (!("closedBy" in HTMLDialogElement.prototype)) {
-      mermaidDialog.addEventListener("click", event => {
-        if (event.target !== mermaidDialog) return;
-        const bounds = mermaidDialog.getBoundingClientRect();
-        if (event.clientX < bounds.left || event.clientX > bounds.right
-          || event.clientY < bounds.top || event.clientY > bounds.bottom) mermaidDialog.close();
-      });
-    }
     document.body.append(mermaidDialog);
   };
 
@@ -246,7 +446,7 @@
     const placeholder = document.createComment("gibbous-mermaid");
     frame.before(placeholder);
     activeMermaidFrame = {frame, placeholder};
-    moveBefore(mermaidDialog, frame);
+    mermaidDialog.moveBefore(frame, null);
     document.documentElement.setAttribute("data-gibbous-mermaid-open", "");
     mermaidDialog.showModal();
     frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value: true}, new URL(frame.src).origin);
@@ -270,7 +470,7 @@
             openMermaid(frame);
           },
         },
-        createOcticon("screenFull"),
+        createOcticon("screen-full"),
         create("span", {}, "Enlarge"),
       ));
     }
@@ -454,7 +654,7 @@
         onHide();
       },
     },
-    createOcticon("eyeClosed"),
+    createOcticon("eye-closed"),
   );
 
   const refreshRows = () => {
@@ -466,9 +666,8 @@
       const name = nameLink?.textContent.trim();
       if (!name || name === "..") continue;
       row.classList.toggle("gibbous-file-excluded", hidden.has(name));
-      const cell = row.querySelector(".react-directory-row-name-cell-large-screen .react-directory-filename-cell");
-      if (cell && !cell.querySelector(".gibbous-hide-file")) {
-        cell.classList.add("gibbous-filename-cell");
+      const cell = row.querySelector(".react-directory-row-name-cell-large-screen");
+      if (cell && !cell.querySelector(":scope > .gibbous-hide-file")) {
         cell.append(createHideButton(
           name,
           "gibbous-hide-file",
@@ -514,6 +713,119 @@
     }
   };
 
+  // The code view's embedded payload says whether the viewer can push. It goes stale after a
+  // client-side navigation to another repository, so it only counts when it names this one, and
+  // the answer is remembered per repository for the pages where it does not.
+  const pushAccessPayloads = new WeakMap();
+  const viewerCanPush = (context, viewer) => {
+    const key = `${viewer}|${context.nwo}`.toLowerCase();
+    const script = document.querySelector('script[data-target="react-app.embeddedData"]');
+    if (script && !pushAccessPayloads.has(script)) {
+      let repo;
+      try {
+        repo = JSON.parse(script.textContent).payload?.codeViewLayoutRoute?.repo;
+      } catch {
+        // Not a payload we understand; fall back to what was remembered.
+      }
+      pushAccessPayloads.set(script, repo && typeof repo.currentUserCanPush === "boolean"
+        ? {nwo: `${repo.ownerLogin}/${repo.name}`.toLowerCase(), canPush: repo.currentUserCanPush}
+        : null);
+    }
+    const payload = script && pushAccessPayloads.get(script);
+    if (payload?.nwo !== context.nwo.toLowerCase()) return Boolean(cacheEntry("pushAccess", key)?.value);
+    if (ready && cacheEntry("pushAccess", key)?.value !== payload.canPush) cacheSet("pushAccess", key, payload.canPush);
+    return payload.canPush;
+  };
+
+  // The one gate for hiding what only matters to outsiders (topics, social stats, Watch and Fork):
+  // the viewer owns the repository, can push to it, or has a fork of it.
+  const isRepositoryInsider = (context, viewer) => {
+    if (context.nwo.split("/")[0].toLowerCase() === viewer.toLowerCase()) return true;
+    if (cacheEntry("userForks", `${viewer}|${context.nwo}|${context.rootNwo}`)?.value) return true;
+    return viewerCanPush(context, viewer);
+  };
+
+  const updateRepositoryInsider = () => {
+    const context = readRepositoryContext();
+    const viewer = viewerLogin();
+    document.documentElement.toggleAttribute(
+      "data-gibbous-repository-insider",
+      Boolean(context && viewer && isRepositoryInsider(context, viewer)),
+    );
+  };
+
+  // Sections are told apart by heading text, which is there even while they are still skeletons:
+  // data-gibbous-section is about, releases, contributors, languages, or other.
+  const keptSidebarSection = /^(About|Releases|Contributors|Languages)(?![a-z])/i;
+  const markSidebarSections = () => {
+    for (const section of document.querySelectorAll(
+      '[class*="CodeViewSidebar-module__borderGrid"] > [class*="SidebarSection-module__sidebarSection"]:not(.gibbous-sidebar-tags)',
+    )) {
+      const title = section.querySelector(":scope > h2")?.textContent.trim() ?? "";
+      const name = title.match(keptSidebarSection)?.[1].toLowerCase() ?? "other";
+      if (section.dataset.gibbousSection !== name) section.dataset.gibbousSection = name;
+    }
+  };
+
+  // A Tags panel beside Releases, shaped like its entry: the count, the newest tag, when it was made.
+  const fetchLatestTag = async nwo => {
+    const response = await fetch(`/${nwo}/tags`, {credentials: "include"});
+    if (!response.ok) throw new Error(`Tags lookup failed (${response.status})`);
+    const row = new DOMParser().parseFromString(await response.text(), "text/html").querySelector(".Box-row");
+    const link = row?.querySelector("h2 a[href]");
+    return link && {
+      name: link.textContent.trim(),
+      url: link.getAttribute("href"),
+      createdAt: row.querySelector("relative-time")?.getAttribute("datetime") ?? "",
+    };
+  };
+
+  const mountSidebarTags = () => {
+    const releases = document.querySelector('[data-gibbous-section="releases"]');
+    const context = readRepositoryContext();
+    const count = context && document.querySelector(`a[href="/${context.nwo}/tags"]`)?.textContent.match(/\d[\d,.]*k?/i)?.[0];
+    let panel = document.querySelector(".gibbous-sidebar-tags");
+    if (!enabled || !releases || !count || !document.documentElement.hasAttribute("data-gibbous-repository-insider")) {
+      panel?.remove();
+      return;
+    }
+    if (!panel) {
+      panel = releases.cloneNode(false);
+      panel.classList.add("gibbous-sidebar-tags");
+      panel.dataset.gibbousSection = "tags";
+    }
+    if (releases.nextElementSibling !== panel) releases.after(panel);
+    const render = tag => {
+      // GitHub's own heading once it has loaded, so the title and counter match Releases exactly.
+      const heading = releases.querySelector(":scope > h2").cloneNode(true);
+      const link = heading.querySelector("a");
+      const key = JSON.stringify([context.nwo, count, tag, Boolean(link)]);
+      if (panel.dataset.key === key) return;
+      panel.dataset.key = key;
+      if (link) {
+        link.href = `/${context.nwo}/tags`;
+        link.textContent = "Tags";
+        const counter = heading.querySelector('[data-component="CounterLabel"]');
+        if (counter) counter.textContent = count;
+        if (counter?.nextElementSibling) counter.nextElementSibling.textContent = ` (${count})`;
+      } else heading.replaceChildren("Tags ", create("span", {class: "Counter"}, count));
+      panel.replaceChildren(heading, ...(tag ? [create(
+        "a",
+        {class: "gibbous-sidebar-tag", href: tag.url},
+        createOcticon("tag"),
+        create(
+          "span",
+          {},
+          create("strong", {}, tag.name),
+          tag.createdAt ? create("relative-time", {datetime: tag.createdAt}, new Date(tag.createdAt).toLocaleDateString()) : "",
+        ),
+      )] : []));
+    };
+    render(cached("tags", context.nwo, 10 * MINUTE, () => fetchLatestTag(context.nwo), fresh => {
+      if (panel.isConnected) render(fresh);
+    }));
+  };
+
   const markSuggestedWorkflows = () => {
     const heading = [...document.querySelectorAll("h1, h2, h3")]
       .find(element => element.textContent.trim() === "Suggested workflows");
@@ -525,30 +837,22 @@
     if (section && section !== document.body) section.classList.add("gibbous-suggested-workflows");
   };
 
-  const waitForRepositoryGrowth = (surface, previousCount) => new Promise(resolve => {
-    let finished = false;
-    const finish = grew => {
-      if (finished) return;
-      finished = true;
+  // Resolves true once done() holds after a change under root, false on timeout or abort.
+  const waitForMutation = (root, options, done, timeout, signal) => new Promise(resolve => {
+    const finish = value => {
       observer.disconnect();
-      clearTimeout(timeout);
-      resolve(grew);
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", abort);
+      resolve(value);
     };
-    const check = () => {
-      mountTopRepositories();
-      const button = surface.button();
-      const count = surface.entries().length;
-      if (count > previousCount && !button?.disabled) finish(true);
-    };
-    const observer = new MutationObserver(check);
-    const timeout = setTimeout(() => finish(false), 5000);
-    observer.observe(surface.root, {
-      attributes: true,
-      attributeFilter: ["disabled"],
-      childList: true,
-      subtree: true,
+    const abort = () => finish(false);
+    const observer = new MutationObserver(() => {
+      if (done()) finish(true);
     });
-    check();
+    const timer = setTimeout(abort, timeout);
+    observer.observe(root, {childList: true, subtree: true, ...options});
+    signal?.addEventListener("abort", abort, {once: true});
+    if (done()) finish(true);
   });
 
   const expandRepositoryList = async surface => {
@@ -568,7 +872,11 @@
         const count = surface.entries().length;
         repositoryExpansionAttempts.set(surface.root, attempts + 1);
         button.click();
-        if (!await waitForRepositoryGrowth(surface, count)) return;
+        const grew = await waitForMutation(surface.root, {attributes: true, attributeFilter: ["disabled"]}, () => {
+          mountTopRepositories();
+          return surface.entries().length > count && !surface.button()?.disabled;
+        }, 5000);
+        if (!grew) return;
         mountTopRepositories();
       }
     } finally {
@@ -893,22 +1201,6 @@
     return true;
   };
 
-  const waitForTimelinePage = (button, target, signal) => new Promise(resolve => {
-    let timeout;
-    const observer = new MutationObserver(() => {
-      if (!button.isConnected || quoteTargetRect(target)?.height) finish();
-    });
-    const finish = () => {
-      clearTimeout(timeout);
-      observer.disconnect();
-      signal.removeEventListener("abort", finish);
-      resolve();
-    };
-    observer.observe(document.querySelector(".js-discussion") ?? document.body, {childList: true, subtree: true});
-    signal.addEventListener("abort", finish, {once: true});
-    timeout = setTimeout(finish, 5_000);
-  });
-
   const nextTimelinePage = (origin, upward, attempted) => {
     const buttons = [...document.querySelectorAll(
       ".js-discussion .ajax-pagination-form button[data-disable-with]",
@@ -928,7 +1220,13 @@
       const button = nextTimelinePage(origin, upward, attempted);
       if (!button) return false;
       attempted.add(button.form.action);
-      const loaded = waitForTimelinePage(button, target, signal);
+      const loaded = waitForMutation(
+        document.querySelector(".js-discussion") ?? document.body,
+        {},
+        () => !button.isConnected || Boolean(quoteTargetRect(target)?.height),
+        5_000,
+        signal,
+      );
       button.click();
       await loaded;
     }
@@ -956,6 +1254,24 @@
   const mountReplyRail = (body, match, source) => {
     const rect = isFullQuote(match, source) ? body.getBoundingClientRect() : findQuoteRect(body, match.quote);
     return rect?.height && mountQuoteRail(body, "replies", match.key, rect);
+  };
+
+  // The arrow on a quote: up from the reply's quote to its source, or down from the source to the reply.
+  const mountQuoteLink = (rail, match, source, upward) => {
+    if (rail.querySelector(`[data-gibbous-quote-key="${match.key}"]`)) return;
+    const comment = upward ? source : match.reply;
+    const fullQuote = isFullQuote(match, source);
+    rail.append(createQuoteLink(
+      comment,
+      matchLabel(upward ? "↑" : "↓", source),
+      {
+        class: "Button Button--invisible Button--small gibbous-quote-button",
+        "data-gibbous-quote-key": match.key,
+        "aria-label": `${fullQuote ? "Full comment quoted; go" : "Go"} to ${upward ? "source comment" : "reply"} by @${comment.user}`,
+        title: fullQuote ? `Full comment quoted · @${comment.user}` : `${upward ? "Source:" : "Quoted by"} @${comment.user}`,
+      },
+      upward ? {match, source, fullQuote} : {match, fullQuote},
+    ));
   };
 
   const mountDisabledQuoteButton = (rail, label) => {
@@ -1153,43 +1469,12 @@
             : "Source not found (likely edited out)",
         );
         else if (rail && sources.length > 1) mountQuotePicker(rail, match, source);
-        else if (rail && source && !rail.querySelector(`[data-gibbous-quote-key="${match.key}"]`)) {
-          const fullQuote = isFullQuote(match, source);
-          rail.append(createQuoteLink(
-            source,
-            matchLabel("↑", source),
-            {
-              class: "Button Button--invisible Button--small gibbous-quote-button",
-              "data-gibbous-quote-key": match.key,
-              "data-gibbous-source": source.id,
-              "aria-label": `${fullQuote ? "Full comment quoted; go" : "Go"} to source comment by @${source.user}`,
-              title: fullQuote ? `Full comment quoted · @${source.user}` : `Source: @${source.user}`,
-            },
-            {match, source, fullQuote},
-          ));
-        }
+        else if (rail && source) mountQuoteLink(rail, match, source, true);
       }
 
-      if (!source) continue;
-      const sourceBody = quoteCommentBody(source);
-      if (!sourceBody) continue;
-      const replies = mountReplyRail(sourceBody, match, source);
-      if (!replies) continue;
-      if (!replies.querySelector(`[data-gibbous-quote-key="${match.key}"]`)) {
-        const fullQuote = isFullQuote(match, source);
-        replies.append(createQuoteLink(
-          reply,
-          matchLabel("↓", source),
-          {
-            class: "Button Button--invisible Button--small gibbous-quote-button",
-            "data-gibbous-quote-key": match.key,
-            "data-gibbous-reply": reply.id,
-            "aria-label": `${fullQuote ? "Full comment quoted; go" : "Go"} to reply by @${reply.user}`,
-            title: fullQuote ? `Full comment quoted · @${reply.user}` : `Quoted by @${reply.user}`,
-          },
-          {match, fullQuote},
-        ));
-      }
+      const sourceBody = source && quoteCommentBody(source);
+      const replies = sourceBody && mountReplyRail(sourceBody, match, source);
+      if (replies) mountQuoteLink(replies, match, source, false);
     }
 
     if (!quoteMatches.length && quoteError) {
@@ -1242,7 +1527,7 @@
       pullRequestShortcuts = create(
         "li",
         {class: "gibbous-pull-request-shortcuts"},
-        ...[["open", "pullRequest"], ["closed", "pullRequestClosed"]].map(([state, iconName]) => create(
+        ...[["open", "git-pull-request"], ["closed", "git-pull-request-closed"]].map(([state, iconName]) => create(
           "a",
           {
             class: "Button Button--invisible Button--small Button--iconOnly gibbous-pull-request-shortcut",
@@ -1296,17 +1581,22 @@
     '[data-testid="dynamic-side-panel-items-search-button"], button:has(svg.octicon-search), a[href="/new"]',
   );
 
+  const repositorySurface = (kind, root, list, selector) => ({
+    kind,
+    root,
+    list,
+    entries: () => repositoryEntries(list, selector),
+    button: () => repositoryShowMoreButton(root),
+    searchButton: () => repositorySearchButton(root),
+  });
+
   const dashboardRepositorySurface = () => {
     if (!["/", "/dashboard"].includes(location.pathname)) return;
     const root = document.querySelector('[data-testid="dashboard-repositories"]')
       ?? document.querySelector(".feed-left-sidebar .js-repos-container");
     const list = root && [...root.querySelectorAll("ul")]
       .find(candidate => repositoryEntries(candidate).length);
-    if (!list) return;
-
-    const button = () => repositoryShowMoreButton(root);
-    const searchButton = () => repositorySearchButton(root);
-    return {kind: "dashboard", root, list, entries: () => repositoryEntries(list), button, searchButton};
+    return list && repositorySurface("dashboard", root, list);
   };
 
   const topRepositorySurfaces = () => {
@@ -1316,15 +1606,7 @@
       const dialog = list.closest('[role="dialog"]');
       const dashboard = list.closest('[data-testid="dashboard-repositories"], .feed-left-sidebar');
       const root = dialog ?? dashboard;
-      if (!root) return [];
-      return [{
-        kind: dialog ? "drawer" : "dashboard",
-        root,
-        list,
-        entries: () => repositoryEntries(list, selector),
-        button: () => repositoryShowMoreButton(root),
-        searchButton: () => repositorySearchButton(root),
-      }];
+      return root ? [repositorySurface(dialog ? "drawer" : "dashboard", root, list, selector)] : [];
     });
     const dashboard = dashboardRepositorySurface();
     if (dashboard && !lists.has(dashboard.list)) surfaces.push(dashboard);
@@ -1402,6 +1684,15 @@
     }
   };
 
+  // The viewer's repository of the same name, if it is a fork in the same network as rootNwo.
+  const fetchFork = async (candidateNwo, rootNwo, signal) => {
+    const response = await fetch(`/${candidateNwo}`, {credentials: "include", signal});
+    const candidate = response.ok && readRepositoryContext(
+      new DOMParser().parseFromString(await response.text(), "text/html"),
+    );
+    return candidate?.isFork && candidate.rootNwo.toLowerCase() === rootNwo.toLowerCase() ? candidate.nwo : null;
+  };
+
   const resolveRepositoryForkQueue = async () => {
     if (resolvingRepositoryForks) return;
     resolvingRepositoryForks = true;
@@ -1410,16 +1701,8 @@
         const batch = repositoryForkQueue.splice(0, 3);
         await Promise.all(batch.map(async ({key, candidateNwo, rootNwo}) => {
           try {
-            const response = await fetch(`/${candidateNwo}`, {
-              credentials: "include",
-              signal: AbortSignal.timeout(5000),
-            });
-            const candidate = response.ok && readRepositoryContext(
-              new DOMParser().parseFromString(await response.text(), "text/html"),
-            );
-            const fork = candidate?.isFork && candidate.rootNwo.toLowerCase() === rootNwo.toLowerCase()
-              ? `/${candidate.nwo}`
-              : null;
+            const nwo = await fetchFork(candidateNwo, rootNwo, AbortSignal.timeout(5000));
+            const fork = nwo && `/${nwo}`;
             knownRepositoryForks.set(key, fork);
             cacheSet("forks", key, fork);
           } catch {
@@ -1515,7 +1798,7 @@
         action ??= create(
           "a",
           {class: "Button Button--invisible Button--small Button--iconOnly gibbous-repository-fork"},
-          createOcticon("repoForked"),
+          createOcticon("repo-forked"),
         );
         action.href = href;
         action.title = `Open your fork: ${href.slice(1)}`;
@@ -1550,6 +1833,7 @@
 
   const updateFork = () => {
     mountTopRepositories();
+    updateRepositoryInsider();
     if (!forkedIn) return;
     forkedIn.hidden = !enabled || !userFork;
     forkLink.textContent = userFork ?? "";
@@ -1598,8 +1882,9 @@
     }
   };
 
-  // "My pull requests" tab on the repository overview. Active only when the viewer has open pull
-  // requests here; then the secondary file tabs collapse into a menu and the PR list opens first.
+  // Gibbous tabs in the README bar: "My pull requests" when the viewer has open pull requests here
+  // (it opens first) and, behind the insider gate, Contributors and Languages lifted out of the
+  // sidebar. While any is mounted the secondary file tabs collapse into a menu.
   let myPullRequestsLookup;
 
   const readmeNavigation = () => document.querySelector('nav[aria-label="Repository files"]');
@@ -1626,87 +1911,54 @@
     return `--label-r:${r};--label-g:${g};--label-b:${b};--label-h:${h};--label-s:${Math.round(sat * 100)};--label-l:${Math.round(l * 100)};`;
   };
 
-  const parseClassicPullRequests = root => [...root.querySelectorAll(".js-issue-row")].map(row => {
-    const link = row.querySelector("a.js-navigation-open, a.markdown-title");
-    const opened = row.querySelector(".opened-by");
-    return link && {
-      number: Number(row.id.replace(/\D/g, "")),
-      title: link.textContent.trim(),
-      url: link.getAttribute("href"),
-      draft: Boolean(row.querySelector(".octicon-git-pull-request-draft")),
-      author: opened?.querySelector("a")?.textContent.trim() ?? "",
-      openedAt: opened?.querySelector("relative-time")?.getAttribute("datetime") ?? "",
-      comments: Number(row.querySelector('a[aria-label$="comment"], a[aria-label$="comments"]')?.textContent.trim() ?? 0) || 0,
-      labels: [...row.querySelectorAll(".IssueLabel")].map(label => ({
-        name: label.dataset.name ?? label.textContent.trim(),
-        style: label.getAttribute("style") ?? "",
-      })),
-    };
-  }).filter(Boolean);
-
-  const parseEmbeddedPullRequests = root => {
-    const found = new Map();
-    const walk = node => {
-      if (!node || typeof node !== "object") return;
-      if (Array.isArray(node)) return node.forEach(walk);
-      if (node.__typename === "PullRequest" && node.number && node.title && !found.has(node.number)) {
-        found.set(node.number, {
-          number: node.number,
-          title: node.title,
-          url: node.resourcePath ?? new URL(node.url ?? "/", location.origin).pathname,
-          draft: Boolean(node.isDraft),
-          author: node.author?.login ?? "",
-          openedAt: node.createdAt ?? "",
-          comments: node.totalCommentsCount ?? node.comments?.totalCount ?? 0,
-          labels: (node.labels?.nodes ?? node.labels?.edges?.map(edge => edge.node) ?? [])
-            .map(label => ({name: label.name, style: labelStyle(label.color ?? "")})),
-        });
-      }
-      Object.values(node).forEach(walk);
-    };
-    for (const script of root.querySelectorAll('script[type="application/json"]')) {
-      try {
-        walk(JSON.parse(script.textContent));
-      } catch {
-        // Not every JSON island is ours to read.
-      }
-    }
-    return [...found.values()];
-  };
-
-  // The public search API answers for public repositories without a token; the signed-in pulls
-  // page is client-rendered, so HTML parsing is only a fallback for private repositories.
-  const searchMyPullRequests = async (context, viewer) => {
-    const query = encodeURIComponent(`repo:${context.nwo} is:pr is:open author:${viewer}`);
-    const response = await fetch(`https://api.github.com/search/issues?q=${query}&sort=updated&per_page=50`, {
+  // The public search API answers for public repositories without a token; the pulls page is the
+  // fallback for private repositories.
+  const searchIssues = async (query, perPage) => {
+    const response = await fetch(`https://api.github.com/search/issues?q=${encodeURIComponent(query)}&sort=updated&per_page=${perPage}`, {
       headers: {Accept: "application/vnd.github+json"},
     });
     if (!response.ok) throw new Error(`Search API ${response.status}`);
     const {items = []} = await response.json();
-    return items.filter(item => item.pull_request).map(item => ({
+    return items.map(item => ({
       number: item.number,
       title: item.title,
       url: new URL(item.html_url).pathname,
+      nwo: item.repository_url.replace(/^.*\/repos\//, ""),
       draft: Boolean(item.draft),
       author: item.user?.login ?? "",
       openedAt: item.created_at ?? "",
+      updatedAt: item.updated_at ?? "",
       comments: item.comments ?? 0,
+      pullRequest: Boolean(item.pull_request),
       labels: (item.labels ?? []).map(label => ({name: label.name, style: labelStyle(label.color ?? "")})),
     }));
   };
 
+  // The pulls page is client-rendered; its embedded payload lists the matching pull requests.
   const scrapeMyPullRequests = async (context, viewer) => {
     const query = encodeURIComponent(`is:pr is:open author:${viewer} sort:updated-desc`);
     const response = await fetch(`/${context.nwo}/pulls?q=${query}`, {credentials: "include"});
     if (!response.ok) throw new Error(`Pull request lookup failed (${response.status})`);
     const root = new DOMParser().parseFromString(await response.text(), "text/html");
-    const items = parseClassicPullRequests(root);
-    return items.length ? items : parseEmbeddedPullRequests(root);
+    const script = [...root.querySelectorAll('script[type="application/json"]')]
+      .find(candidate => candidate.textContent.includes('"repoPullsDashboardContentRoute"'));
+    const results = script ? JSON.parse(script.textContent).payload?.repoPullsDashboardContentRoute?.results ?? [] : [];
+    return results.map(item => ({
+      number: item.number,
+      title: item.title,
+      url: new URL(item.permalink).pathname,
+      draft: Boolean(item.isDraft),
+      author: item.author?.displayLogin ?? "",
+      openedAt: item.createdAt ?? "",
+      comments: item.commentCount ?? 0,
+      labels: (item.labels ?? []).map(label => ({name: label.name, style: labelStyle(label.color ?? "")})),
+    }));
   };
 
   const fetchMyPullRequests = async (context, viewer) => {
     try {
-      return await searchMyPullRequests(context, viewer);
+      const items = await searchIssues(`repo:${context.nwo} is:pr is:open author:${viewer}`, 50);
+      return items.filter(item => item.pullRequest);
     } catch (error) {
       reportError(error);
       return scrapeMyPullRequests(context, viewer);
@@ -1719,7 +1971,7 @@
     create(
       "span",
       {class: `flex-shrink-0 pt-1 ${item.draft ? "color-fg-muted" : "color-fg-open"}`, "aria-label": item.draft ? "Draft pull request" : "Open pull request"},
-      createOcticon(item.draft ? "pullRequestDraft" : "pullRequest"),
+      createOcticon(item.draft ? "git-pull-request-draft" : "git-pull-request"),
     ),
     create(
       "div",
@@ -1746,52 +1998,97 @@
     ) : "",
   );
 
-  const selectMyPullRequests = (box, selected) => {
-    box.toggleAttribute("data-gibbous-pulls-selected", selected);
-    const tab = box.querySelector(".gibbous-pulls-tab-link");
-    if (!tab) return;
-    if (selected) {
-      tab.setAttribute("aria-current", "page");
-      for (const link of readmeNavigation()?.querySelectorAll('a[aria-current="page"]') ?? []) {
-        if (link !== tab) link.removeAttribute("aria-current");
+  // While a Gibbous tab is showing, GitHub's current tab gives up aria-current (its underline);
+  // it gets it back on return unless GitHub has since marked another tab current.
+  const selectRepositoryTab = (box, name) => {
+    if (name) box.dataset.gibbousTab = name;
+    else delete box.dataset.gibbousTab;
+    const links = [...readmeNavigation()?.querySelectorAll("a") ?? []];
+    const github = links.filter(link => !link.classList.contains("gibbous-tab-link"));
+    for (const link of links) {
+      if (link.classList.contains("gibbous-tab-link")) {
+        if (link.dataset.tab === name) link.setAttribute("aria-current", "page");
+        else link.removeAttribute("aria-current");
+      } else if (name && link.hasAttribute("aria-current")) {
+        link.removeAttribute("aria-current");
+        link.dataset.gibbousCurrent = "";
       }
-    } else tab.removeAttribute("aria-current");
+    }
+    if (!name) {
+      const live = github.some(link => link.hasAttribute("aria-current"));
+      for (const link of github.filter(link => "gibbousCurrent" in link.dataset)) {
+        if (!live) link.setAttribute("aria-current", "page");
+        delete link.dataset.gibbousCurrent;
+      }
+    }
+    // Sidebar panels are copied when shown, so they are as current as the sidebar.
+    for (const panel of box.querySelectorAll(":scope > .gibbous-tab-panel")) {
+      panel.hidden = panel.dataset.tab !== name;
+      const section = !panel.hidden && document.querySelector(`[data-gibbous-section="${name}"]`);
+      if (section) panel.replaceChildren(...[...section.children].slice(1).map(child => child.cloneNode(true)));
+    }
   };
 
-  const mountMyPullRequestsTab = (context, items) => {
+  const unmountRepositoryTabs = box => {
+    box.querySelectorAll(":scope > .gibbous-tab-panel, .gibbous-tab, .gibbous-readme-menu").forEach(node => node.remove());
+    box.removeAttribute("data-gibbous-tabs-active");
+    delete box.dataset.gibbousTabsSignature;
+    selectRepositoryTab(box, null);
+  };
+
+  const mountRepositoryTabs = (context, pulls) => {
     const navigation = readmeNavigation();
     const list = navigation?.querySelector("ul");
     const readmeItem = [...(list?.children ?? [])].find(item => item.querySelector('[data-content="README"]'));
     const header = navigation?.parentElement;
     const box = header?.parentElement;
     if (!list || !readmeItem || !box) return;
-    const existing = box.querySelector(".gibbous-my-pulls");
-    const signature = JSON.stringify(items);
-    if (existing?.dataset.nwo === context.nwo && existing.dataset.signature === signature) return;
-    existing?.remove();
-    box.querySelector(".gibbous-pulls-tab")?.remove();
-    box.querySelector(".gibbous-readme-menu")?.remove();
-    box.toggleAttribute("data-gibbous-pulls-active", items.length > 0);
-    if (!items.length) {
-      selectMyPullRequests(box, false);
-      return;
+    const tabs = pulls?.length ? [{
+      name: "pulls",
+      label: "My pull requests",
+      icon: "git-pull-request",
+      count: String(pulls.length),
+      href: `/${context.nwo}/pulls?q=${encodeURIComponent("is:pr is:open author:@me")}`,
+    }] : [];
+    if (document.documentElement.hasAttribute("data-gibbous-repository-insider")) {
+      for (const [name, label, icon] of [["contributors", "Contributors", "people"], ["languages", "Languages", "code"]]) {
+        const section = document.querySelector(`[data-gibbous-section="${name}"]`);
+        if (section) tabs.push({
+          name,
+          label,
+          icon,
+          count: section.querySelector(':scope > h2 [data-component="CounterLabel"]')?.textContent.trim(),
+          href: section.querySelector(":scope > h2 a[href]")?.getAttribute("href") ?? "#",
+        });
+      }
     }
+    const signature = JSON.stringify([context.nwo, pulls, tabs]);
+    if (box.dataset.gibbousTabsSignature === signature) return;
+    const selected = box.dataset.gibbousTab;
+    unmountRepositoryTabs(box);
+    if (!tabs.length) return;
+    box.dataset.gibbousTabsSignature = signature;
+    box.setAttribute("data-gibbous-tabs-active", "");
 
     const sampleLink = readmeItem.querySelector("a");
-    const tabLink = create(
-      "a",
-      {class: `${sampleLink.className} gibbous-pulls-tab-link`, href: `/${context.nwo}/pulls?q=${encodeURIComponent("is:pr is:open author:@me")}`},
-      create("span", {"data-component": "icon"}, createOcticon("pullRequest")),
-      create("span", {"data-component": "text"}, "My pull requests"),
-      create("span", {class: "Counter ml-1"}, String(items.length)),
-    );
-    tabLink.addEventListener("click", event => {
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
-      event.preventDefault();
-      selectMyPullRequests(box, true);
-    });
-    const tab = create("li", {class: `${readmeItem.className} gibbous-pulls-tab`}, tabLink);
-    readmeItem.after(tab);
+    let previous = readmeItem;
+    for (const {name, label, icon, count, href} of tabs) {
+      const tabLink = create(
+        "a",
+        {class: `${sampleLink.className} gibbous-tab-link`, "data-tab": name, href},
+        create("span", {"data-component": "icon"}, createOcticon(icon)),
+        create("span", {"data-component": "text"}, label),
+        count ? create("span", {class: "Counter ml-1"}, count) : "",
+      );
+      tabLink.addEventListener("click", event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+        event.preventDefault();
+        selectRepositoryTab(box, name);
+      });
+      const tab = create("li", {class: `${readmeItem.className} gibbous-tab`}, tabLink);
+      previous.after(tab);
+      previous = tab;
+    }
 
     const hidden = [...list.querySelectorAll("a [data-content]")]
       .map(label => label.dataset.content)
@@ -1815,7 +2112,7 @@
         );
         entry.addEventListener("click", () => {
           menu.removeAttribute("open");
-          selectMyPullRequests(box, false);
+          selectRepositoryTab(box, null);
         });
         outline.append(entry);
       }
@@ -1826,7 +2123,7 @@
       create(
         "summary",
         {class: "Button Button--invisible Button--iconOnly Button--medium", "aria-label": "Files and outline", title: "Files and outline"},
-        outlineButton?.querySelector("svg")?.cloneNode(true) ?? createOcticon("listUnordered"),
+        outlineButton?.querySelector("svg")?.cloneNode(true) ?? createOcticon("list-unordered"),
       ),
       create("div", {class: "gibbous-readme-menu-list", role: "menu"}, ...hidden.map(name => {
         const source = list.querySelector(`a [data-content="${name}"]`).closest("a");
@@ -1834,7 +2131,7 @@
         entry.append(...[...source.children].map(child => child.cloneNode(true)));
         entry.addEventListener("click", () => {
           menu.removeAttribute("open");
-          selectMyPullRequests(box, false);
+          selectRepositoryTab(box, null);
           // GitHub may have re-rendered the tab since we mounted; find the live anchor by name.
           readmeNavigation()?.querySelector(`a [data-content="${name}"]`)?.closest("a")?.click();
         });
@@ -1846,46 +2143,38 @@
     });
     header.append(menu);
 
-    if (!navigation.dataset.gibbousPullsListener) {
-      navigation.dataset.gibbousPullsListener = "";
+    if (!navigation.dataset.gibbousTabsListener) {
+      navigation.dataset.gibbousTabsListener = "";
       navigation.addEventListener("click", event => {
         const link = event.target instanceof Element && event.target.closest("a");
-        if (link && !link.classList.contains("gibbous-pulls-tab-link") && list.contains(link)) selectMyPullRequests(box, false);
+        if (link && !link.classList.contains("gibbous-tab-link") && list.contains(link)) selectRepositoryTab(box, null);
       });
     }
 
-    const panel = create(
+    header.after(...tabs.map(({name}) => create(
       "div",
-      {class: "Box gibbous-my-pulls", "data-nwo": context.nwo, "data-count": String(items.length), "data-signature": signature},
-      ...items.map(renderMyPullRequestRow),
-      create(
-        "div",
-        {class: "Box-row text-small color-fg-muted gibbous-my-pulls-footer"},
-        create("a", {class: "Link--muted", href: tabLink.href}, "Open in pull requests"),
-      ),
-    );
-    header.after(panel);
-    selectMyPullRequests(box, true);
+      // Plain navigation: Turbo cannot load these links into the code view's frame.
+      {class: "gibbous-tab-panel", "data-tab": name, "data-turbo": "false"},
+      ...(name === "pulls" ? pulls.map(renderMyPullRequestRow) : []),
+    )));
+    // The pull request list opens first; otherwise keep whatever tab was showing.
+    selectRepositoryTab(box, tabs.some(tab => tab.name === selected) ? selected : pulls?.length ? "pulls" : null);
   };
 
   const refreshMyPullRequests = (context, viewer) => {
     const box = readmeNavigation()?.parentElement?.parentElement;
     if (!box) return;
     if (!enabled || !viewer) {
-      box.querySelector(".gibbous-my-pulls")?.remove();
-      box.querySelector(".gibbous-pulls-tab")?.remove();
-      box.querySelector(".gibbous-readme-menu")?.remove();
-      box.removeAttribute("data-gibbous-pulls-active");
-      selectMyPullRequests(box, false);
+      if (box.dataset.gibbousTabsSignature) unmountRepositoryTabs(box);
       myPullRequestsLookup = undefined;
       return;
     }
     const lookup = `${viewer}|${context.nwo}`;
     myPullRequestsLookup = lookup;
     const items = cached("myPulls", lookup, 5 * MINUTE, () => fetchMyPullRequests(context, viewer), fresh => {
-      if (myPullRequestsLookup === lookup && box.isConnected) mountMyPullRequestsTab(context, fresh);
+      if (myPullRequestsLookup === lookup && box.isConnected) mountRepositoryTabs(context, fresh);
     });
-    if (items) mountMyPullRequestsTab(context, items);
+    mountRepositoryTabs(context, items);
   };
 
   // Classic dashboard with Gibbous on: replace the feed column with the same "Pull requests" and
@@ -1900,30 +2189,10 @@
     return feed && main ? main : undefined;
   };
 
-  const searchDashboardItems = async (viewer, kind) => {
-    const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-    const scope = kind === "pr" ? `is:pr author:${viewer}` : `is:issue involves:${viewer}`;
-    const query = encodeURIComponent(`${scope} is:open updated:>=${since}`);
-    const response = await fetch(`https://api.github.com/search/issues?q=${query}&sort=updated&per_page=10`, {
-      headers: {Accept: "application/vnd.github+json"},
-    });
-    if (!response.ok) throw new Error(`Search API ${response.status}`);
-    const {items = []} = await response.json();
-    return items.map(item => ({
-      number: item.number,
-      title: item.title,
-      url: new URL(item.html_url).pathname,
-      nwo: item.repository_url.replace(/^.*\/repos\//, ""),
-      draft: Boolean(item.draft),
-      author: item.user?.login ?? "",
-      updatedAt: item.updated_at ?? "",
-      comments: item.comments ?? 0,
-      pullRequest: Boolean(item.pull_request),
-    }));
-  };
-
   const fetchDashboardItems = async viewer => {
-    const [pulls, issues] = await Promise.all([searchDashboardItems(viewer, "pr"), searchDashboardItems(viewer, "issue")]);
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    const [pulls, issues] = await Promise.all([`is:pr author:${viewer}`, `is:issue involves:${viewer}`]
+      .map(scope => searchIssues(`${scope} is:open updated:>=${since}`, 10)));
     return {pulls, issues};
   };
 
@@ -1933,7 +2202,7 @@
     create(
       "span",
       {class: item.pullRequest ? (item.draft ? "color-fg-muted" : "color-fg-open") : "color-fg-open", "aria-hidden": "true"},
-      createOcticon(item.pullRequest ? (item.draft ? "pullRequestDraft" : "pullRequest") : "issueOpened"),
+      createOcticon(item.pullRequest ? (item.draft ? "git-pull-request-draft" : "git-pull-request") : "issue-opened"),
     ),
     create(
       "div",
@@ -1954,6 +2223,17 @@
     ) : "",
   );
 
+  const dashboardSkeletonRow = () => create(
+    "div",
+    {class: "gibbous-dashboard-row"},
+    create(
+      "div",
+      {class: "gibbous-dashboard-copy"},
+      create("div", {class: "gibbous-dashboard-skeleton"}),
+      create("div", {class: "gibbous-dashboard-skeleton", style: "width: 35%"}),
+    ),
+  );
+
   const renderDashboardSection = (title, href, items, empty) => create(
     "section",
     {class: "gibbous-dashboard-section"},
@@ -1966,7 +2246,9 @@
     create(
       "div",
       {class: "Box gibbous-dashboard-list"},
-      ...(items.length ? items.map(renderDashboardRow) : [create("div", {class: "gibbous-dashboard-empty"}, empty)]),
+      ...(!items ? [dashboardSkeletonRow()]
+        : items.length ? items.map(renderDashboardRow)
+          : [create("div", {class: "gibbous-dashboard-empty"}, empty)]),
     ),
   );
 
@@ -1993,14 +2275,8 @@
     const items = cached("dashboard", viewer, 5 * MINUTE, () => fetchDashboardItems(viewer), fresh => {
       if (container.isConnected && classicDashboardLookup === viewer) render(fresh);
     });
-    if (items) render(items);
-    else if (!container.childElementCount) {
-      const skeleton = () => create("div", {class: "gibbous-dashboard-row"}, create("div", {class: "gibbous-dashboard-copy"}, create("div", {class: "gibbous-dashboard-skeleton"}), create("div", {class: "gibbous-dashboard-skeleton", style: "width: 35%"})));
-      container.replaceChildren(
-        create("section", {class: "gibbous-dashboard-section"}, create("div", {class: "gibbous-dashboard-heading"}, create("h2", {}, "Pull requests")), create("div", {class: "Box gibbous-dashboard-list"}, skeleton())),
-        create("section", {class: "gibbous-dashboard-section"}, create("div", {class: "gibbous-dashboard-heading"}, create("h2", {}, "Issues")), create("div", {class: "Box gibbous-dashboard-list"}, skeleton())),
-      );
-    }
+    // Until the first result arrives, each section shows a skeleton row.
+    if (items || !container.childElementCount) render(items ?? {});
   };
 
   const resolveUserFork = async (context, viewer) => {
@@ -2013,16 +2289,7 @@
     const candidateNwo = `${viewer}/${context.rootNwo.split("/").at(-1)}`;
     if (candidateNwo.toLowerCase() === context.nwo.toLowerCase()) return;
     const entry = cacheEntry("userForks", lookup);
-    const known = cached("userForks", lookup, entry?.value ? 24 * 60 * MINUTE : 10 * MINUTE, async () => {
-      const response = await fetch(`/${candidateNwo}`, {credentials: "include"});
-      if (!response.ok) return null;
-      const candidate = readRepositoryContext(
-        new DOMParser().parseFromString(await response.text(), "text/html"),
-      );
-      return candidate?.isFork && candidate.rootNwo.toLowerCase() === context.rootNwo.toLowerCase()
-        ? candidate.nwo
-        : null;
-    }, fresh => {
+    const known = cached("userForks", lookup, entry?.value ? 24 * 60 * MINUTE : 10 * MINUTE, () => fetchFork(candidateNwo, context.rootNwo), fresh => {
       if (forkLookup !== lookup) return;
       userFork = fresh ?? undefined;
       updateFork();
@@ -2043,6 +2310,7 @@
       if (enabled) markSuggestedWorkflows();
     }
     mountPullRequestShortcuts(pageContext, viewer);
+    mountSidebarTags();
     if (!context) {
       repositoryKey = undefined;
       hiddenNames = [];
@@ -2109,6 +2377,9 @@
   };
 
   function refresh() {
+    // Needs only the DOM, so it runs before storage is loaded and the gate is right on first paint.
+    updateRepositoryInsider();
+    markSidebarSections();
     if (!ready) return;
     mountControl();
     mountClassicDashboard();
