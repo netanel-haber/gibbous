@@ -1,3 +1,6 @@
+// The Pages site's tooling, run from the repository root:
+//   node site.mjs render         re-render docs/<feature>-<state>.webp, the no-JavaScript fallbacks
+//   node site.mjs audit [url]    audit every theme, feature and state of the served site
 import {spawn} from "node:child_process";
 import {existsSync} from "node:fs";
 import {mkdir, mkdtemp, readdir, stat, writeFile} from "node:fs/promises";
@@ -41,18 +44,6 @@ const palettes = {
     inset: "#eff2f5",
     overlay: "#ffffff",
   },
-  "light-colorblind": {
-    canvas: "#ffffff",
-    subtle: "#f6f8fa",
-    inset: "#f6f8fa",
-    overlay: "#ffffff",
-  },
-  "light-colorblind-high-contrast": {
-    canvas: "#ffffff",
-    subtle: "#e6eaef",
-    inset: "#eff2f5",
-    overlay: "#ffffff",
-  },
   dark: {
     canvas: "#0d1117",
     subtle: "#151b23",
@@ -60,18 +51,6 @@ const palettes = {
     overlay: "#010409",
   },
   "dark-high-contrast": {
-    canvas: "#010409",
-    subtle: "#151b23",
-    inset: "#010409",
-    overlay: "#010409",
-  },
-  "dark-colorblind": {
-    canvas: "#0d1117",
-    subtle: "#151b23",
-    inset: "#010409",
-    overlay: "#010409",
-  },
-  "dark-colorblind-high-contrast": {
     canvas: "#010409",
     subtle: "#151b23",
     inset: "#010409",
@@ -91,6 +70,11 @@ const palettes = {
   },
 };
 
+// Colorblind themes change accent and success colors only, never surfaces.
+for (const base of ["light", "light-high-contrast", "dark", "dark-high-contrast"]) {
+  palettes[base.replace(/^(light|dark)/, "$1-colorblind")] = palettes[base];
+}
+
 // The site shell keeps its own fixed palette; only the demo follows the GitHub theme.
 const siteCanvas = "#101722";
 
@@ -103,24 +87,13 @@ const requiredSurfaceRoles = {
   "quote-navigation": ["canvas", "header", "subtle"],
 };
 
-const expectedAssets = new Set([
-  "dashboard-after.webp",
-  "dashboard-before.webp",
-  "hidden-files-after.webp",
-  "hidden-files-before.webp",
-  "mermaid-after.webp",
-  "mermaid-before.webp",
-  "pull-request-shortcuts-after.webp",
-  "pull-request-shortcuts-before.webp",
-  "quote-navigation-after.webp",
-  "quote-navigation-before.webp",
-  "repository-navigation-after.webp",
-  "repository-navigation-before.webp",
-  "sidebar-after.webp",
-  "sidebar-before.webp",
-]);
+// Mermaid is animated, so it is not audited live, but its fallback images are.
+const assetFeatures = [...features, "mermaid"];
+const expectedAssets = new Set(assetFeatures.flatMap(feature => states.map(state => `${feature}-${state}.webp`)));
+const maxAssetBytes = 100 * 1024;
 
-const siteUrl = process.argv[2] ?? process.env.GIBBOUS_AUDIT_URL ?? "http://127.0.0.1:4173/";
+const [mode = "audit", argument] = process.argv.slice(2);
+const siteUrl = argument ?? process.env.GIBBOUS_AUDIT_URL ?? "http://127.0.0.1:4173/";
 const outputDirectory = resolve(process.env.GIBBOUS_AUDIT_OUT ?? "/tmp/gibbous-site-audit");
 const cdpPort = Number(process.env.GIBBOUS_CDP_PORT ?? 9227);
 const cdpEndpoint = `http://127.0.0.1:${cdpPort}/json/list`;
@@ -555,7 +528,7 @@ const auditHeaderPixel = async (protocol, inspection, theme, feature, state) => 
 };
 
 const auditAssets = async () => {
-  const assetsDirectory = resolve("docs/assets");
+  const assetsDirectory = resolve("docs");
   const names = (await readdir(assetsDirectory)).filter(name => name.endsWith(".webp"));
   const actual = new Set(names);
   for (const name of expectedAssets) {
@@ -564,7 +537,7 @@ const auditAssets = async () => {
   for (const name of actual) {
     if (!expectedAssets.has(name)) fail("assets", `Unexpected WebP ${name}`);
     const details = await stat(join(assetsDirectory, name));
-    if (details.size >= 100 * 1024) fail("assets", `${name} is ${details.size} bytes; expected less than 100 KiB`);
+    if (details.size >= maxAssetBytes) fail("assets", `${name} is ${details.size} bytes; expected less than 100 KiB`);
   }
 };
 
@@ -587,73 +560,111 @@ const writeContactSheet = async () => {
   await writeFile(join(outputDirectory, "index.html"), html);
 };
 
-await mkdir(outputDirectory, {recursive: true});
-await auditAssets();
-await assertSiteAvailable();
-
-const browser = await connectToBrowser();
-const protocol = await openProtocol(browser.target);
-
-try {
-  await protocol.send("Page.enable");
-  await protocol.send("Runtime.enable");
-  await protocol.send("Log.enable");
-  await protocol.send("Network.enable");
-  await protocol.send("Network.setCacheDisabled", {cacheDisabled: true});
-  await protocol.send("Emulation.setDeviceMetricsOverride", {
-    deviceScaleFactor: 1,
-    height: viewport.height,
-    mobile: false,
-    width: viewport.width,
-  });
-  await protocol.send("Emulation.setEmulatedMedia", {
-    features: [{name: "prefers-reduced-motion", value: "reduce"}],
-  });
-
-  for (const theme of themes) {
-    for (const feature of features) {
-      activeCase = `${theme}/${feature}/navigation`;
-      const url = new URL(siteUrl);
-      url.searchParams.set("audit", `${theme}-${feature}-${Date.now()}`);
-      url.hash = feature;
-      await protocol.send("Page.navigate", {url: url.href});
-      await waitForDocument(protocol);
-      await settle(protocol);
+// Each fallback is the demo's still frame at 1280x800 and 2x, as WebP below 100 KiB.
+const render = async () => {
+  const browser = await connectToBrowser();
+  const protocol = await openProtocol(browser.target);
+  try {
+    await protocol.send("Page.enable");
+    await protocol.send("Emulation.setDeviceMetricsOverride", {deviceScaleFactor: 2, height: 800, mobile: false, width: 1280});
+    for (const feature of assetFeatures) {
       for (const state of states) {
-        activeCase = `${theme}/${feature}/${state}`;
-        try {
-          await prepareCase(protocol, theme, feature, state);
-          await settle(protocol);
-          const inspection = await inspectCase(protocol, feature);
-          auditInspection(inspection, theme, feature, state);
-          await auditHeaderPixel(protocol, inspection, theme, feature, state);
-          await capture(protocol, join(outputDirectory, `${theme}-${feature}-${state}.png`));
-        } catch (error) {
-          fail(activeCase, error.message);
+        const url = new URL(`file://${resolve("docs/demo.html")}`);
+        url.search = new URLSearchParams({feature, state, theme: "dark", still: "1"});
+        await protocol.send("Page.navigate", {url: url.href});
+        await waitForDocument(protocol);
+        await settle(protocol);
+        let image;
+        let quality = 88;
+        do {
+          const screenshot = await protocol.send("Page.captureScreenshot", {format: "webp", quality});
+          image = Buffer.from(screenshot.data, "base64");
+          quality -= 2;
+        } while (image.length >= maxAssetBytes && quality >= 40);
+        if (image.length >= maxAssetBytes) throw new Error(`Could not encode ${feature}-${state}.webp below 100 KiB`);
+        await writeFile(join("docs", `${feature}-${state}.webp`), image);
+      }
+    }
+  } finally {
+    protocol.socket.close();
+    browser.process?.kill("SIGTERM");
+  }
+  console.log(`Rendered ${expectedAssets.size} WebP fallbacks below 100 KiB.`);
+};
+
+const audit = async () => {
+  await mkdir(outputDirectory, {recursive: true});
+  await auditAssets();
+  await assertSiteAvailable();
+
+  const browser = await connectToBrowser();
+  const protocol = await openProtocol(browser.target);
+
+  try {
+    await protocol.send("Page.enable");
+    await protocol.send("Runtime.enable");
+    await protocol.send("Log.enable");
+    await protocol.send("Network.enable");
+    await protocol.send("Network.setCacheDisabled", {cacheDisabled: true});
+    await protocol.send("Emulation.setDeviceMetricsOverride", {
+      deviceScaleFactor: 1,
+      height: viewport.height,
+      mobile: false,
+      width: viewport.width,
+    });
+    await protocol.send("Emulation.setEmulatedMedia", {
+      features: [{name: "prefers-reduced-motion", value: "reduce"}],
+    });
+
+    for (const theme of themes) {
+      for (const feature of features) {
+        activeCase = `${theme}/${feature}/navigation`;
+        const url = new URL(siteUrl);
+        url.searchParams.set("audit", `${theme}-${feature}-${Date.now()}`);
+        url.hash = feature;
+        await protocol.send("Page.navigate", {url: url.href});
+        await waitForDocument(protocol);
+        await settle(protocol);
+        for (const state of states) {
+          activeCase = `${theme}/${feature}/${state}`;
+          try {
+            await prepareCase(protocol, theme, feature, state);
+            await settle(protocol);
+            const inspection = await inspectCase(protocol, feature);
+            auditInspection(inspection, theme, feature, state);
+            await auditHeaderPixel(protocol, inspection, theme, feature, state);
+            await capture(protocol, join(outputDirectory, `${theme}-${feature}-${state}.png`));
+          } catch (error) {
+            fail(activeCase, error.message);
+          }
         }
       }
     }
+  } finally {
+    protocol.socket.close();
+    browser.process?.kill("SIGTERM");
   }
-} finally {
-  protocol.socket.close();
-  browser.process?.kill("SIGTERM");
-}
 
-for (const error of browserErrors) fail(error.case, `${error.type}: ${error.value}`);
-await writeContactSheet();
-const report = {
-  failures,
-  outputDirectory,
-  renders: themes.length * features.length * states.length,
-  siteUrl,
+  for (const error of browserErrors) fail(error.case, `${error.type}: ${error.value}`);
+  await writeContactSheet();
+  const report = {
+    failures,
+    outputDirectory,
+    renders: themes.length * features.length * states.length,
+    siteUrl,
+  };
+  await writeFile(join(outputDirectory, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+
+  if (failures.length) {
+    console.error(`Visual audit failed: ${failures.length} failures across ${report.renders} renders`);
+    for (const failure of failures) console.error(`${failure.case}: ${failure.message}`);
+    process.exitCode = 1;
+  } else {
+    console.log(`Visual audit passed: ${report.renders} renders`);
+  }
+  console.log(`Artifacts: ${outputDirectory}`);
 };
-await writeFile(join(outputDirectory, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
 
-if (failures.length) {
-  console.error(`Visual audit failed: ${failures.length} failures across ${report.renders} renders`);
-  for (const failure of failures) console.error(`${failure.case}: ${failure.message}`);
-  process.exitCode = 1;
-} else {
-  console.log(`Visual audit passed: ${report.renders} renders`);
-}
-console.log(`Artifacts: ${outputDirectory}`);
+if (mode === "render") await render();
+else if (mode === "audit") await audit();
+else throw new Error(`Unknown mode ${mode}; use render or audit`);

@@ -247,7 +247,7 @@ const sidebarScene = state => `
     ${topRepositories(state)}
   </aside>`;
 
-const comment = ({author, initial, text, quoted = false, direction = ""}) => `
+const comment = ({author, initial, quoted = false, direction = ""}) => `
   <article class="timeline-comment ${quoted ? "matched" : ""}">
     ${avatar(initial, author === "netanel-haber" ? "personal" : "contributor")}
     <div class="comment-card">
@@ -263,9 +263,9 @@ const quoteScene = state => `
   ${appHeader(state)}
   <section class="pull-request-title"><span>Open</span><div><h1>Reduce CLI startup below one second <small>#41518</small></h1><p><strong>netanel-haber</strong> wants to merge into <code>lunar-labs:main</code></p></div></section>
   <main class="timeline">
-    ${comment({author: "matteso1", initial: "M", text: "", quoted: state === "after", direction: state === "after" ? "down" : ""})}
+    ${comment({author: "matteso1", initial: "M", quoted: state === "after", direction: state === "after" ? "down" : ""})}
     <div class="hidden-comments"><span></span><b>36 hidden items<br><a>Load more…</a></b><span></span></div>
-    ${comment({author: "netanel-haber", initial: "N", text: "", quoted: state === "after", direction: state === "after" ? "up" : ""})}
+    ${comment({author: "netanel-haber", initial: "N", quoted: state === "after", direction: state === "after" ? "up" : ""})}
   </main>`;
 
 const sequenceDiagram = () => {
@@ -363,7 +363,6 @@ const renderDemo = options => {
   const crossfade = sceneChanged && feature === "mermaid" && demo.dataset.feature === "mermaid";
   demo.dataset.feature = feature;
   demo.dataset.state = state;
-  demo.dataset.theme = theme;
   demo.ariaLabel = `${feature.replaceAll("-", " ")}, ${state}, ${theme}`;
   if (!sceneChanged) return;
   if (!crossfade) {
@@ -391,17 +390,11 @@ new MutationObserver(() => renderDemo(document.documentElement.dataset)).observe
   attributes: true,
 });
 
-addEventListener("message", event => {
-  if (event.origin !== location.origin || event.data?.type !== "gibbous-demo") return;
-  renderDemo({...demo.dataset, ...event.data});
-});
-
 // Scenes with a timeline play once; tell the parent when they finish so it can offer a replay.
 demo.addEventListener("animationend", event => {
   if (event.target === demo.querySelector(".demo-cursor")) parent.postMessage({type: "gibbous-demo-finished"}, location.origin);
 });
 
-window.renderGibbousDemo = renderDemo;
 window.replayGibbousDemo = () => {
   demo.innerHTML = scenes[demo.dataset.feature](demo.dataset.state);
 };

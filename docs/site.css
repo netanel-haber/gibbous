@@ -434,28 +434,17 @@ html[data-site-ready] .comparison-card {
   left: calc(100% - 5.5rem);
 }
 
-@keyframes moon-orbit-on {
+/* The moon arcs over the switch when turning on and under it when turning off. */
+@keyframes moon-orbit {
   0% { left: 3rem; transform: translateY(-50%); }
-  12.5% { left: 3.095rem; transform: translateY(calc(-50% - .478rem)); }
-  25% { left: 3.366rem; transform: translateY(calc(-50% - .884rem)); }
-  37.5% { left: 3.772rem; transform: translateY(calc(-50% - 1.155rem)); }
-  50% { left: 4.25rem; transform: translateY(calc(-50% - 1.25rem)); }
-  62.5% { left: 4.728rem; transform: translateY(calc(-50% - 1.155rem)); }
-  75% { left: 5.134rem; transform: translateY(calc(-50% - .884rem)); }
-  87.5% { left: 5.405rem; transform: translateY(calc(-50% - .478rem)); }
+  12.5% { left: 3.095rem; transform: translateY(calc(-50% + var(--orbit-arc) * .478rem)); }
+  25% { left: 3.366rem; transform: translateY(calc(-50% + var(--orbit-arc) * .884rem)); }
+  37.5% { left: 3.772rem; transform: translateY(calc(-50% + var(--orbit-arc) * 1.155rem)); }
+  50% { left: 4.25rem; transform: translateY(calc(-50% + var(--orbit-arc) * 1.25rem)); }
+  62.5% { left: 4.728rem; transform: translateY(calc(-50% + var(--orbit-arc) * 1.155rem)); }
+  75% { left: 5.134rem; transform: translateY(calc(-50% + var(--orbit-arc) * .884rem)); }
+  87.5% { left: 5.405rem; transform: translateY(calc(-50% + var(--orbit-arc) * .478rem)); }
   100% { left: calc(100% - 5.5rem); transform: translateY(-50%); }
-}
-
-@keyframes moon-orbit-off {
-  0% { left: calc(100% - 5.5rem); transform: translateY(-50%); }
-  12.5% { left: 5.405rem; transform: translateY(calc(-50% + .478rem)); }
-  25% { left: 5.134rem; transform: translateY(calc(-50% + .884rem)); }
-  37.5% { left: 4.728rem; transform: translateY(calc(-50% + 1.155rem)); }
-  50% { left: 4.25rem; transform: translateY(calc(-50% + 1.25rem)); }
-  62.5% { left: 3.772rem; transform: translateY(calc(-50% + 1.155rem)); }
-  75% { left: 3.366rem; transform: translateY(calc(-50% + .884rem)); }
-  87.5% { left: 3.095rem; transform: translateY(calc(-50% + .478rem)); }
-  100% { left: 3rem; transform: translateY(-50%); }
 }
 
 @keyframes case-arrive-next { from { transform: translateX(2rem); } }
@@ -463,8 +452,8 @@ html[data-site-ready] .comparison-card {
 
 @media (prefers-reduced-motion: no-preference) {
   .comparison-card-pulse { animation: comparison-card-pulse 520ms ease-out; }
-  .comparison-toggle[data-orbit="on"] .comparison-moon { animation: moon-orbit-on 360ms linear; }
-  .comparison-toggle[data-orbit="off"] .comparison-moon { animation: moon-orbit-off 360ms linear; }
+  .comparison-toggle[data-orbit="on"] .comparison-moon { --orbit-arc: -1; animation: moon-orbit 360ms linear; }
+  .comparison-toggle[data-orbit="off"] .comparison-moon { --orbit-arc: 1; animation: moon-orbit 360ms linear reverse; }
   .gallery-track[data-direction="next"] .feature-panel[data-active] .comparison-card { animation: case-arrive-next 100ms cubic-bezier(.2, .9, .35, 1); }
   .gallery-track[data-direction="previous"] .feature-panel[data-active] .comparison-card { animation: case-arrive-previous 100ms cubic-bezier(.2, .9, .35, 1); }
 }

@@ -61,7 +61,6 @@ const renderFrame = frame => {
 
 const renderFrames = () => document.querySelectorAll(".demo-frame").forEach(renderFrame);
 
-
 const loadPanel = panel => {
   const frame = panel.querySelector(".demo-frame[data-src]");
   if (frame) {
@@ -122,34 +121,24 @@ const scheduleGalleryUpdate = () => {
   });
 };
 
-const goToPanel = index => {
+const goToPanel = (index, syncHash = true) => {
   const bounded = Math.min(panels.length - 1, Math.max(0, index));
   if (!desktop.matches) {
-    showPanel(bounded, true);
+    showPanel(bounded, syncHash);
     panels[bounded].scrollIntoView({block: "start"});
     return;
   }
   const distance = gallery.offsetHeight - gallerySticky.offsetHeight;
   const galleryTop = scrollY + gallery.getBoundingClientRect().top;
   scrollTo({top: galleryTop - siteHeader.offsetHeight + (bounded + .5) / panels.length * distance});
-  showPanel(bounded, true);
+  showPanel(bounded, syncHash);
 };
 
 const navigateToHash = () => {
   const feature = HASH_FEATURES[location.hash.slice(1)];
   const index = panels.findIndex(panel => panel.dataset.feature === feature);
-  if (index < 0) return false;
-  const bounded = Math.min(panels.length - 1, Math.max(0, index));
-  if (desktop.matches) {
-    const distance = gallery.offsetHeight - gallerySticky.offsetHeight;
-    const galleryTop = scrollY + gallery.getBoundingClientRect().top;
-    scrollTo({top: galleryTop - siteHeader.offsetHeight + (bounded + .5) / panels.length * distance});
-    showPanel(bounded);
-  } else {
-    showPanel(bounded);
-    panels[bounded].scrollIntoView({block: "start"});
-  }
-  return true;
+  if (index >= 0) goToPanel(index, false);
+  return index >= 0;
 };
 
 const configureGallery = () => {
@@ -171,7 +160,6 @@ const animateMoon = enabled => {
   }
   phaseTimers = phases.map((phase, index) => setTimeout(() => moon.textContent = phase, index * 90));
 };
-
 
 const pulseCards = () => {
   for (const card of cards) {
