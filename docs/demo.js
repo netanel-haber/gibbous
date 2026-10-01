@@ -63,15 +63,17 @@ const gibbousButton = state => `
 
 const avatar = (label, className = "") => `<span class="avatar ${className}" aria-hidden="true">${label}</span>`;
 
-const appHeader = (state, title = "lunar-labs / orbit") => `
-  <header class="app-header" data-token="bgColor-default">
+// With Gibbous on, search collapses to its icon and repository tabs fold into the header row.
+const appHeader = (state, title = "lunar-labs / orbit", tabs = "") => `
+  <header class="app-header ${tabs && state === "after" ? "folded" : ""}" data-token="bgColor-default">
     <div class="app-brand">
       ${iconButton("menu", "Open global navigation")}
       ${githubMark()}
       <strong>${title}</strong>
     </div>
+    ${state === "after" ? tabs : ""}
     <div class="app-actions">
-      <span class="search-control">${icon("search")}<span>Type <kbd>/</kbd> to search</span></span>
+      <span class="search-control">${icon("search")}${state === "after" ? "<kbd>/</kbd>" : "<span>Type <kbd>/</kbd> to search</span>"}</span>
       ${iconButton("plus", "Create new")}
       ${iconButton("issue", "Issues")}
       ${iconButton("fork", "Pull requests")}
@@ -79,7 +81,8 @@ const appHeader = (state, title = "lunar-labs / orbit") => `
       ${gibbousButton(state)}
       ${avatar("N")}
     </div>
-  </header>`;
+  </header>
+  ${state === "before" ? tabs : ""}`;
 
 const tab = (iconName, label, selected = false, count = "") => `
   <span class="repository-tab ${selected ? "selected" : ""}">${icon(iconName)}<span>${label}</span>${count ? `<b>${count}</b>` : ""}</span>`;
@@ -257,21 +260,18 @@ const dashboardScene = state => `
   </div>`;
 
 const repositoryScene = state => `
-  ${appHeader(state)}
-  ${repositoryTabs({state})}
+  ${appHeader(state, undefined, repositoryTabs({state}))}
   ${repositoryOverview(state)}`;
 
 const pullRequestsScene = state => `
-  ${appHeader(state)}
-  ${repositoryTabs({state, selected: "pulls", shortcuts: true})}
+  ${appHeader(state, undefined, repositoryTabs({state, selected: "pulls", shortcuts: true}))}
   <main class="pulls-page">
     <div class="pulls-heading"><h1>Pull requests</h1><span>Labels&nbsp;&nbsp; Milestones</span></div>
     <div class="list-card">${pullRequestRow("Improve scheduler wide-N alignment", "lunar-labs/orbit#49099", 1)}${pullRequestRow("Add SSD prefill backend", "lunar-labs/orbit#49425", 1)}${pullRequestRow("Reduce warm startup below one second", "lunar-labs/orbit#41518", 22)}</div>
   </main>`;
 
 const filesScene = state => `
-  ${appHeader(state)}
-  ${repositoryTabs({state, shortcuts: true})}
+  ${appHeader(state, undefined, repositoryTabs({state, shortcuts: true}))}
   ${repositoryBody(state)}`;
 
 const navigationItems = [
