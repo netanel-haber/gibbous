@@ -1,6 +1,6 @@
 // The Pages site's tooling, run from the repository root:
-//   node site.mjs render         re-render docs/<feature>-<state>.webp, the no-JavaScript fallbacks
-//   node site.mjs audit [url]    audit every theme, feature and state of the served site
+//   node site.mjs render [feature]   re-render docs/<feature>-<state>.webp, the no-JavaScript fallbacks
+//   node site.mjs audit [url]        audit every theme, feature and state of the served site
 import {spawn} from "node:child_process";
 import {existsSync} from "node:fs";
 import {mkdir, mkdtemp, readdir, stat, writeFile} from "node:fs/promises";
@@ -562,12 +562,14 @@ const writeContactSheet = async () => {
 
 // Each fallback is the demo's still frame at 1280x800 and 2x, as WebP below 100 KiB.
 const render = async () => {
+  const rendered = argument ? [argument] : assetFeatures;
+  if (!rendered.every(feature => assetFeatures.includes(feature))) throw new Error(`Unknown feature ${argument}`);
   const browser = await connectToBrowser();
   const protocol = await openProtocol(browser.target);
   try {
     await protocol.send("Page.enable");
     await protocol.send("Emulation.setDeviceMetricsOverride", {deviceScaleFactor: 2, height: 800, mobile: false, width: 1280});
-    for (const feature of assetFeatures) {
+    for (const feature of rendered) {
       for (const state of states) {
         const url = new URL(`file://${resolve("docs/demo.html")}`);
         url.search = new URLSearchParams({feature, state, theme: "dark", still: "1"});
@@ -589,7 +591,7 @@ const render = async () => {
     protocol.socket.close();
     browser.process?.kill("SIGTERM");
   }
-  console.log(`Rendered ${expectedAssets.size} WebP fallbacks below 100 KiB.`);
+  console.log(`Rendered ${rendered.length * states.length} WebP fallbacks below 100 KiB.`);
 };
 
 const audit = async () => {

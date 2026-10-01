@@ -12,7 +12,8 @@ const themes = new Set([
 ]);
 
 const icons = {
-  actions: '<path d="m1.5 8 5.5-5v10Z"/>',
+  actions: '<path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/>',
+  book: '<path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/>',
   branch: '<path d="M5 3.25a1.75 1.75 0 1 1-2.5-1.58v7.66a1.75 1.75 0 1 1-1 0V3.25a.75.75 0 1 0 1.5 0v1.5A2.25 2.25 0 0 0 5.25 7h4.08a1.75 1.75 0 1 1 0 1H5.25A3.25 3.25 0 0 1 2 4.75v-1.5A1.75 1.75 0 0 1 5 2Z"/>',
   chevronDown: '<path d="M4.427 6.427a.75.75 0 0 1 1.06 0L8 8.939l2.513-2.512a.75.75 0 0 1 1.06 1.06l-3.043 3.043a.75.75 0 0 1-1.06 0L4.427 7.487a.75.75 0 0 1 0-1.06Z"/>',
   code: '<path d="m5.22 3.22-4.25 4.25a.75.75 0 0 0 0 1.06l4.25 4.25 1.06-1.06L2.56 8l3.72-3.72Zm5.56 0-1.06 1.06L13.44 8l-3.72 3.72 1.06 1.06 4.25-4.25a.75.75 0 0 0 0-1.06Z"/>',
@@ -23,10 +24,16 @@ const icons = {
   folder: '<path d="M1.75 2h4.01c.44 0 .86.18 1.17.49L8.44 4h5.81c.97 0 1.75.78 1.75 1.75v6.5A1.75 1.75 0 0 1 14.25 14H1.75A1.75 1.75 0 0 1 0 12.25v-8.5C0 2.78.78 2 1.75 2Z"/>',
   fork: '<path d="M5 5.37v.88c0 .41.34.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.88a2.25 2.25 0 1 1 1.5 0v.88a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.13a2.25 2.25 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.88a2.25 2.25 0 1 1 1.5 0Z"/>',
   gift: '<path d="M8.75 6H13a2 2 0 0 1 2 2v1.25h-6.25Zm-1.5 0v3.25H1V8a2 2 0 0 1 2-2Zm1.5 4.75H14V14a1 1 0 0 1-1 1H8.75Zm-1.5 0V15H3a1 1 0 0 1-1-1v-3.25ZM4.5 1A2.5 2.5 0 0 1 7 3.5V5H5.5a2.5 2.5 0 0 1-1-4Zm7 0a2.5 2.5 0 0 1-1 4H9V3.5A2.5 2.5 0 0 1 11.5 1Z"/>',
+  graph: '<path d="M1.5 1.75V13.5h13.75a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75V1.75a.75.75 0 0 1 1.5 0Zm14.28 2.53-5.25 5.25a.75.75 0 0 1-1.06 0L7 7.06 4.28 9.78a.75.75 0 0 1-1.06-1.06l3.25-3.25a.75.75 0 0 1 1.06 0L10 7.94l4.72-4.72a.75.75 0 1 1 1.06 1.06Z"/>',
+  heart: '<path d="M4.25 1C5.8 1 7.15 1.8 8 3.02 8.85 1.8 10.2 1 11.75 1 13.91 1 16 2.84 16 5.5c0 2.85-2.05 5.23-3.89 6.82a22 22 0 0 1-3.76 2.6.75.75 0 0 1-.7 0 22 22 0 0 1-3.76-2.6C2.05 10.73 0 8.35 0 5.5 0 2.84 2.09 1 4.25 1Zm0 1.5c-1.34 0-2.75 1.16-2.75 3 0 2.15 1.58 4.14 3.37 5.68A20.6 20.6 0 0 0 8 13.39a20.6 20.6 0 0 0 3.13-2.21C12.92 9.64 14.5 7.65 14.5 5.5c0-1.84-1.41-3-2.75-3-1.37 0-2.6.99-3.03 2.46a.75.75 0 0 1-1.44 0C6.86 3.49 5.62 2.5 4.25 2.5Z"/>',
   globe: '<path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM3.1 4h2.1c.2-.86.48-1.64.84-2.27A6.54 6.54 0 0 0 3.1 4Zm4.12-2.36C6.8 2.18 6.45 3 6.2 4h3.6c-.25-1-.6-1.82-1.02-2.36A1 1 0 0 0 8 1.2a1 1 0 0 0-.78.44ZM10.8 4h2.1a6.54 6.54 0 0 0-2.94-2.27c.36.63.64 1.41.84 2.27ZM1.7 8c0 .86.17 1.68.47 2.42h2.75A15 15 0 0 1 4.75 8c0-.85.06-1.66.17-2.42H2.17A6.37 6.37 0 0 0 1.7 8Zm4.55 0c0 .85.07 1.66.2 2.42h3.1c.13-.76.2-1.57.2-2.42s-.07-1.66-.2-2.42h-3.1c-.13.76-.2 1.57-.2 2.42Zm4.83 0c0 .85-.06 1.66-.17 2.42h2.92A6.37 6.37 0 0 0 14.3 8c0-.86-.17-1.68-.47-2.42h-2.92c.11.76.17 1.57.17 2.42ZM3.1 12a6.54 6.54 0 0 0 2.94 2.27A9.38 9.38 0 0 1 5.2 12Zm3.1 0c.25 1 .6 1.82 1.02 2.36.24.3.51.44.78.44s.54-.14.78-.44c.42-.54.77-1.36 1.02-2.36Zm4.6 0a9.38 9.38 0 0 1-.84 2.27A6.54 6.54 0 0 0 12.9 12Z"/>',
   home: '<path d="m8.52 1.63 6.25 5.5a.75.75 0 0 1-.99 1.12L13 7.56v6.69a.75.75 0 0 1-.75.75h-3.5a.75.75 0 0 1-.75-.75V10H5v4.25a.75.75 0 0 1-.75.75H.75a.75.75 0 0 1-.75-.75V7.56l-.78.69a.75.75 0 1 1-.99-1.12l6.25-5.5a3 3 0 0 1 4.04 0Z"/>',
   issue: '<path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0Zm0 1.5a6.5 6.5 0 1 0 0 13A6.5 6.5 0 0 0 8 1.5ZM8 7a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z"/>',
+  kebab: '<path d="M8 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM1.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm13 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/>',
+  link: '<path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .75.75 0 0 1 1.06-1.06 2 2 0 0 0 2.83 0l2.5-2.5a2 2 0 0 0-2.83-2.83l-1.25 1.25a.75.75 0 0 1-1.06-1.06Zm-4.69 9.64a2 2 0 0 0 2.83 0l1.25-1.25a.75.75 0 0 1 1.06 1.06l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .75.75 0 0 1-1.06 1.06 2 2 0 0 0-2.83 0l-2.5 2.5a2 2 0 0 0 0 2.83Z"/>',
   menu: '<path d="M1 3.75A.75.75 0 0 1 1.75 3h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 3.75Zm0 4A.75.75 0 0 1 1.75 7h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 7.75Zm0 4A.75.75 0 0 1 1.75 11h12.5a.75.75 0 0 1 0 1.5H1.75A.75.75 0 0 1 1 11.75Z"/>',
+  pencil: '<path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 0l1.086 1.086a1.75 1.75 0 0 1 0 2.474l-8.61 8.61c-.21.21-.47.364-.756.445l-3.251.93a.75.75 0 0 1-.927-.928l.929-3.25c.081-.286.235-.547.445-.758l8.61-8.61Zm.176 4.823L9.75 4.81l-6.286 6.287a.253.253 0 0 0-.064.108l-.558 1.953 1.953-.558a.253.253 0 0 0 .108-.064Zm1.238-3.763a.25.25 0 0 0-.354 0L10.811 3.75l1.439 1.44 1.263-1.263a.25.25 0 0 0 0-.354Z"/>',
+  people: '<path d="M5.5 3.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM2 5.5a3.5 3.5 0 1 1 5.9 2.55 5.5 5.5 0 0 1 3.03 4.08.75.75 0 1 1-1.48.24 4 4 0 0 0-7.9 0 .75.75 0 0 1-1.48-.24A5.5 5.5 0 0 1 3.1 8.05 3.5 3.5 0 0 1 2 5.5ZM11 4a3 3 0 0 1 2.22 5.02 5 5 0 0 1 2.56 3.01.75.75 0 0 1-1.43.44 3.5 3.5 0 0 0-2.53-2.37.75.75 0 0 1-.57-.73v-.35a.75.75 0 0 1 .42-.67A1.5 1.5 0 0 0 11 5.5.75.75 0 0 1 11 4Z"/>',
   plus: '<path d="M7.25 1.75a.75.75 0 0 1 1.5 0v5.5h5.5a.75.75 0 0 1 0 1.5h-5.5v5.5a.75.75 0 0 1-1.5 0v-5.5h-5.5a.75.75 0 0 1 0-1.5h5.5Z"/>',
   pullRequest: '<path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z"/>',
   pullRequestClosed: '<path d="M3.25 1A2.25 2.25 0 0 1 4 5.372v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.251 2.251 0 0 1 3.25 1Zm9.5 5.5a.75.75 0 0 1 .75.75v3.378a2.251 2.251 0 1 1-1.5 0V7.25a.75.75 0 0 1 .75-.75Zm-2.03-5.273a.75.75 0 0 1 1.06 0l.97.97.97-.97a.748.748 0 0 1 1.265.332.75.75 0 0 1-.205.729l-.97.97.97.97a.751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018l-.97-.97-.97.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734l.97-.97-.97-.97a.75.75 0 0 1 0-1.06ZM2.5 3.25a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0ZM3.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm9.5 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"/>',
@@ -34,6 +41,7 @@ const icons = {
   repo: '<path d="M2 2.75C2 1.78 2.78 1 3.75 1h9.5c.97 0 1.75.78 1.75 1.75v10.5a.75.75 0 0 1-.75.75H5a2 2 0 1 0 0 4h9.25a.75.75 0 0 1 0 1.5H5A3.5 3.5 0 0 1 1.5 16V2.75Zm1.5 0V13c.47-.31.98-.5 1.5-.5h8.5V2.75a.25.25 0 0 0-.25-.25h-9.5a.25.25 0 0 0-.25.25Z"/>',
   screenFull: '<path d="M2 3.75C2 2.784 2.784 2 3.75 2h2.5a.75.75 0 0 1 0 1.5h-2.5a.25.25 0 0 0-.25.25v2.5a.75.75 0 0 1-1.5 0Zm7.75-1.75a.75.75 0 0 0 0 1.5h2.5a.25.25 0 0 1 .25.25v2.5a.75.75 0 0 0 1.5 0v-2.5A1.75 1.75 0 0 0 12.25 2ZM2.75 9a.75.75 0 0 1 .75.75v2.5c0 .138.112.25.25.25h2.5a.75.75 0 0 1 0 1.5h-2.5A1.75 1.75 0 0 1 2 12.25v-2.5A.75.75 0 0 1 2.75 9Zm10.5 0a.75.75 0 0 1 .75.75v2.5A1.75 1.75 0 0 1 12.25 14h-2.5a.75.75 0 0 1 0-1.5h2.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 .75-.75Z"/>',
   search: '<path d="M10.68 11.74a6 6 0 1 1 1.06-1.06l3.04 3.04a.75.75 0 1 1-1.06 1.06ZM11.5 7a4.5 4.5 0 1 0-9 0 4.5 4.5 0 0 0 9 0Z"/>',
+  shield: '<path d="M7.467.133a1.75 1.75 0 0 1 1.066 0l5.25 1.68A1.75 1.75 0 0 1 15 3.48V7c0 1.566-.32 3.182-1.303 4.682-.983 1.498-2.585 2.813-5.032 3.855a1.7 1.7 0 0 1-1.33 0c-2.447-1.042-4.049-2.357-5.032-3.855C1.32 10.182 1 8.566 1 7V3.48a1.75 1.75 0 0 1 1.217-1.667Zm.61 1.429a.25.25 0 0 0-.153 0l-5.25 1.68a.25.25 0 0 0-.174.238V7c0 1.358.275 2.666 1.057 3.86.784 1.194 2.121 2.34 4.366 3.297a.2.2 0 0 0 .154 0c2.245-.956 3.582-2.104 4.366-3.298C13.225 9.666 13.5 8.36 13.5 7V3.48a.25.25 0 0 0-.174-.237Z"/>',
   star: '<path d="m8 12.03-4.7 2.47.9-5.23L.4 5.56l5.25-.76L8 .03l2.35 4.77 5.25.76-3.8 3.71.9 5.23Z"/>',
   tag: '<path d="M2.75 2h4.69c.46 0 .9.18 1.23.5l5.82 5.83a1.75 1.75 0 0 1 0 2.47l-3.69 3.69a1.75 1.75 0 0 1-2.47 0L2.5 8.66A1.75 1.75 0 0 1 2 7.44V2.75C2 2.34 2.34 2 2.75 2ZM5.5 4.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/>',
   x: '<path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 1 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>',
@@ -80,8 +88,9 @@ const repositoryTabs = ({state, selected = "code", shortcuts = false}) => {
   const unused = state === "before" ? [
     tab("project", "Projects"),
     tab("discussion", "Discussions"),
-    tab("tag", "Security"),
-    tab("actions", "Insights"),
+    tab("book", "Wiki"),
+    tab("shield", "Security"),
+    tab("graph", "Insights"),
   ].join("") : "";
   const shortcutsMarkup = shortcuts && state === "after" ? `<span class="shortcut-group"><span class="shortcut active" data-control="pr-shortcut" data-state="open" aria-label="My open pull requests">${icon("pullRequest")}</span><span class="shortcut" data-control="pr-shortcut" data-state="closed" aria-label="My closed pull requests">${icon("pullRequestClosed")}</span></span>` : "";
   return `
@@ -95,11 +104,11 @@ const repositoryTabs = ({state, selected = "code", shortcuts = false}) => {
     </nav>`;
 };
 
-const repositoryToolbar = ({files = false, state}) => `
+const repositoryToolbar = ({files = false, state, tags = true}) => `
   <section class="repository-toolbar">
     <span class="button-control">${icon("branch")}<span>main</span>${icon("chevronDown", "control-chevron")}</span>
     <span>${icon("branch")} <strong>376</strong> Branches</span>
-    <span>${icon("tag")} <strong>175</strong> Tags</span>
+    ${tags ? `<span>${icon("tag")} <strong>175</strong> Tags</span>` : ""}
     <span class="toolbar-spacer"></span>
     <span class="go-to-file">${icon("search")} Go to file <kbd>T</kbd></span>
     <span class="button-label">Add file${icon("chevronDown", "control-chevron")}</span>
@@ -116,7 +125,7 @@ const fileRows = ({state, files = false}) => {
     ["tests", "Extend scheduler coverage", "5 hours ago"],
     ["orbit", "Clean up worker lifecycle", "5 hours ago"],
   ];
-  const rows = files && state === "after" ? allRows.slice(3) : allRows.slice(files ? 0 : 3);
+  const rows = files && state === "after" ? allRows.slice(3) : allRows.slice(files ? 0 : 1);
   return `
     <div class="file-list">
       <div class="commit-row" data-token="bgColor-muted">${avatar("H", "coral")}<strong>hmellor</strong><span>[1/N] Harden scheduler startup</span><span class="toolbar-spacer"></span><span>19,437 Commits</span></div>
@@ -128,19 +137,70 @@ const fileRows = ({state, files = false}) => {
     </div>`;
 };
 
-const repositoryBody = ({state, files = false}) => `
+const repositoryBody = state => `
   <main class="repository-page">
-    ${files ? "" : `
-      <section class="repository-title">
-        <div class="repository-identity"><span class="repo-logo">V</span><span><strong>orbit</strong><small>Public</small>${state === "after" ? '<em>forked in <u>netanel-haber/orbit</u></em>' : ""}</span></div>
-        <div class="repo-actions"><span>♡ Sponsor</span><span>◉ Watch 585</span><span>${icon("fork")} Fork 20.1k</span><span>${icon("star")} Starred 87.9k</span></div>
-      </section>`}
-    ${repositoryToolbar({files, state})}
-    <div class="repository-columns ${files ? "single" : ""}">
-      ${fileRows({state, files})}
-      ${files ? `
-        <section class="readme-card"><strong>README</strong><span></span><span></span><span></span><span></span></section>` : `
-        <aside class="about"><strong>About</strong><p>A fast, memory-efficient inference and serving engine for language models.</p><a>🔗 orbit.dev</a><div><b>cuda</b><b>inference</b><b>pytorch</b><b>transformers</b></div></aside>`}
+    ${repositoryToolbar({files: true, state})}
+    <div class="repository-columns single">
+      ${fileRows({state, files: true})}
+      <section class="readme-card"><strong>README</strong><span></span><span></span><span></span><span></span></section>
+    </div>
+  </main>`;
+
+const counter = value => `<b class="counter">${value}</b>`;
+
+const sidebarSection = (heading, body) => `<section class="sidebar-section"><h3>${heading}</h3>${body}</section>`;
+
+const sidebarTag = (name, time, latest = false) => `
+  <span class="sidebar-tag">${icon("tag")}<span><strong>${name}</strong>${latest ? "<em>Latest</em>" : ""}<small>${time}</small></span></span>`;
+
+const repositorySidebar = state => {
+  const about = `<p>A fast, memory-efficient inference and serving engine for language models.</p><a class="website">${icon("link")} orbit.dev</a>`;
+  const releases = sidebarSection(`Releases ${counter(42)}`, sidebarTag("v0.9.2", "2 days ago", true) + (state === "before" ? "<a>+ 41 releases</a>" : ""));
+  if (state === "after") {
+    return `
+      <aside class="repository-sidebar">
+        ${sidebarSection("About", about)}
+        <div class="sidebar-pair">${releases}${sidebarSection(`Tags ${counter(175)}`, sidebarTag("v0.9.3rc1", "yesterday"))}</div>
+      </aside>`;
+  }
+  const topics = `<div class="topics">${["cuda", "inference", "pytorch", "transformers"].map(topic => `<b>${topic}</b>`).join("")}</div>`;
+  const links = [["book", "Readme"], ["book", "Apache-2.0 license"], ["heart", "Code of conduct"], ["people", "Contributing"], ["shield", "Security policy"], ["graph", "Activity"], ["star", "87.9k stars"], ["eye", "585 watching"], ["fork", "20.1k forks"]];
+  return `
+    <aside class="repository-sidebar">
+      ${sidebarSection("About", `${about}${topics}<nav class="resource-links">${links.map(([name, label]) => `<span>${icon(name)} ${label}</span>`).join("")}</nav><small class="report">Report repository</small>`)}
+      ${releases}
+      ${sidebarSection("Sponsor this project", `<span class="sponsor">${avatar("L", "organization")}<b>lunar-labs</b></span>`)}
+      ${sidebarSection(`Used by ${counter("3.2k")}`, "")}
+      ${sidebarSection(`Contributors ${counter("1,890")}`, "")}
+      ${sidebarSection("Languages", "")}
+    </aside>`;
+};
+
+const readmeTab = (name, label, selected = false, count = "") => `<span class="readme-tab ${selected ? "selected" : ""}">${icon(name)} ${label}${count ? counter(count) : ""}</span>`;
+
+const readmeBox = state => state === "after" ? `
+  <section class="readme-box">
+    <nav class="readme-tabs">${readmeTab("pullRequest", "My pull requests", true, 2)}${readmeTab("book", "README")}${readmeTab("people", "Contributors")}${readmeTab("code", "Languages")}<span class="toolbar-spacer"></span>${iconButton("kebab", "More tabs", "readme-action")}</nav>
+    <div class="list-card mine">${pullRequestRow("Reduce warm startup below one second", "#41518 opened last week", 22)}${pullRequestRow("Select linear backends per quantization", "#51204 opened yesterday", 1)}</div>
+  </section>` : `
+  <section class="readme-box">
+    <nav class="readme-tabs">${readmeTab("book", "README", true)}${readmeTab("heart", "Code of conduct")}${readmeTab("people", "Contributing")}${readmeTab("book", "Apache-2.0 license")}${readmeTab("shield", "Security")}<span class="toolbar-spacer"></span>${iconButton("pencil", "Edit README", "readme-action")}${iconButton("menu", "Outline", "readme-action")}</nav>
+    <div class="readme-card"><span></span><span></span><span></span><span></span></div>
+  </section>`;
+
+const repositoryOverview = state => `
+  <main class="repository-page overview">
+    <section class="repository-title">
+      <div class="repository-identity"><span class="repo-logo">V</span><span><strong>orbit</strong><small>Public</small>${state === "after" ? "<em>forked in <u>netanel-haber/orbit</u></em>" : ""}</span></div>
+      <div class="repo-actions"><span>${icon("heart", "sponsor-heart")} Sponsor</span>${state === "before" ? `<span>${icon("eye")} Watch ${counter(585)}</span><span>${icon("fork")} Fork ${counter("20.1k")}</span>` : ""}<span>${icon("star", "starred")} Starred ${counter("87.9k")}</span></div>
+    </section>
+    <div class="repository-columns">
+      <div>
+        ${repositoryToolbar({state, tags: state === "before"})}
+        ${fileRows({state})}
+        ${readmeBox(state)}
+      </div>
+      ${repositorySidebar(state)}
     </div>
   </main>`;
 
@@ -199,7 +259,7 @@ const dashboardScene = state => `
 const repositoryScene = state => `
   ${appHeader(state)}
   ${repositoryTabs({state})}
-  ${repositoryBody({state})}`;
+  ${repositoryOverview(state)}`;
 
 const pullRequestsScene = state => `
   ${appHeader(state)}
@@ -212,7 +272,7 @@ const pullRequestsScene = state => `
 const filesScene = state => `
   ${appHeader(state)}
   ${repositoryTabs({state, shortcuts: true})}
-  ${repositoryBody({state, files: true})}`;
+  ${repositoryBody(state)}`;
 
 const navigationItems = [
   ["home", "Home", "primary"],
