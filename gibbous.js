@@ -691,12 +691,11 @@
     };
   };
 
-  // GitHub's CSS modules are named Name-module__class__hash, or since October 2026 just class__hash.
-  const cssModule = (module, name) => `:is([class*="${module}-module__${name}"], [class^="${name}__"], [class*=" ${name}__"])`;
-  const userMenu = `${cssModule("GlobalNavUserMenu", "container")}:has(> [data-login])`;
+  // Stable hooks only (see gibbous.css): GitHub's generated class names change with every build.
+  const userMenu = 'header [data-testid="top-nav-right"] :has(> button[data-login])';
 
   const viewerLogin = () => document.querySelector(
-    `${userMenu} [data-login]`,
+    `${userMenu} > button[data-login]`,
   )?.dataset.login ?? document.querySelector('meta[name="user-login"]')?.content;
 
   const repositoryNavigation = () => document.querySelector(
@@ -763,7 +762,7 @@
   const keptSidebarSection = /^(About|Releases|Contributors|Languages)(?![a-z])/i;
   const markSidebarSections = () => {
     for (const section of document.querySelectorAll(
-      `${cssModule("CodeViewSidebar", "borderGrid")} > ${cssModule("SidebarSection", "sidebarSection")}:not(.gibbous-sidebar-tags)`,
+      '[data-component="SplitPageLayout.Pane"] > div > div:has(> h2):not(.gibbous-sidebar-tags)',
     )) {
       const title = section.querySelector(":scope > h2")?.textContent.trim() ?? "";
       const name = title.match(keptSidebarSection)?.[1].toLowerCase() ?? "other";
