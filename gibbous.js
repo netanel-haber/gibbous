@@ -691,8 +691,12 @@
     };
   };
 
+  // GitHub's CSS modules are named Name-module__class__hash, or since October 2026 just class__hash.
+  const cssModule = (module, name) => `:is([class*="${module}-module__${name}"], [class^="${name}__"], [class*=" ${name}__"])`;
+  const userMenu = `${cssModule("GlobalNavUserMenu", "container")}:has(> [data-login])`;
+
   const viewerLogin = () => document.querySelector(
-    '[class*="GlobalNavUserMenu-module__container"] [data-login]',
+    `${userMenu} [data-login]`,
   )?.dataset.login ?? document.querySelector('meta[name="user-login"]')?.content;
 
   const repositoryNavigation = () => document.querySelector(
@@ -759,7 +763,7 @@
   const keptSidebarSection = /^(About|Releases|Contributors|Languages)(?![a-z])/i;
   const markSidebarSections = () => {
     for (const section of document.querySelectorAll(
-      '[class*="CodeViewSidebar-module__borderGrid"] > [class*="SidebarSection-module__sidebarSection"]:not(.gibbous-sidebar-tags)',
+      `${cssModule("CodeViewSidebar", "borderGrid")} > ${cssModule("SidebarSection", "sidebarSection")}:not(.gibbous-sidebar-tags)`,
     )) {
       const title = section.querySelector(":scope > h2")?.textContent.trim() ?? "";
       const name = title.match(keptSidebarSection)?.[1].toLowerCase() ?? "other";
@@ -2356,7 +2360,7 @@
   };
 
   const mountControl = () => {
-    const anchor = document.querySelector('[class*="GlobalNavUserMenu-module__container"]')
+    const anchor = document.querySelector(userMenu)
       ?? document.querySelector('header [data-testid="top-nav-right"] a[href^="/login"], header .HeaderMenu-link-wrap:has(a.HeaderMenu-link--sign-in)');
     if (!anchor) return;
     if (!control) {

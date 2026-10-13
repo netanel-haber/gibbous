@@ -21,8 +21,8 @@ html:not([data-gibbous-disabled]) :is(
   .dashboard-changelog,
   .js-repos-container .hide-sm.hide-md a[href="/new"],
   [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]),
-  [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]) + [class*="__itemDivider__"],
-  [class*="CopilotChatInputPartial-module__inputContainer"],
+  [data-testid="top-bar-actions"] > div:has(a[href="/copilot"]) + [class*="itemDivider__"],
+  :is([class*="CopilotChatInputPartial-module__inputContainer"], [class^="inputContainer__"], [class*=" inputContainer__"]),
   li[data-component="ActionList.Item"]:has(
     [data-testid="side-nav-menu-item-FEED"],
     [data-testid="side-nav-menu-item-PROJECTS"],
@@ -632,23 +632,23 @@ html:not([data-gibbous-disabled]) :is(
 
 html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) :is(
   [data-gibbous-section="other"],
-  [data-gibbous-section="about"] > :not(h2, [class*="SidebarAbout-module__description"], [class*="SidebarAbout-module__websiteRow"]),
-  [data-gibbous-section="about"]:not(:has(> [class*="SidebarAbout-module__description"], > [class*="SidebarAbout-module__websiteRow"])),
+  [data-gibbous-section="about"] > :not(h2, :is([class*="SidebarAbout-module__description"], [class^="description__"], [class*=" description__"]), :is([class*="SidebarAbout-module__websiteRow"], [class^="websiteRow__"], [class*=" websiteRow__"])),
+  [data-gibbous-section="about"]:not(:has(> :is([class*="SidebarAbout-module__description"], [class^="description__"], [class*=" description__"]), > :is([class*="SidebarAbout-module__websiteRow"], [class^="websiteRow__"], [class*=" websiteRow__"]))),
   [data-testid="repo-header-actions"] > li:has([data-testid="notifications-subscriptions-menu-button"], [data-testid="fork-button"]),
   [data-testid="responsive-social-buttons"] > :is([data-testid="notifications-subscriptions-menu-button"], :has([data-testid="fork-button"])),
   .pagehead-actions > li:has(#repository-details-watch-button, notifications-list-subscription-form, #fork-button),
-  [class*="CodeViewSidebar-module__borderGrid"] [class*="SidebarSection-module__moreLink"]
+  :is([class*="CodeViewSidebar-module__borderGrid"], [class^="borderGrid__"], [class*=" borderGrid__"]) :is([class*="SidebarSection-module__moreLink"], [class^="moreLink__"], [class*=" moreLink__"])
 ) {
   display: none !important;
 }
 
 /* The Tags panel replaces the overview's "N Tags" button. */
-html:not([data-gibbous-disabled]):has(.gibbous-sidebar-tags) a[class*="OverviewContent-module__Button"][href$="/tags"] {
+html:not([data-gibbous-disabled]):has(.gibbous-sidebar-tags) a:is([class*="OverviewContent-module__Button"], [class^="Button__"], [class*=" Button__"])[href$="/tags"] {
   display: none !important;
 }
 
 /* Releases and Tags side by side; every other section spans both columns. */
-html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) [class*="CodeViewSidebar-module__borderGrid"]:has(> .gibbous-sidebar-tags) {
+html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) :is([class*="CodeViewSidebar-module__borderGrid"], [class^="borderGrid__"], [class*=" borderGrid__"]):has(> .gibbous-sidebar-tags) {
   grid-template-columns: 1fr 1fr;
 
   & > :not([data-gibbous-section="releases"], .gibbous-sidebar-tags) {
@@ -809,7 +809,7 @@ html:not([data-gibbous-disabled]) [data-gibbous-tabs-active] > div > button[aria
 /* Edit only applies to the README; hide it whenever another file tab or My pull requests is showing. */
 html:not([data-gibbous-disabled]) div:has(> nav[aria-label="Repository files"]):not(
   :has(> nav[aria-label="Repository files"] a[aria-current="page"] [data-content="README"])
-) > button[class*="OverviewRepoFiles-module__editButton"] {
+) > button:is([class*="OverviewRepoFiles-module__editButton"], [class^="editButton__"], [class*=" editButton__"]) {
   display: none;
 }
 
@@ -953,7 +953,7 @@ html[data-gibbous-disabled] :is(.gibbous-tab-panel, .gibbous-tab, .gibbous-readm
     padding: 0 !important;
   }
 
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"] > :not(nav[aria-label="Breadcrumbs"], [class*="Search-module__searchButtonGroup"], [class*="Search-module__smallSearchButton"]) {
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [data-testid="top-nav-center"] > :not(nav[aria-label="Breadcrumbs"], :is([class*="Search-module__searchButtonGroup"], [class^="searchButtonGroup__"], [class*=" searchButtonGroup__"]), :is([class*="Search-module__smallSearchButton"], [class^="smallSearchButton__"], [class*=" smallSearchButton__"])) {
     grid-area: 1 / 1 / 2 / -1;
     justify-self: start;
   }
@@ -973,12 +973,12 @@ html[data-gibbous-disabled] :is(.gibbous-tab-panel, .gibbous-tab, .gibbous-readm
     inline-size: max-content !important;
   }
 
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__searchButtonGroup"] {
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) :is([class*="Search-module__searchButtonGroup"], [class^="searchButtonGroup__"], [class*=" searchButtonGroup__"]) {
     grid-column: 3;
     margin: 0 !important;
   }
 
-  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) [class*="Search-module__smallSearchButton"] {
+  html:not([data-gibbous-disabled]) header.GlobalNav:has(> nav[aria-label="Repository"]) :is([class*="Search-module__smallSearchButton"], [class^="smallSearchButton__"], [class*=" smallSearchButton__"]) {
     display: none !important;
   }
 
@@ -1015,19 +1015,19 @@ html[data-gibbous-disabled] :is(.gibbous-tab-panel, .gibbous-tab, .gibbous-readm
 
 /* Header search is only a button that opens a dialog: collapse it to the icon and the / key. */
 
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"],
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > [class*="ButtonGroup-Item"],
-html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"],
-html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] > [data-component="buttonContent"],
-html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [data-component="text"],
-html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] [class*="Search-module__placeholder"] {
+html:not([data-gibbous-disabled]) :is([class*="Search-module__searchButtonGroup"], [class^="searchButtonGroup__"], [class*=" searchButtonGroup__"]),
+html:not([data-gibbous-disabled]) :is([class*="Search-module__searchButtonGroup"], [class^="searchButtonGroup__"], [class*=" searchButtonGroup__"]) > [class*="ButtonGroup-Item"],
+html:not([data-gibbous-disabled]) button:is([class*="Search-module__searchButton"], [class^="searchButton__"], [class*=" searchButton__"]),
+html:not([data-gibbous-disabled]) button:is([class*="Search-module__searchButton"], [class^="searchButton__"], [class*=" searchButton__"]) > [data-component="buttonContent"],
+html:not([data-gibbous-disabled]) button:is([class*="Search-module__searchButton"], [class^="searchButton__"], [class*=" searchButton__"]) [data-component="text"],
+html:not([data-gibbous-disabled]) button:is([class*="Search-module__searchButton"], [class^="searchButton__"], [class*=" searchButton__"]) :is([class*="Search-module__placeholder"], [class^="placeholder__"], [class*=" placeholder__"]) {
   flex: none !important;
   inline-size: max-content !important;
   max-inline-size: none !important;
   min-inline-size: 0 !important;
 }
 
-html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] {
+html:not([data-gibbous-disabled]) button:is([class*="Search-module__searchButton"], [class^="searchButton__"], [class*=" searchButton__"]) {
   align-items: center !important;
   block-size: 32px !important;
   border-radius: 6px !important;
@@ -1045,14 +1045,14 @@ html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] {
     column-gap: 6px !important;
   }
 
-  & [class*="Search-module__placeholder"] {
+  & :is([class*="Search-module__placeholder"], [class^="placeholder__"], [class*=" placeholder__"]) {
     align-items: center !important;
     display: inline-flex !important;
     font-size: 0 !important;
     line-height: 0 !important;
   }
 
-  & [class*="Search-module__kbd"] {
+  & :is([class*="Search-module__kbd"], [class^="kbd__"], [class*=" kbd__"]) {
     block-size: 16px !important;
     display: inline-grid !important;
     font-size: 12px !important;
@@ -1063,7 +1063,7 @@ html:not([data-gibbous-disabled]) button[class*="Search-module__searchButton"] {
   }
 }
 
-html:not([data-gibbous-disabled]) [class*="Search-module__searchButtonGroup"] > :has(.js-activate-command-palette) {
+html:not([data-gibbous-disabled]) :is([class*="Search-module__searchButtonGroup"], [class^="searchButtonGroup__"], [class*=" searchButtonGroup__"]) > :has(.js-activate-command-palette) {
   display: none !important;
 }
 
