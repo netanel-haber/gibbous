@@ -2,17 +2,31 @@
 // GitHub's theme mirrored to the Gibbous site (both sites), the Mermaid viewer frame GitHub
 // embeds (zoom and pan once enlarged), and GitHub itself.
 
-// An element from a tag, attributes (on* become listeners) and children; "svg:" tags are SVG.
+// An element from a tag, attributes (on* become listeners) and children.
 const create = (tag, attributes = {}, ...children) => {
-  const node = tag.startsWith("svg:")
-    ? document.createElementNS("http://www.w3.org/2000/svg", tag.slice(4))
-    : document.createElement(tag);
+  const node = document.createElement(tag);
   for (const [name, value] of Object.entries(attributes)) {
     if (name.startsWith("on")) node.addEventListener(name.slice(2), value);
     else node.setAttribute(name, value);
   }
   node.append(...children);
   return node;
+};
+
+// An element from markup. Line breaks, with the indentation after them, are layout only;
+// interpolated strings are escaped, and nodes (or arrays of them) are inserted where they appear.
+const html = (strings, ...values) => {
+  const nodes = [];
+  const template = document.createElement("template");
+  template.innerHTML = strings.map(string => string.replace(/\n\s*/g, "")).reduce((markup, string, index) => {
+    const value = values[index - 1];
+    const slot = value instanceof Node || Array.isArray(value)
+      ? `<template data-node="${nodes.push(value) - 1}"></template>`
+      : String(value ?? "").replace(/[&<>"]/g, character => `&#${character.charCodeAt(0)};`);
+    return markup + slot + string;
+  });
+  for (const slot of template.content.querySelectorAll("template[data-node]")) slot.replaceWith(...[nodes[slot.dataset.node]].flat());
+  return template.content.firstElementChild;
 };
 
 (() => {
@@ -325,11 +339,9 @@ const create = (tag, attributes = {}, ...children) => {
     "tag": "M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z",
     "repo-forked": "M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z",
   };
-  const createOcticon = name => create(
-    "svg:svg",
-    {"aria-hidden": "true", class: `octicon octicon-${name}`, fill: "currentColor", height: "16", viewBox: "0 0 16 16", width: "16"},
-    create("svg:path", {d: octicons[name]}),
-  );
+  const createOcticon = name => html`<svg aria-hidden="true" class="octicon octicon-${name}" fill="currentColor" height="16" viewBox="0 0 16 16" width="16">
+    <path d="${octicons[name]}"></path>
+  </svg>`;
 
   // Mermaid: an Enlarge button on each diagram moves GitHub's viewer frame into a dialog, where the
   // frame's own Gibbous section handles zoom and pan.
@@ -341,17 +353,12 @@ const create = (tag, attributes = {}, ...children) => {
   const openMermaid = frame => {
     if (!enabled || activeMermaidFrame) return;
     if (!mermaidDialog?.isConnected) {
-      mermaidDialog = create(
-        "dialog",
-        {class: "gibbous-mermaid-dialog", closedby: "any", "aria-label": "Enlarged Mermaid diagram"},
-        create("button", {
-          class: "Button Button--secondary Button--medium Button--iconOnly gibbous-mermaid-close",
-          type: "button",
-          "aria-label": "Close enlarged diagram",
-          title: "Close (Esc)",
-          onclick: () => mermaidDialog.close(),
-        }, createOcticon("x")),
-      );
+      mermaidDialog = html`<dialog class="gibbous-mermaid-dialog" closedby="any" aria-label="Enlarged Mermaid diagram">
+        <button class="Button Button--secondary Button--medium Button--iconOnly gibbous-mermaid-close" type="button" aria-label="Close enlarged diagram" title="Close (Esc)">
+          ${createOcticon("x")}
+        </button>
+      </dialog>`;
+      mermaidDialog.firstChild.onclick = () => mermaidDialog.close();
       mermaidDialog.addEventListener("close", () => {
         if (!activeMermaidFrame) return;
         const {frame, placeholder} = activeMermaidFrame;
@@ -380,20 +387,14 @@ const create = (tag, attributes = {}, ...children) => {
       if (frame.closest(".gibbous-mermaid-dialog")) continue;
       frame.classList.add("gibbous-mermaid-preview");
       frame.parentElement.classList.add("gibbous-mermaid-surface");
-      frame.parentElement.append(create(
-        "button",
-        {
-          class: "Button Button--secondary Button--small gibbous-mermaid-open",
-          type: "button",
-          "aria-label": "Enlarge Mermaid diagram",
-          onclick: event => {
-            event.stopPropagation();
-            openMermaid(frame);
-          },
-        },
-        createOcticon("screen-full"),
-        create("span", {}, "Enlarge"),
-      ));
+      const open = html`<button class="Button Button--secondary Button--small gibbous-mermaid-open" type="button" aria-label="Enlarge Mermaid diagram">
+        ${createOcticon("screen-full")}<span>Enlarge</span>
+      </button>`;
+      open.onclick = event => {
+        event.stopPropagation();
+        openMermaid(frame);
+      };
+      frame.parentElement.append(open);
     }
   };
 
@@ -439,27 +440,16 @@ const create = (tag, attributes = {}, ...children) => {
   // The eye button and its popover listing what is hidden, each with a Show button.
   const createHiddenItemsControl = ({title, detail = () => "", items, onShow, className, size = "small", variant = "invisible"}) => {
     const id = `gibbous-hidden-menu-${hiddenItemsControlId++}`;
-    const toggle = create(
-      "button",
-      {
-        class: `Button Button--${variant} Button--${size} Button--iconOnly gibbous-eyes-toggle`,
-        type: "button",
-        "aria-label": title,
-        popovertarget: id,
-        title,
-        style: `anchor-name: --${id};`,
-      },
-      createOcticon("eye"),
-    );
-    const detailElement = create("code", {class: "gibbous-hidden-menu-detail"});
-    const list = create("div", {class: "gibbous-hidden-list"});
-    const menu = create(
-      "div",
-      {id, class: "gibbous-hidden-menu", popover: "auto", style: `position-anchor: --${id};`},
-      create("strong", {}, title),
-      detailElement,
-      list,
-    );
+    const element = html`<div class="gibbous-hidden-items-control ${className}">
+      <button class="Button Button--${variant} Button--${size} Button--iconOnly gibbous-eyes-toggle" type="button" aria-label="${title}" popovertarget="${id}" title="${title}" style="anchor-name: --${id};">
+        ${createOcticon("eye")}
+      </button>
+      <div id="${id}" class="gibbous-hidden-menu" popover="auto" style="position-anchor: --${id};">
+        <strong>${title}</strong><code class="gibbous-hidden-menu-detail"></code><div class="gibbous-hidden-list"></div>
+      </div>
+    </div>`;
+    const [toggle, menu] = element.children;
+    const [, detailElement, list] = menu.children;
     let rendered;
     const render = () => {
       const names = items();
@@ -468,20 +458,17 @@ const create = (tag, attributes = {}, ...children) => {
       rendered = key;
       detailElement.textContent = detail();
       detailElement.hidden = !detail();
-      list.replaceChildren(...(names.length ? names.map(name => create(
-        "div",
-        {class: "gibbous-hidden-item"},
-        create("code", {title: name}, name),
-        create("button", {
-          class: "Button Button--secondary Button--small gibbous-list-button",
-          type: "button",
-          "aria-label": `Show ${name}`,
-          onclick: () => onShow(name),
-        }, "Show"),
-      )) : [create("span", {class: "gibbous-hidden-menu-empty"}, "Nothing hidden.")]));
+      list.replaceChildren(...(names.length ? names.map(name => {
+        const item = html`<div class="gibbous-hidden-item">
+          <code title="${name}">${name}</code>
+          <button class="Button Button--secondary Button--small gibbous-list-button" type="button" aria-label="Show ${name}">Show</button>
+        </div>`;
+        item.lastChild.onclick = () => onShow(name);
+        return item;
+      }) : [html`<span class="gibbous-hidden-menu-empty">Nothing hidden.</span>`]));
     };
     render();
-    return {element: create("div", {class: `gibbous-hidden-items-control ${className}`}, toggle, menu), render, toggle};
+    return {element, render, toggle};
   };
 
   const placeHiddenItemsControl = (control, anchor) => {
@@ -526,21 +513,17 @@ const create = (tag, attributes = {}, ...children) => {
 
   const closeHiddenMenus = () => document.querySelectorAll(".gibbous-hidden-menu:popover-open").forEach(menu => menu.hidePopover());
 
-  const createHideButton = (name, className, onHide) => create(
-    "button",
-    {
-      class: `Button Button--invisible Button--small Button--iconOnly gibbous-hide-button ${className}`,
-      type: "button",
-      "aria-label": `Hide ${name}`,
-      title: `Hide ${name}`,
-      onclick: event => {
-        event.preventDefault();
-        event.stopPropagation();
-        onHide();
-      },
-    },
-    createOcticon("eye-closed"),
-  );
+  const createHideButton = (name, className, onHide) => {
+    const button = html`<button class="Button Button--invisible Button--small Button--iconOnly gibbous-hide-button ${className}" type="button" aria-label="Hide ${name}" title="Hide ${name}">
+      ${createOcticon("eye-closed")}
+    </button>`;
+    button.onclick = event => {
+      event.preventDefault();
+      event.stopPropagation();
+      onHide();
+    };
+    return button;
+  };
 
   const refreshRows = () => {
     const hidden = new Set(hiddenNames);
@@ -671,13 +654,12 @@ const create = (tag, attributes = {}, ...children) => {
         if (counter) counter.textContent = count;
         if (counter?.nextElementSibling) counter.nextElementSibling.textContent = ` (${count})`;
       } else heading.replaceChildren("Tags ", create("span", {class: "Counter"}, count));
-      const date = tag?.createdAt && create("relative-time", {datetime: tag.createdAt}, new Date(tag.createdAt).toLocaleDateString());
-      panel.replaceChildren(heading, ...(tag ? [create(
-        "a",
-        {class: "gibbous-sidebar-tag", href: tag.url},
-        createOcticon("tag"),
-        create("span", {}, create("strong", {}, tag.name), date || ""),
-      )] : []));
+      const date = tag?.createdAt
+        ? html`<relative-time datetime="${tag.createdAt}">${new Date(tag.createdAt).toLocaleDateString()}</relative-time>`
+        : "";
+      panel.replaceChildren(heading, ...(tag ? [html`<a class="gibbous-sidebar-tag" href="${tag.url}">
+        ${createOcticon("tag")}<span><strong>${tag.name}</strong>${date}</span>
+      </a>`] : []));
     };
     render(cached("tags", context.nwo, 10 * MINUTE, () => fetchLatestTag(context.nwo), fresh => panel.isConnected && render(fresh)));
   };
@@ -895,25 +877,21 @@ const create = (tag, attributes = {}, ...children) => {
     let content = quoteCommentRoot(comment)?.cloneNode(true);
     let body = content?.querySelector(".comment-body");
     if (!body) {
-      body = create("div", {class: "comment-body markdown-body"}, ...parsed.childNodes);
-      content = create(
-        "div",
-        {class: "gibbous-quote-fallback color-bg-overlay border rounded-2"},
-        create("strong", {class: "d-block border-bottom px-3 py-2"}, `@${comment.user}`),
-        body,
-      );
+      content = html`<div class="gibbous-quote-fallback color-bg-overlay border rounded-2">
+        <strong class="d-block border-bottom px-3 py-2">@${comment.user}</strong>
+        <div class="comment-body markdown-body">${[...parsed.childNodes]}</div>
+      </div>`;
+      body = content.lastChild;
     }
     content.removeAttribute("id");
     content.querySelectorAll(".gibbous-quote-rail, script, style, iframe, form").forEach(node => node.remove());
     content.querySelectorAll("[id]").forEach(node => node.removeAttribute("id"));
     if (target.source) highlightQuote(body, target.match.quote);
     else quoteBlocks(body)[target.match.quoteIndex]?.element.classList.add("gibbous-quote-highlight");
-    quotePreview = create("div", {
-      class: `gibbous-quote-preview gibbous-quote-preview-${target.source ? "source" : "reply"} color-fg-default color-shadow-large`,
-      popover: "manual",
-      onpointerenter: () => clearTimeout(quotePreviewTimer),
-      onpointerleave: hideQuotePreview,
-    }, content);
+    const side = target.source ? "source" : "reply";
+    quotePreview = html`<div class="gibbous-quote-preview gibbous-quote-preview-${side} color-fg-default color-shadow-large" popover="manual">${content}</div>`;
+    quotePreview.onpointerenter = () => clearTimeout(quotePreviewTimer);
+    quotePreview.onpointerleave = hideQuotePreview;
     document.body.append(quotePreview);
     quotePreview.showPopover({source: button});
     const highlights = [...quotePreview.querySelectorAll(".gibbous-quote-highlight")].map(highlight => highlight.getBoundingClientRect());
@@ -1050,11 +1028,7 @@ const create = (tag, attributes = {}, ...children) => {
   const mountDisabledQuoteButton = (rail, label) => {
     let button = rail.querySelector(".gibbous-quote-missing");
     if (!button) {
-      button = create("button", {
-        class: "Button Button--invisible Button--small Button--iconOnly gibbous-quote-button gibbous-quote-missing",
-        type: "button",
-        disabled: "",
-      }, "?");
+      button = html`<button class="Button Button--invisible Button--small Button--iconOnly gibbous-quote-button gibbous-quote-missing" type="button" disabled>?</button>`;
       rail.append(button);
     }
     sync(button, {"aria-label": label, title: label});
@@ -1065,16 +1039,9 @@ const create = (tag, attributes = {}, ...children) => {
     let button = rail.querySelector(`[data-gibbous-quote-key="${match.key}"]`);
     if (!button) {
       const id = `gibbous-quote-picker-${match.key}`;
-      const picker = create(
-        "div",
-        {
-          id,
-          class: "gibbous-quote-picker color-bg-overlay color-fg-default p-2 rounded-2 border color-shadow-large",
-          popover: "auto",
-          "aria-label": "Matching source comments",
-        },
-        create("strong", {class: "d-block px-2 py-1 text-small"}, "Choose source"),
-        ...match.sources.map(source => createQuoteLink(
+      const picker = html`<div id="${id}" class="gibbous-quote-picker color-bg-overlay color-fg-default p-2 rounded-2 border color-shadow-large" popover="auto" aria-label="Matching source comments">
+        <strong class="d-block px-2 py-1 text-small">Choose source</strong>
+        ${match.sources.map(source => createQuoteLink(
           source,
           `@${source.user} · ${new Date(source.createdAt).toLocaleString()} · ${matchRateLabel(source)}`,
           {
@@ -1089,14 +1056,9 @@ const create = (tag, attributes = {}, ...children) => {
             refreshQuoteLinks();
             void storageSet({quoteChoices}).catch(reportError);
           },
-        )),
-      );
-      button = create("button", {
-        class: "Button Button--invisible Button--small Button--iconOnly gibbous-quote-button",
-        type: "button",
-        popovertarget: id,
-        "data-gibbous-quote-key": match.key,
-      }, "↑");
+        ))}
+      </div>`;
+      button = html`<button class="Button Button--invisible Button--small Button--iconOnly gibbous-quote-button" type="button" popovertarget="${id}" data-gibbous-quote-key="${match.key}">↑</button>`;
       rail.append(button, picker);
     }
     const fullQuote = selected && isFullQuote(match, selected);
@@ -1248,20 +1210,11 @@ const create = (tag, attributes = {}, ...children) => {
     const pullRequests = [...(repositoryNavigation()?.querySelectorAll("a") ?? [])].find(link => textOf(link).startsWith("Pull requests"));
     const item = pullRequests?.closest("li") ?? pullRequests;
     if (!item) return;
-    pullRequestShortcuts ??= create(
-      "li",
-      {class: "gibbous-pull-request-shortcuts"},
-      ...[["open", "git-pull-request"], ["closed", "git-pull-request-closed"]].map(([state, icon]) => create(
-        "a",
-        {
-          class: "Button Button--invisible Button--small Button--iconOnly gibbous-pull-request-shortcut",
-          "data-state": state,
-          "aria-label": `My ${state} pull requests`,
-          title: `My ${state} pull requests`,
-        },
-        createOcticon(icon),
-      )),
-    );
+    pullRequestShortcuts ??= html`<li class="gibbous-pull-request-shortcuts">
+      ${[["open", "git-pull-request"], ["closed", "git-pull-request-closed"]].map(([state, icon]) => html`<a class="Button Button--invisible Button--small Button--iconOnly gibbous-pull-request-shortcut" data-state="${state}" aria-label="My ${state} pull requests" title="My ${state} pull requests">
+        ${createOcticon(icon)}
+      </a>`)}
+    </li>`;
     if (pullRequestShortcuts.previousElementSibling !== item) item.after(pullRequestShortcuts);
     const active = context && readPullRequestState(context, viewer);
     sync(pullRequestShortcuts, {hidden: (!enabled || !context || !viewer) && ""});
@@ -1407,13 +1360,9 @@ const create = (tag, attributes = {}, ...children) => {
     if (!full && (host.additions !== counts.whitespaceAdditions || host.deletions !== counts.whitespaceDeletions)) {
       requestWhitespaceCounts(context, host);
     }
-    whitespaceDiffstat ??= create(
-      "a",
-      {class: "gibbous-whitespace-diffstat"},
-      create("span", {class: "gibbous-whitespace-diffstat-label"}),
-      create("span", {class: "gibbous-whitespace-diffstat-additions"}),
-      create("span", {class: "gibbous-whitespace-diffstat-deletions"}),
-    );
+    whitespaceDiffstat ??= html`<a class="gibbous-whitespace-diffstat">
+      <span class="gibbous-whitespace-diffstat-label"></span><span class="gibbous-whitespace-diffstat-additions"></span><span class="gibbous-whitespace-diffstat-deletions"></span>
+    </a>`;
     const [label, additions, deletions] = whitespaceDiffstat.children;
     const type = ["font-family", "font-size", "line-height"];
     copyStyle(whitespaceDiffstat, host.plus, type);
@@ -1430,7 +1379,7 @@ const create = (tag, attributes = {}, ...children) => {
       && (host.plus === host.minus || (!host.plus.contains(host.minus) && !host.minus.contains(host.plus)))
       && ![host.plus, host.minus].some(number => number.contains(host.element));
     if (swap) {
-      diffstatSwap ??= create("span", {class: "gibbous-diffstat-swap"}, create("span"), " ", create("span"));
+      diffstatSwap ??= html`<span class="gibbous-diffstat-swap"><span></span> <span></span></span>`;
       const [swapAdditions, swapDeletions] = diffstatSwap.querySelectorAll("span");
       copyStyle(swapAdditions, host.plus);
       copyStyle(swapDeletions, host.minus);
@@ -1675,11 +1624,8 @@ const create = (tag, attributes = {}, ...children) => {
         surfaceForks.add(row);
         forkedRepositories.add(row);
         if (fork) representedForks.add(fork.row);
-        const action = existingFork ?? create(
-          "a",
-          {class: "Button Button--invisible Button--small Button--iconOnly gibbous-repository-fork"},
-          createOcticon("repo-forked"),
-        );
+        const action = existingFork
+          ?? html`<a class="Button Button--invisible Button--small Button--iconOnly gibbous-repository-fork">${createOcticon("repo-forked")}</a>`;
         sync(action, {href, title: `Open your fork: ${href.slice(1)}`, "aria-label": `Open your fork: ${href.slice(1)}`});
         if (action !== row.lastElementChild) row.append(action);
       }
@@ -1715,12 +1661,9 @@ const create = (tag, attributes = {}, ...children) => {
     const legacyTitle = document.querySelector('#repository-container-header strong[itemprop="name"]');
     const title = document.querySelector("#repo-title-component") ?? legacyTitle?.parentElement?.parentElement;
     if (!title) return;
-    forkedIn ??= create(
-      "span",
-      {class: "gibbous-forked-in text-small lh-condensed-ultra no-wrap mt-1", "data-repository-hovercards-enabled": ""},
-      "forked in ",
-      create("a", {class: "Link--inTextBlock", "data-hovercard-type": "repository"}),
-    );
+    forkedIn ??= html`<span class="gibbous-forked-in text-small lh-condensed-ultra no-wrap mt-1" data-repository-hovercards-enabled="">
+      forked in <a class="Link--inTextBlock" data-hovercard-type="repository"></a>
+    </span>`;
     if (forkedIn.parentElement !== title) title.append(forkedIn);
     updateFork();
   };
@@ -1821,36 +1764,25 @@ const create = (tag, attributes = {}, ...children) => {
 
   const itemIcon = item => item.pullRequest === false ? "issue-opened" : item.draft ? "git-pull-request-draft" : "git-pull-request";
   const commentsLink = (item, className) => item.comments
-    ? create("a", {class: className, href: item.url, "aria-label": `${item.comments} comments`}, createOcticon("comment"), create("span", {}, String(item.comments)))
+    ? html`<a class="${className}" href="${item.url}" aria-label="${item.comments} comments">${createOcticon("comment")}<span>${item.comments}</span></a>`
     : "";
+  const relativeTime = datetime => html`<relative-time datetime="${datetime}">${new Date(datetime).toLocaleDateString()}</relative-time>`;
 
-  const renderMyPullRequestRow = item => create(
-    "div",
-    {class: "Box-row d-flex gibbous-my-pull"},
-    create(
-      "span",
-      {class: `flex-shrink-0 pt-1 ${item.draft ? "color-fg-muted" : "color-fg-open"}`, "aria-label": item.draft ? "Draft pull request" : "Open pull request"},
-      createOcticon(itemIcon(item)),
-    ),
-    create(
-      "div",
-      {class: "flex-auto min-width-0 px-2"},
-      create("a", {class: "Link--primary v-align-middle no-underline h4 markdown-title", href: item.url}, item.title),
-      ...(item.labels.length ? [create(
-        "span",
-        {class: "lh-default d-block d-md-inline ml-md-1"},
-        ...item.labels.map(label => create("span", {class: "IssueLabel hx_IssueLabel v-align-middle", style: label.style}, label.name)),
-      )] : []),
-      create(
-        "div",
-        {class: "mt-1 text-small color-fg-muted"},
-        `#${item.number}`,
-        item.openedAt ? create("span", {}, " opened ", create("relative-time", {datetime: item.openedAt}, new Date(item.openedAt).toLocaleDateString())) : "",
-        item.author ? ` by ${item.author}` : "",
-      ),
-    ),
-    commentsLink(item, "Link--muted flex-shrink-0 d-inline-flex gap-1 pt-1 text-small text-bold"),
-  );
+  const renderMyPullRequestRow = item => html`<div class="Box-row d-flex gibbous-my-pull">
+    <span class="flex-shrink-0 pt-1 ${item.draft ? "color-fg-muted" : "color-fg-open"}" aria-label="${item.draft ? "Draft pull request" : "Open pull request"}">
+      ${createOcticon(itemIcon(item))}
+    </span>
+    <div class="flex-auto min-width-0 px-2">
+      <a class="Link--primary v-align-middle no-underline h4 markdown-title" href="${item.url}">${item.title}</a>
+      ${item.labels.length ? html`<span class="lh-default d-block d-md-inline ml-md-1">
+        ${item.labels.map(label => html`<span class="IssueLabel hx_IssueLabel v-align-middle" style="${label.style}">${label.name}</span>`)}
+      </span>` : ""}
+      <div class="mt-1 text-small color-fg-muted">
+        #${item.number}${item.openedAt ? html`<span> opened ${relativeTime(item.openedAt)}</span>` : ""}${item.author ? ` by ${item.author}` : ""}
+      </div>
+    </div>
+    ${commentsLink(item, "Link--muted flex-shrink-0 d-inline-flex gap-1 pt-1 text-small text-bold")}
+  </div>`;
 
   // While a Gibbous tab is showing, GitHub's current tab gives up aria-current (its underline);
   // it gets it back on return unless GitHub has since marked another tab current.
@@ -1923,63 +1855,58 @@ const create = (tag, attributes = {}, ...children) => {
     box.setAttribute("data-gibbous-tabs-active", "");
 
     const linkClass = readmeItem.querySelector("a").className;
-    readmeItem.after(...tabs.map(({name, label, icon, count, href}) => create("li", {class: `${readmeItem.className} gibbous-tab`}, create(
-      "a",
-      {
-        class: `${linkClass} gibbous-tab-link`,
-        "data-tab": name,
-        href,
-        onclick: event => {
-          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
-          event.preventDefault();
-          selectRepositoryTab(box, name);
-        },
-      },
-      create("span", {"data-component": "icon"}, createOcticon(icon)),
-      create("span", {"data-component": "text"}, label),
-      count ? create("span", {class: "Counter ml-1"}, count) : "",
-    ))));
+    readmeItem.after(...tabs.map(({name, label, icon, count, href}) => {
+      const tab = html`<li class="${readmeItem.className} gibbous-tab">
+        <a class="${linkClass} gibbous-tab-link" data-tab="${name}" href="${href}">
+          <span data-component="icon">${createOcticon(icon)}</span><span data-component="text">${label}</span>${count ? html`<span class="Counter ml-1">${count}</span>` : ""}
+        </a>
+      </li>`;
+      tab.firstChild.onclick = event => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+        event.preventDefault();
+        selectRepositoryTab(box, name);
+      };
+      return tab;
+    }));
 
     // One menu replaces GitHub's Outline button: the collapsed file tabs, then the outline of
     // whichever document is showing. Reuse GitHub's own icon so nothing looks foreign.
-    const hidden = [...list.querySelectorAll("a [data-content]")].map(label => label.dataset.content).filter(name => name !== "README");
-    const outline = create("div", {class: "gibbous-readme-menu-outline", role: "group", "aria-label": "Outline"});
+    const fileTab = (root, name) => root?.querySelector(`a [data-content="${name}"]`)?.closest("a");
+    const outlineIcon = header.querySelector('button[aria-label="Outline"]')?.querySelector("svg")?.cloneNode(true) ?? createOcticon("list-unordered");
+    const menu = html`<details class="details-reset details-overlay gibbous-readme-menu">
+      <summary class="Button Button--invisible Button--iconOnly Button--medium" aria-label="Files and outline" title="Files and outline">${outlineIcon}</summary>
+      <div class="gibbous-readme-menu-list" role="menu">
+        ${[...list.querySelectorAll("a [data-content]")].map(label => label.dataset.content).filter(name => name !== "README").map(name => {
+          const entry = html`<button class="gibbous-readme-menu-item" type="button" role="menuitem">
+            ${[...fileTab(list, name).children].map(child => child.cloneNode(true))}
+          </button>`;
+          entry.onclick = () => {
+            closeMenu();
+            // GitHub may have re-rendered the tab since we mounted; find the live anchor by name.
+            fileTab(readmeNavigation(), name)?.click();
+          };
+          return entry;
+        })}
+        <div class="gibbous-readme-menu-outline" role="group" aria-label="Outline"></div>
+      </div>
+    </details>`;
+    const outline = menu.lastChild.lastChild;
     const closeMenu = () => {
       menu.removeAttribute("open");
       selectRepositoryTab(box, null);
     };
-    const menu = create(
-      "details",
-      {class: "details-reset details-overlay gibbous-readme-menu", ontoggle: () => menu.open && rebuildOutline()},
-      create(
-        "summary",
-        {class: "Button Button--invisible Button--iconOnly Button--medium", "aria-label": "Files and outline", title: "Files and outline"},
-        header.querySelector('button[aria-label="Outline"]')?.querySelector("svg")?.cloneNode(true) ?? createOcticon("list-unordered"),
-      ),
-      create("div", {class: "gibbous-readme-menu-list", role: "menu"}, ...hidden.map(name => create(
-        "button",
-        {
-          class: "gibbous-readme-menu-item",
-          type: "button",
-          role: "menuitem",
-          onclick: () => {
-            closeMenu();
-            // GitHub may have re-rendered the tab since we mounted; find the live anchor by name.
-            readmeNavigation()?.querySelector(`a [data-content="${name}"]`)?.closest("a")?.click();
-          },
-        },
-        ...[...list.querySelector(`a [data-content="${name}"]`).closest("a").children].map(child => child.cloneNode(true)),
-      )), outline),
-    );
-    const rebuildOutline = () => {
+    menu.ontoggle = () => {
+      if (!menu.open) return;
       const headings = [...box.querySelectorAll("article.markdown-body :is(h1, h2, h3, h4, h5, h6)")]
         .map(heading => ({heading, anchor: heading.parentElement?.querySelector("a.anchor[href]") ?? heading.querySelector("a.anchor[href]")}))
         .filter(({anchor}) => anchor);
-      outline.replaceChildren(...(headings.length ? [create("div", {class: "gibbous-readme-menu-divider", role: "separator"})] : []), ...headings.map(({heading, anchor}) => create(
-        "a",
-        {class: "gibbous-readme-menu-item", role: "menuitem", href: anchor.getAttribute("href"), style: `--outline-level: ${heading.tagName.slice(1)}`, onclick: closeMenu},
-        heading.textContent.trim(),
-      )));
+      outline.replaceChildren(...(headings.length ? [html`<div class="gibbous-readme-menu-divider" role="separator"></div>`] : []), ...headings.map(({heading, anchor}) => {
+        const entry = html`<a class="gibbous-readme-menu-item" role="menuitem" href="${anchor.getAttribute("href")}" style="--outline-level: ${heading.tagName.slice(1)}">
+          ${heading.textContent.trim()}
+        </a>`;
+        entry.onclick = closeMenu;
+        return entry;
+      }));
     };
     header.append(menu);
 
@@ -1991,12 +1918,10 @@ const create = (tag, attributes = {}, ...children) => {
       });
     }
 
-    header.after(...tabs.map(({name}) => create(
-      "div",
-      // Plain navigation: Turbo cannot load these links into the code view's frame.
-      {class: "gibbous-tab-panel", "data-tab": name, "data-turbo": "false"},
-      ...(name === "pulls" ? pulls.map(renderMyPullRequestRow) : []),
-    )));
+    // Plain navigation in the panels: Turbo cannot load their links into the code view's frame.
+    header.after(...tabs.map(({name}) => html`<div class="gibbous-tab-panel" data-tab="${name}" data-turbo="false">
+      ${name === "pulls" ? pulls.map(renderMyPullRequestRow) : []}
+    </div>`));
     // The pull request list opens first; otherwise keep whatever tab was showing.
     selectRepositoryTab(box, tabs.some(tab => tab.name === selected) ? selected : pulls?.length ? "pulls" : null);
   };
@@ -2020,40 +1945,24 @@ const create = (tag, attributes = {}, ...children) => {
   // "Issues" lists the new dashboard shows, so both dashboards render the one Gibbous experience.
   let classicDashboardLookup;
 
-  const renderDashboardRow = item => create(
-    "div",
-    {class: "gibbous-dashboard-row"},
-    create("span", {class: item.pullRequest && item.draft ? "color-fg-muted" : "color-fg-open", "aria-hidden": "true"}, createOcticon(itemIcon(item))),
-    create(
-      "div",
-      {class: "gibbous-dashboard-copy"},
-      create("a", {class: "Link--primary gibbous-dashboard-title", href: item.url}, item.title),
-      create(
-        "div",
-        {class: "gibbous-dashboard-meta"},
-        `${item.nwo}#${item.number} · Opened by ${item.author} · Updated `,
-        create("relative-time", {datetime: item.updatedAt}, new Date(item.updatedAt).toLocaleDateString()),
-      ),
-    ),
-    commentsLink(item, "Link--muted gibbous-dashboard-comments"),
-  );
+  const renderDashboardRow = item => html`<div class="gibbous-dashboard-row">
+    <span class="${item.pullRequest && item.draft ? "color-fg-muted" : "color-fg-open"}" aria-hidden="true">${createOcticon(itemIcon(item))}</span>
+    <div class="gibbous-dashboard-copy">
+      <a class="Link--primary gibbous-dashboard-title" href="${item.url}">${item.title}</a>
+      <div class="gibbous-dashboard-meta">${item.nwo}#${item.number} · Opened by ${item.author} · Updated ${relativeTime(item.updatedAt)}</div>
+    </div>
+    ${commentsLink(item, "Link--muted gibbous-dashboard-comments")}
+  </div>`;
 
   // Until the first result arrives, a section shows a skeleton row.
-  const renderDashboardSection = (title, href, items, empty) => create(
-    "section",
-    {class: "gibbous-dashboard-section"},
-    create("div", {class: "gibbous-dashboard-heading"}, create("h2", {}, title), create("a", {class: "Link--primary", href}, "View all")),
-    create(
-      "div",
-      {class: "Box gibbous-dashboard-list"},
-      ...(!items ? [create("div", {class: "gibbous-dashboard-row"}, create(
-        "div",
-        {class: "gibbous-dashboard-copy"},
-        create("div", {class: "gibbous-dashboard-skeleton"}),
-        create("div", {class: "gibbous-dashboard-skeleton", style: "width: 35%"}),
-      ))] : items.length ? items.map(renderDashboardRow) : [create("div", {class: "gibbous-dashboard-empty"}, empty)]),
-    ),
-  );
+  const renderDashboardSection = (title, href, items, empty) => html`<section class="gibbous-dashboard-section">
+    <div class="gibbous-dashboard-heading"><h2>${title}</h2><a class="Link--primary" href="${href}">View all</a></div>
+    <div class="Box gibbous-dashboard-list">
+      ${!items ? html`<div class="gibbous-dashboard-row">
+        <div class="gibbous-dashboard-copy"><div class="gibbous-dashboard-skeleton"></div><div class="gibbous-dashboard-skeleton" style="width: 35%"></div></div>
+      </div>` : items.length ? items.map(renderDashboardRow) : html`<div class="gibbous-dashboard-empty">${empty}</div>`}
+    </div>
+  </section>`;
 
   const mountClassicDashboard = () => {
     const onClassic = ["/", "/dashboard"].includes(location.pathname) && !document.querySelector('[data-testid="dashboard-repositories"]')
