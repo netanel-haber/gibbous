@@ -304,7 +304,7 @@
 
   // Everything fetched from GitHub is persisted so a revisit paints the last known result in the
   // same frame the DOM appears, then revalidates quietly. Buckets: myPulls, dashboard, forks,
-  // userForks, pushAccess, tags. Entries are {value, at}.
+  // userForks, pushAccess, tags, whitespaceDiffstat. Entries are {value, at}.
   const CACHE_ENTRY_LIMIT = 80;
   const MINUTE = 60_000;
   let cache = {};
@@ -1554,6 +1554,132 @@
     }
   };
 
+  // Pull requests: beside GitHub's +A −D, the count with whitespace ignored (?w=1), or the full
+  // count when GitHub's own one is already ignoring whitespace. GitHub's counter is found by its
+  // text, not its markup, and only used once its numbers equal the pull request's diff, so the
+  // counter never lands on another element or shows an older push.
+  const diffstatPattern = /\+(\d[\d,]*)[−–-](\d[\d,]*)/;
+  const whitespaceRequests = new Set();
+  let whitespaceDiffstat;
+  let diffstatHost;
+  let diffstatSearchedAt = 0;
+  let diffstatRetry;
+
+  const pullRequestContext = () => {
+    const match = location.pathname.match(/^\/([^/]+\/[^/]+)\/pull\/(\d+)(?:\/|$)/);
+    return match && {key: `${match[1]}#${match[2]}`, nwo: match[1], number: match[2]};
+  };
+
+  const formatCount = count => count.toLocaleString("en-US");
+
+  // An element's text without the counter Gibbous appends to it, whitespace removed.
+  const diffstatText = element => {
+    const own = whitespaceDiffstat && element.contains(whitespaceDiffstat) ? whitespaceDiffstat.textContent : "";
+    return element.textContent.replace(own, "").replace(/\s+/g, "");
+  };
+
+  function* diffstatCandidates() {
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode: node => /^\s*\+[\d,\s]*$/.test(node.data) && !node.parentElement?.closest(".gibbous-whitespace-diffstat")
+        ? NodeFilter.FILTER_ACCEPT
+        : NodeFilter.FILTER_SKIP,
+    });
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      for (let element = node.parentElement, depth = 0; element && depth < 4; element = element.parentElement, depth++) {
+        const text = diffstatText(element);
+        if (text.length > 120) break;
+        const match = diffstatPattern.exec(text);
+        if (!match) continue;
+        // Climb over wrappers that add no text, such as the one around GitHub's five squares.
+        while (element.parentElement && element.parentElement !== document.body && diffstatText(element.parentElement) === text) {
+          element = element.parentElement;
+        }
+        yield {element, text, additions: Number(match[1].replaceAll(",", "")), deletions: Number(match[2].replaceAll(",", ""))};
+        break;
+      }
+    }
+  }
+
+  const requestWhitespaceCounts = (context, shown) => {
+    const request = `${context.key} ${shown.additions} ${shown.deletions}`;
+    if (whitespaceRequests.has(request)) return;
+    whitespaceRequests.add(request);
+    void extensionCall(() => chrome.runtime.sendMessage({type: "countPullRequestDiff", nwo: context.nwo, number: context.number}), null)
+      .then(counts => {
+        if (!counts) return;
+        if (counts.error) throw new Error(counts.error);
+        cacheSet("whitespaceDiffstat", context.key, counts);
+        scheduleRefresh();
+      })
+      .catch(reportError);
+  };
+
+  const setText = (node, text) => {
+    if (node.textContent !== text) node.textContent = text;
+  };
+
+  const refreshWhitespaceDiffstat = () => {
+    const context = pullRequestContext();
+    if (!context || !enabled) {
+      whitespaceDiffstat?.remove();
+      return;
+    }
+    const counts = cacheEntry("whitespaceDiffstat", context.key)?.value;
+    const showsFull = shown => counts?.additions === shown.additions && counts.deletions === shown.deletions;
+    const showsIgnored = shown => counts?.whitespaceAdditions === shown.additions && counts.whitespaceDeletions === shown.deletions;
+    // Keep the last host while it shows the same text; otherwise search the page, at most once a second.
+    if (!(diffstatHost?.key === context.key && diffstatHost.element.isConnected && diffstatText(diffstatHost.element) === diffstatHost.text)) {
+      diffstatHost = undefined;
+      const wait = diffstatSearchedAt + 1000 - Date.now();
+      if (wait > 0) {
+        diffstatRetry ??= setTimeout(() => {
+          diffstatRetry = undefined;
+          scheduleRefresh();
+        }, wait);
+        return;
+      }
+      diffstatSearchedAt = Date.now();
+      let first;
+      for (const candidate of diffstatCandidates()) {
+        first ??= candidate;
+        if (showsFull(candidate) || showsIgnored(candidate)) {
+          diffstatHost = {...candidate, key: context.key};
+          break;
+        }
+      }
+      if (!diffstatHost && first) diffstatHost = {...first, key: context.key};
+    }
+    const host = diffstatHost;
+    if (!host) return;
+    const full = showsFull(host);
+    if (!full && !showsIgnored(host)) {
+      // Count this host's numbers once; until a host matches, keep searching the page.
+      whitespaceDiffstat?.remove();
+      requestWhitespaceCounts(context, host);
+      diffstatHost = undefined;
+      return;
+    }
+    whitespaceDiffstat ??= create(
+      "a",
+      {class: "gibbous-whitespace-diffstat"},
+      create("span", {class: "gibbous-whitespace-diffstat-label"}),
+      create("span", {class: "gibbous-whitespace-diffstat-additions"}),
+      create("span", {class: "gibbous-whitespace-diffstat-deletions"}),
+    );
+    const [label, additions, deletions] = whitespaceDiffstat.children;
+    setText(label, full ? "ignoring whitespace" : "with whitespace");
+    setText(additions, `+${formatCount(full ? counts.whitespaceAdditions : counts.additions)}`);
+    setText(deletions, `−${formatCount(full ? counts.whitespaceDeletions : counts.deletions)}`);
+    const href = `/${context.nwo}/pull/${context.number}/files?w=${full ? 1 : 0}`;
+    if (whitespaceDiffstat.getAttribute("href") !== href) {
+      whitespaceDiffstat.setAttribute("href", href);
+      whitespaceDiffstat.title = full
+        ? "Lines changed with whitespace changes ignored. Click to hide whitespace in the diff."
+        : "Lines changed counting whitespace changes. Click to show whitespace in the diff.";
+    }
+    if (host.element.lastChild !== whitespaceDiffstat) host.element.append(whitespaceDiffstat);
+  };
+
   const repositoryMatch = repository => repository.pathname.match(/^\/([^/]+)\/([^/]+)\/?$/);
 
   const repositoryEntries = (list, selector) => [...list.querySelectorAll(":scope > li")].flatMap(row => {
@@ -2391,6 +2517,7 @@
     refreshRepository();
     mountTopRepositories();
     refreshQuoteLinks();
+    refreshWhitespaceDiffstat();
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {

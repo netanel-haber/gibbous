@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Gibbous",
-  "version": "0.7.4",
+  "version": "0.8.0",
   "description": "GitHub, but with the UX you asked for. https://netanel-haber.github.io/gibbous/",
   "homepage_url": "https://netanel-haber.github.io/gibbous/",
   "minimum_chrome_version": "134",
   "permissions": ["storage"],
-  "background": {"service_worker": "quote-worker.js"},
+  "host_permissions": ["https://github.com/*", "https://patch-diff.githubusercontent.com/*"],
+  "background": {"service_worker": "worker.js"},
   "content_scripts": [
     {
       "matches": ["https://github.com/*"],

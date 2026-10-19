@@ -710,6 +710,43 @@ html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) :has(> .gibbo
   opacity: 0.75;
 }
 
+/* The second diffstat on pull requests, after a divider and under its own label. */
+.gibbous-whitespace-diffstat {
+  align-items: baseline;
+  border-inline-start: var(--borderWidth-thin, 1px) solid var(--borderColor-default, var(--color-border-default));
+  display: inline-flex;
+  font-weight: var(--base-text-weight-semibold, 600);
+  gap: 4px;
+  margin-inline-start: 8px;
+  padding-inline-start: 8px;
+  text-decoration: none !important;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.gibbous-whitespace-diffstat-label {
+  color: var(--fgColor-muted, var(--color-fg-muted));
+  font-size: var(--text-body-size-small, 12px);
+  font-weight: var(--base-text-weight-normal, 400);
+}
+
+.gibbous-whitespace-diffstat:hover .gibbous-whitespace-diffstat-label {
+  color: var(--fgColor-accent, var(--color-accent-fg));
+  text-decoration: underline;
+}
+
+.gibbous-whitespace-diffstat-additions {
+  color: var(--fgColor-success, var(--color-success-fg));
+}
+
+.gibbous-whitespace-diffstat-deletions {
+  color: var(--fgColor-danger, var(--color-danger-fg));
+}
+
+html[data-gibbous-disabled] .gibbous-whitespace-diffstat {
+  display: none !important;
+}
+
 /* The hide button sits in the gutter left of the file table, away from the name. The button is a
    transparent strip as tall as its row reaching to the table, so the strips stack into one column:
    the pointer never drops out of a row on the way to a button, or moving along the column. The

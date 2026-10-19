@@ -11,6 +11,7 @@ GitHub, but with the UX you want.
 - `forked in owner/repository` link to fork on upstream repositories when you have a fork
 - On repositories you own, can push to, or have forked: no topics, resource links, social stats, Watch or Fork buttons, or sidebar extras; releases sit beside a tags panel, and contributors and languages become tabs next to `README`
 - `My pull requests` tab on repositories where you have open pull requests, shown first; the license, conduct, contributing, and security tabs move into a `⋯` menu
+- Pull requests show a second `+/−` count beside GitHub's, with whitespace changes ignored (as with `?w=1`); click it to hide whitespace in the diff
 - Enlarge Mermaid diagrams into a lightbox: scroll or double-click to zoom, drag to pan, Esc to close
 
 ### Try the Mermaid lightbox
