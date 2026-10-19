@@ -1633,16 +1633,34 @@
     if (node.textContent !== text) node.textContent = text;
   };
 
+  // ?w=1 is GitHub's view with whitespace hidden.
+  const hidingWhitespace = () => ["1", "true"].includes(new URLSearchParams(location.search).get("w"));
+
+  // The diff being viewed (files, or changes in the new view) with whitespace shown or hidden;
+  // from the pull request's other tabs, its files.
+  const whitespaceViewHref = (context, hide) => {
+    const onDiff = /^\/[^/]+\/[^/]+\/pull\/\d+\/(?:files|changes)(?:\/|$)/.test(location.pathname);
+    const url = new URL(onDiff ? location.pathname + location.search : `/${context.nwo}/pull/${context.number}/files`, location.origin);
+    url.searchParams.set("w", hide ? "1" : "0");
+    return url.pathname + url.search;
+  };
+
   const refreshWhitespaceDiffstat = () => {
     const context = pullRequestContext();
-    if (!context || !enabled) {
+    if (!context || !enabled || !document.body) {
       whitespaceDiffstat?.remove();
       return;
     }
     const counts = cacheEntry("whitespaceDiffstat", context.key)?.value;
     const showsFull = shown => counts?.additions === shown.additions && counts.deletions === shown.deletions;
-    const showsIgnored = shown => counts?.whitespaceAdditions === shown.additions && counts.whitespaceDeletions === shown.deletions;
-    // Keep the last host while it shows the same text; otherwise search the page, at most once a second.
+    // GitHub's own whitespace-ignored count, from git's diff, can only be at or a few lines above
+    // the minimal one counted here, and never above the full count.
+    const near = (github, minimal, full) => github >= minimal && github <= full && github - minimal <= Math.max(5, Math.ceil(minimal * 0.02));
+    const showsIgnored = shown => Boolean(counts) && !showsFull(shown)
+      && near(shown.additions, counts.whitespaceAdditions, counts.additions)
+      && near(shown.deletions, counts.whitespaceDeletions, counts.deletions);
+    // Keep the last host while it shows the same text; otherwise search the page, at most once a
+    // second, for GitHub's full count, else its whitespace-ignored one, else the first +A −D to count.
     if (!(diffstatHost?.key === context.key && diffstatHost.element.isConnected && diffstatText(diffstatHost.element) === diffstatHost.text)) {
       diffstatHost = undefined;
       const wait = diffstatSearchedAt + 1000 - Date.now();
@@ -1655,14 +1673,19 @@
       }
       diffstatSearchedAt = Date.now();
       let first;
+      let ignored;
+      let seen = 0;
       for (const candidate of diffstatCandidates()) {
         first ??= candidate;
-        if (showsFull(candidate) || showsIgnored(candidate)) {
+        if (showsFull(candidate)) {
           diffstatHost = {...candidate, key: context.key};
           break;
         }
+        if (showsIgnored(candidate)) ignored ??= candidate;
+        if (++seen >= 20) break;
       }
-      if (!diffstatHost && first) diffstatHost = {...first, key: context.key};
+      const pick = diffstatHost ?? ignored ?? first;
+      diffstatHost = pick && {...pick, key: context.key};
     }
     const host = diffstatHost;
     if (!host) return;
@@ -1673,6 +1696,10 @@
       requestWhitespaceCounts(context, host);
       diffstatHost = undefined;
       return;
+    }
+    // Close but not equal: shown the same, and counted again once in case the counts are stale.
+    if (!full && (host.additions !== counts.whitespaceAdditions || host.deletions !== counts.whitespaceDeletions)) {
+      requestWhitespaceCounts(context, host);
     }
     whitespaceDiffstat ??= create(
       "a",
@@ -1698,13 +1725,14 @@
     setText(label, full ? "ignoring whitespace" : "with whitespace");
     setText(additions, `+${formatCount(full ? counts.whitespaceAdditions : counts.additions)}`);
     setText(deletions, `−${formatCount(full ? counts.whitespaceDeletions : counts.deletions)}`);
-    const href = `/${context.nwo}/pull/${context.number}/files?w=${full ? 1 : 0}`;
-    if (whitespaceDiffstat.getAttribute("href") !== href) {
-      whitespaceDiffstat.setAttribute("href", href);
-      whitespaceDiffstat.title = full
-        ? "Lines changed with whitespace changes ignored. Click to hide whitespace in the diff."
-        : "Lines changed counting whitespace changes. Click to show whitespace in the diff.";
-    }
+    // The link switches the diff to the other view. GitHub showing its whitespace-ignored count
+    // means whitespace is hidden, even when only a saved setting, not ?w=1, says so.
+    const hiding = !full || hidingWhitespace();
+    const href = whitespaceViewHref(context, !hiding);
+    const title = `${full ? "Lines changed with whitespace changes ignored" : "Lines changed counting whitespace changes"}. `
+      + `Click to ${hiding ? "show" : "hide"} whitespace in the diff.`;
+    if (whitespaceDiffstat.getAttribute("href") !== href) whitespaceDiffstat.setAttribute("href", href);
+    if (whitespaceDiffstat.title !== title) whitespaceDiffstat.title = title;
     if (host.element.lastChild !== whitespaceDiffstat) host.element.append(whitespaceDiffstat);
   };
 
