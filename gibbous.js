@@ -1590,12 +1590,21 @@
         if (text.length > 120) break;
         const match = diffstatPattern.exec(text);
         if (!match) continue;
-        // GitHub's own number elements, whose look the counter copies.
+        // GitHub's own number elements, whose look the counter copies. React splits "−" and "258"
+        // into separate text nodes, so the minus is the first text after the whole "+1,655".
         const plus = node.parentElement;
-        const minusWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
-          acceptNode: candidate => /^\s*[−–-]\s*\d[\d,]*\s*$/.test(candidate.data) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
-        });
-        const minus = minusWalker.nextNode()?.parentElement ?? plus;
+        const minusWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        minusWalker.currentNode = node;
+        let minus;
+        for (let read = node.data.replace(/\s+/g, ""), next = minusWalker.nextNode(); next; next = minusWalker.nextNode()) {
+          const data = next.data.replace(/\s+/g, "");
+          if (read.length > match[1].length && data) {
+            minus = next.parentElement;
+            break;
+          }
+          read += data;
+        }
+        minus ??= plus;
         // Climb over wrappers that add no text, such as the one around GitHub's five squares.
         while (element.parentElement && element.parentElement !== document.body && diffstatText(element.parentElement) === text) {
           element = element.parentElement;
