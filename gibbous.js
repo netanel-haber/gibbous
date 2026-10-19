@@ -1561,6 +1561,7 @@
   const diffstatPattern = /\+(\d[\d,]*)[−–-](\d[\d,]*)/;
   const whitespaceRequests = new Set();
   let whitespaceDiffstat;
+  let diffstatSwap;
   let diffstatHost;
   let diffstatSearchedAt = 0;
   let diffstatRetry;
@@ -1572,15 +1573,19 @@
 
   const formatCount = count => count.toLocaleString("en-US");
 
-  // An element's text without the counter Gibbous appends to it, whitespace removed.
+  // An element's text without what Gibbous adds to it (the counter, and on ?w=1 the swapped
+  // numbers), whitespace removed.
   const diffstatText = element => {
-    const own = whitespaceDiffstat && element.contains(whitespaceDiffstat) ? whitespaceDiffstat.textContent : "";
-    return element.textContent.replace(own, "").replace(/\s+/g, "");
+    let text = element.textContent;
+    for (const own of [whitespaceDiffstat, diffstatSwap]) {
+      if (own && element.contains(own)) text = text.replace(own.textContent, "");
+    }
+    return text.replace(/\s+/g, "");
   };
 
   function* diffstatCandidates() {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-      acceptNode: node => /^\s*\+[\d,\s]*$/.test(node.data) && !node.parentElement?.closest(".gibbous-whitespace-diffstat")
+      acceptNode: node => /^\s*\+[\d,\s]*$/.test(node.data) && !node.parentElement?.closest(".gibbous-whitespace-diffstat, .gibbous-diffstat-swap")
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_SKIP,
     });
@@ -1645,10 +1650,19 @@
     return url.pathname + url.search;
   };
 
+  // GitHub's own numbers come back; only attributes and siblings were added, never its text.
+  const swappedNumbers = new Set();
+  const restoreDiffstatNumbers = () => {
+    diffstatSwap?.remove();
+    for (const number of swappedNumbers) number.removeAttribute("data-gibbous-diffstat-swapped");
+    swappedNumbers.clear();
+  };
+
   const refreshWhitespaceDiffstat = () => {
     const context = pullRequestContext();
     if (!context || !enabled || !document.body) {
       whitespaceDiffstat?.remove();
+      restoreDiffstatNumbers();
       return;
     }
     const counts = cacheEntry("whitespaceDiffstat", context.key)?.value;
@@ -1693,6 +1707,7 @@
     if (!full && !showsIgnored(host)) {
       // Count this host's numbers once; until a host matches, keep searching the page.
       whitespaceDiffstat?.remove();
+      restoreDiffstatNumbers();
       requestWhitespaceCounts(context, host);
       diffstatHost = undefined;
       return;
@@ -1718,18 +1733,47 @@
       }
     };
     const type = ["font-family", "font-size", "line-height"];
+    const numberStyle = [...type, "font-weight", "color"];
     copyStyle(whitespaceDiffstat, host.plus, type);
     copyStyle(label, host.plus, type);
-    copyStyle(additions, host.plus, [...type, "font-weight", "color"]);
-    copyStyle(deletions, host.minus, [...type, "font-weight", "color"]);
-    setText(label, full ? "ignoring whitespace" : "with whitespace");
-    setText(additions, `+${formatCount(full ? counts.whitespaceAdditions : counts.additions)}`);
-    setText(deletions, `−${formatCount(full ? counts.whitespaceDeletions : counts.deletions)}`);
-    // The link switches the diff to the other view. GitHub showing its whitespace-ignored count
-    // means whitespace is hidden, even when only a saved setting, not ?w=1, says so.
+    copyStyle(additions, host.plus, numberStyle);
+    copyStyle(deletions, host.minus, numberStyle);
+    // GitHub showing its whitespace-ignored count means whitespace is hidden, even when only a
+    // saved setting, not ?w=1, says so.
     const hiding = !full || hidingWhitespace();
+    // GitHub keeps its full count on ?w=1. Then the two swap: its numbers show the count of the
+    // diff being viewed, and the counter the full one, labeled. Its number elements are hidden and
+    // a copy takes their place, so its own text is never rewritten under React.
+    const swap = full && hiding
+      && (host.plus === host.minus || (!host.plus.contains(host.minus) && !host.minus.contains(host.plus)))
+      && ![host.plus, host.minus].some(number => number.contains(host.element));
+    if (swap) {
+      diffstatSwap ??= create("span", {class: "gibbous-diffstat-swap"}, create("span"), " ", create("span"));
+      const [swapAdditions, swapDeletions] = diffstatSwap.querySelectorAll("span");
+      copyStyle(swapAdditions, host.plus, numberStyle);
+      copyStyle(swapDeletions, host.minus, numberStyle);
+      setText(swapAdditions, `+${formatCount(counts.whitespaceAdditions)}`);
+      setText(swapDeletions, `−${formatCount(counts.whitespaceDeletions)}`);
+      const swapTitle = "Lines changed with whitespace changes ignored, as in this diff";
+      if (diffstatSwap.title !== swapTitle) diffstatSwap.title = swapTitle;
+      for (const number of swappedNumbers) {
+        if (number !== host.plus && number !== host.minus) number.removeAttribute("data-gibbous-diffstat-swapped");
+      }
+      swappedNumbers.clear();
+      for (const number of [host.plus, host.minus]) {
+        swappedNumbers.add(number);
+        if (!number.hasAttribute("data-gibbous-diffstat-swapped")) number.setAttribute("data-gibbous-diffstat-swapped", "");
+      }
+      if (diffstatSwap.nextSibling !== host.plus) host.plus.before(diffstatSwap);
+    } else restoreDiffstatNumbers();
+    // The counter shows whichever count GitHub's slot does not.
+    const ignoring = full && !swap;
+    setText(label, ignoring ? "ignoring whitespace" : "with whitespace");
+    setText(additions, `+${formatCount(ignoring ? counts.whitespaceAdditions : counts.additions)}`);
+    setText(deletions, `−${formatCount(ignoring ? counts.whitespaceDeletions : counts.deletions)}`);
+    // The link switches the diff to the other view.
     const href = whitespaceViewHref(context, !hiding);
-    const title = `${full ? "Lines changed with whitespace changes ignored" : "Lines changed counting whitespace changes"}. `
+    const title = `${ignoring ? "Lines changed with whitespace changes ignored" : "Lines changed counting whitespace changes"}. `
       + `Click to ${hiding ? "show" : "hide"} whitespace in the diff.`;
     if (whitespaceDiffstat.getAttribute("href") !== href) whitespaceDiffstat.setAttribute("href", href);
     if (whitespaceDiffstat.title !== title) whitespaceDiffstat.title = title;

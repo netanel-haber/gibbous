@@ -749,7 +749,12 @@ html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) :has(> .gibbo
   color: var(--fgColor-danger, var(--color-danger-fg));
 }
 
-html[data-gibbous-disabled] .gibbous-whitespace-diffstat {
+html[data-gibbous-disabled] :is(.gibbous-whitespace-diffstat, .gibbous-diffstat-swap) {
+  display: none !important;
+}
+
+/* On ?w=1, GitHub's full-count numbers give way to the whitespace-ignored copy beside them. */
+html:not([data-gibbous-disabled]) [data-gibbous-diffstat-swapped] {
   display: none !important;
 }
 
