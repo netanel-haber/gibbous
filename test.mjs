@@ -157,21 +157,47 @@ const openChanges = query => async page => {
   await page.waitFor(".gibbous-whitespace-diffstat");
 };
 
-// Files in the new view's split diff, as GitHub renders them: an @@ row per hunk, then rows with a
-// number and a line on each side. Lines are [left, right, text]; a missing side makes an addition
-// or a deletion. ?pushed changes the first hunk and moves the second.
-const diffCells = (side, number, kind, text) => number === undefined
-  ? '<td class="empty-diff-line"></td><td class="empty-diff-line"></td>'
-  : `<td class="new-diff-line-number" data-diff-side="${side}" data-line-number="${number}">${number}</td><td class="diff-text-cell" data-diff-side="${side}"><code class="diff-text ${kind}"><div class="diff-text-inner">${text}</div></code></td>`;
+// Files in the new view's split diff, in GitHub's markup and with its pull request stylesheets: a
+// header with GitHub's own Viewed button, an @@ row per hunk, then a number and a line on each
+// side. Lines are [left, right, text]; a missing side makes an addition or a deletion. ?pushed
+// changes the first hunk and moves the second.
+const pullRequestStyles = `app-runtime.9dc463b6ff92cfd5.module primer-react-css.41e8289c1ff152bd.module react-core.45fb94e912e16ebd.module
+  nm.e3c799fa8d3553dc.module vf.2f67198b94a92b17.module f4.e198736a36d1f6a2.module igs.b49f80dd1968faa9.module h6.2986a44ec8a6b260.module
+  5gc.c92e53e7a3364041.module d5.92880d126e569f59.module pv3.82e5e20290810377.module ke.ba94cc78202e6c94.module ai.117d305975092d28.module
+  1i.d7369b10f2684743.module 0a.de0bcf898f126707.module pull-requests.626ee2e3f3e3903c.module pull-requests-4406857028d32735`
+  .split(/\s+/).map(name => `<link rel="stylesheet" href="https://github.githubassets.com/assets/${name}.css">`).join("");
+const octicon = (name, path) => `<svg aria-hidden="true" focusable="false" class="octicon octicon-${name}" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" style="vertical-align: text-bottom;"><path d="${path}"></path></svg>`;
+const foldIcon = direction => octicon(`fold-${direction}`, direction === "up"
+  ? "M7.823 1.677 4.927 4.573A.25.25 0 0 0 5.104 5H7.25v3.236a.75.75 0 1 0 1.5 0V5h2.146a.25.25 0 0 0 .177-.427L8.177 1.677a.25.25 0 0 0-.354 0ZM13.75 11a.75.75 0 0 0 0 1.5h.5a.75.75 0 0 0 0-1.5h-.5Zm-3.75.75a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5a.75.75 0 0 1-.75-.75ZM7.75 11a.75.75 0 0 0 0 1.5h.5a.75.75 0 0 0 0-1.5h-.5ZM4 11.75a.75.75 0 0 1 .75-.75h.5a.75.75 0 0 1 0 1.5h-.5a.75.75 0 0 1-.75-.75ZM1.75 11a.75.75 0 0 0 0 1.5h.5a.75.75 0 0 0 0-1.5h-.5Z"
+  : "m8.177 14.323 2.896-2.896a.25.25 0 0 0-.177-.427H8.75V7.764a.75.75 0 1 0-1.5 0V11H5.104a.25.25 0 0 0-.177.427l2.896 2.896a.25.25 0 0 0 .354 0ZM2.25 5a.75.75 0 0 0 0-1.5h-.5a.75.75 0 0 0 0 1.5h.5ZM6 4.25a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1 0-1.5h.5a.75.75 0 0 1 .75.75ZM8.25 5a.75.75 0 0 0 0-1.5h-.5a.75.75 0 0 0 0 1.5h.5ZM12 4.25a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1 0-1.5h.5a.75.75 0 0 1 .75.75Zm2.25.75a.75.75 0 0 0 0-1.5h-.5a.75.75 0 0 0 0 1.5h.5Z");
+const iconButton = (name, path) => `<button data-component="IconButton" type="button" class="prc-Button-ButtonBase-9n-Xk prc-Button-IconButton-fyge7" data-loading="false" data-no-visuals="true" data-size="small" data-variant="invisible">${octicon(name, path)}</button>`;
+const fileHeader = path => `<div class="diffHeaderWrapper__INiK1j" data-diff-header-wrapper="true"><div class="diff-file-header__CV6GPS">
+  <div class="d-flex px-1 flex-items-center overflow-hidden file-path-section__ZYYNNI"><h3 class="file-name__8GKEHg file-name-truncate__1IBLuh"><a class="Link--primary prc-Link-Link-9ZwDx" data-component="Link" data-muted="true" href="#"><code>${path}</code></a></h3></div>
+  <div class="d-flex flex-row flex-justify-end flex-items-center gap-2 flex-1"><div class="d-flex flex-items-center gap-2">
+    <button data-component="Button" type="button" aria-pressed="false" aria-label="Not Viewed" class="prc-Button-ButtonBase-9n-Xk iconOnly__kjZ2po" data-loading="false" data-size="small" data-variant="default"><span data-component="buttonContent" data-align="center" class="prc-Button-ButtonContent-Iohp5"><span data-component="leadingVisual" class="prc-Button-Visual-YNt2F prc-Button-LeadingVisual-UySKu prc-Button-VisualWrap-E4cnq"><svg aria-hidden="true" fill="none" height="16" role="img" viewBox="0 0 16 16" width="16"><path clip-rule="evenodd" d="M2.5 2.75C2.5 2.61193 2.61193 2.5 2.75 2.5H13.25C13.3881 2.5 13.5 2.61193 13.5 2.75V13.25C13.5 13.3881 13.3881 13.5 13.25 13.5H2.75C2.61193 13.5 2.5 13.3881 2.5 13.25V2.75ZM2.75 1C1.7835 1 1 1.7835 1 2.75V13.25C1 14.2165 1.7835 15 2.75 15H13.25C14.2165 15 15 14.2165 15 13.25V2.75C15 1.7835 14.2165 1 13.25 1H2.75Z" fill="currentColor" fill-rule="evenodd"></path></svg></span><span data-component="text" class="prc-Button-Label-FWkx3"><span class="hide-on-mobile__6ak-TF">Viewed</span></span></span></button>
+    ${iconButton("comment", "M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z")}
+    ${iconButton("kebab-horizontal", "M8 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM1.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm13 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z")}
+  </div></div></div></div>`;
+const lineBackgrounds = {"": ["var(--bgColor-default)", "var(--bgColor-default)"], ...Object.fromEntries(["addition", "deletion"].map(kind => [kind, [
+  `var(--diffBlob-${kind}Num-bgColor, var(--diffBlob-${kind}-bgColor-num))`, `var(--diffBlob-${kind}Line-bgColor, var(--diffBlob-${kind}-bgColor-line))`]]))};
+const diffCells = (side, number, kind, text) => {
+  if (number === undefined) return `<td role="gridcell" class="focusable-grid-cell empty-diff-line left-side"></td>`.repeat(2);
+  const [numberBackground, lineBackground] = lineBackgrounds[kind];
+  return `<td class="focusable-grid-cell new-diff-line-number left-side${kind ? "" : " diff-line-number-neutral"}" data-diff-side="${side}" data-line-number="${number}" role="gridcell" style="background-color: ${numberBackground};">${number}</td>`
+    + `<td class="diff-text-cell v-align-top focusable-grid-cell ${side}-side-diff-cell" data-diff-side="${side}" role="gridcell" style="background-color: ${lineBackground}; padding-right: 24px;"><code class="diff-text syntax-highlighted-line ${kind}">${kind ? `<span class="diff-text-marker">${kind === "addition" ? "+" : "-"}</span>` : ""}<div class="diff-text-inner">${text || "<br>"}</div></code></td>`;
+};
 const diffRow = row => {
-  if (typeof row === "string") return `<tr class="diff-line-row"><td colspan="4" class="diff-hunk-cell" ${row ? `id="hunk-${row.match(/-(\d+)/)[1]}"` : ""}><div class="d-flex flex-row"><button aria-label="Expand" data-direction="up"></button><code class="diff-text-cell hunk"><div class="diff-text-inner color-fg-muted">${row}</div></code></div></td></tr>`;
+  if (typeof row === "string") return `<tr class="diff-line-row"><td colspan="4" role="gridcell" valign="top" class="diff-hunk-cell focusable-grid-cell left-side" ${row ? `id="hunk-${row.match(/-(\d+)/)[1]}"` : ""} style="user-select: none; position: relative; background-color: var(--bgColor-accent-muted, var(--color-accent-subtle)); flex-grow: 1;">`
+    + `<div class="d-flex flex-row"><button class="Button Button--iconOnly Button--invisible expand-button-line__i06Y9x" aria-label="Expand file" data-direction="${row ? "up" : "down"}" aria-hidden="true" tabindex="-1">${foldIcon(row ? "up" : "down")}</button>`
+    + `<code class="diff-text-cell hunk"><div class="diff-text-inner color-fg-muted">${row}</div></code></div></td></tr>`;
   const [left, right, text] = row;
   const kind = left === undefined ? "addition" : right === undefined ? "deletion" : "";
   return `<tr class="diff-line-row">${diffCells("left", left, kind, text)}${diffCells("right", right, kind, text)}</tr>`;
 };
-const diffFile = (path, rows) => `<div role="region"><h3><code>${path}</code></h3>
-  <table aria-label="Diff for: ${path}" data-diff-anchor="diff-${Buffer.from(path).toString("hex")}" role="grid" class="width-full"><tbody>${[...rows, ""].map(diffRow).join("")}</tbody></table></div>`;
-const hunksPage = pushed => page(`<div data-testid="progressive-diffs-list">
+const diffFile = (path, rows) => `<div class="diffEntry__YLOXdm"><div role="region" class="diffTargetable__jbrCub diff__GZFl4M">${fileHeader(path)}
+  <div class="border position-relative rounded-bottom-2"><table aria-label="Diff for: ${path}" class="tab-size width-full tableLayoutFixed__5FTnfJ compact__U6o-zW" data-diff-anchor="diff-${Buffer.from(path).toString("hex")}" data-tab-size="4" role="grid" style="--line-number-cell-width: 44px; --line-number-cell-width-unified: 88px;">
+  <colgroup><col width="44"><col><col width="44"><col></colgroup><tbody>${[...rows, ""].map(diffRow).join("")}</tbody></table></div></div></div>`;
+const hunksPage = pushed => page(`<div data-testid="progressive-diffs-list" class="d-flex flex-column gap-3 p-3">
   ${diffFile("csrc/trtllm_batched_gemm_runner.cu", [
     "@@ -552,4 +552,4 @@",
     [552, 552, "return optionsA.mTileN > optionsB.mTileN;"],
@@ -190,7 +216,7 @@ const hunksPage = pushed => page(`<div data-testid="progressive-diffs-list">
     "@@ -10,2 +10,2 @@", [10, undefined, "x = old()"], [undefined, 10, "x = new()"], [11, 11, "y = 1"],
     "@@ -40,2 +40,2 @@", [40, undefined, "x = old()"], [undefined, 40, "x = new()"], [41, 41, "y = 1"],
   ])}
-</div>`);
+</div>`, pullRequestStyles);
 
 // A rendered Mermaid diagram in GitHub's viewer frame, kept in-process so its requests are mocked too.
 const mermaidPage = page(`<article class="markdown-body"><h1>Diagram</h1><section class="js-render-needs-enrichment"><div class="render-container"><iframe class="render-viewer" src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com&color_mode=dark#fixture" width="600" height="300"></iframe></div></section></article>`);

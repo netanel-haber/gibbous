@@ -749,6 +749,10 @@ html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) :has(> .gibbo
   color: var(--fgColor-danger, var(--color-danger-fg));
 }
 
+html[data-gibbous-disabled] :is(.gibbous-quote-rail, .gibbous-quote-picker, .gibbous-quote-status) {
+  display: none !important;
+}
+
 html[data-gibbous-disabled] :is(.gibbous-whitespace-diffstat, .gibbous-diffstat-swap) {
   display: none !important;
 }
@@ -758,45 +762,61 @@ html:not([data-gibbous-disabled]) [data-gibbous-diffstat-swapped] {
   display: none !important;
 }
 
-/* The Viewed checkbox at the end of each hunk's @@ row, a small button like GitHub's file one;
-   a viewed hunk's lines fold away. */
+/* The Viewed button at the end of each hunk's @@ row: GitHub's file Viewed button, as tall as the
+   row, and right under it. The file header ends with two small icon buttons (comment, more
+   options), each after an 8px gap, and 8px of padding. Viewed hunks fold by a generated rule. */
+.diff-hunk-cell:has(> * > .gibbous-hunk-viewed) {
+  position: relative;
+}
+
 .gibbous-hunk-viewed {
   align-items: center;
-  align-self: center;
-  border: var(--borderWidth-thin, 1px) solid var(--borderColor-default, var(--color-border-default));
+  background: var(--button-default-bgColor-rest, var(--color-btn-bg));
+  border: var(--borderWidth-thin, 1px) solid var(--button-default-borderColor-rest, var(--color-btn-border));
   border-radius: var(--borderRadius-medium, 6px);
-  color: var(--fgColor-muted, var(--color-fg-muted));
+  box-shadow: var(--button-default-shadow-resting, none);
+  color: var(--button-default-fgColor-rest, var(--color-btn-text));
   cursor: pointer;
   display: inline-flex;
   flex-shrink: 0;
-  font-size: 12px;
+  font: var(--base-text-weight-medium, 500) 12px/18px var(--fontStack-sansSerif, sans-serif);
   gap: 4px;
-  line-height: 18px;
-  margin-inline: auto 8px;
-  padding-inline: 6px 8px;
+  inset-inline-end: calc(3 * var(--base-size-8, 8px) + 2 * var(--control-small-size, 28px));
+  padding: 0 8px;
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
   white-space: nowrap;
 
-  & > input {
-    cursor: pointer;
-    margin: 0;
-  }
-
   &:hover {
-    color: var(--fgColor-default, var(--color-fg-default));
+    background: var(--button-default-bgColor-hover, var(--color-btn-hover-bg));
+    border-color: var(--button-default-borderColor-hover, var(--color-btn-hover-border));
   }
 
-  &:has(:checked) {
-    background: var(--bgColor-accent-muted, var(--color-accent-subtle));
-    border-color: var(--borderColor-accent-muted, var(--color-accent-muted));
-    color: var(--fgColor-default, var(--color-fg-default));
+  & > svg {
+    fill: none;
+    stroke: var(--fgColor-muted, var(--color-fg-muted));
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.5;
+  }
+
+  & > svg > path {
+    visibility: hidden;
+  }
+
+  &[aria-pressed="true"] > svg > rect {
+    fill: var(--bgColor-accent-emphasis, var(--color-accent-emphasis));
+    stroke: var(--bgColor-accent-emphasis, var(--color-accent-emphasis));
+  }
+
+  &[aria-pressed="true"] > svg > path {
+    stroke: var(--fgColor-onEmphasis, var(--color-fg-on-emphasis));
+    visibility: visible;
   }
 }
 
 html[data-gibbous-disabled] .gibbous-hunk-viewed {
-  display: none;
-}
-
-html:not([data-gibbous-disabled]) tr[data-gibbous-hunk-viewed] {
   display: none;
 }
 

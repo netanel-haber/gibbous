@@ -383,8 +383,8 @@ const html = (strings, ...values) => {
   };
 
   const mountMermaidLightboxes = () => {
-    for (const frame of document.querySelectorAll('iframe[src*="/markdown/mermaid"]:not(.gibbous-mermaid-preview)')) {
-      if (frame.closest(".gibbous-mermaid-dialog")) continue;
+    for (const frame of added('iframe[src*="/markdown/mermaid"]')) {
+      if (frame.classList.contains("gibbous-mermaid-preview") || frame.closest(".gibbous-mermaid-dialog")) continue;
       frame.classList.add("gibbous-mermaid-preview");
       frame.parentElement.classList.add("gibbous-mermaid-surface");
       const open = html`<button class="Button Button--secondary Button--small gibbous-mermaid-open" type="button" aria-label="Enlarge Mermaid diagram">
@@ -538,11 +538,16 @@ const html = (strings, ...values) => {
     }
   };
 
-  const metaContent = (root, name) => root.querySelector(`meta[name="octolytics-dimension-${name}"]`)?.content;
+  // Lookups that run every frame are scoped to where their element lives, so their cost does not
+  // grow with the page: a query that finds nothing visits every element, every diff line included.
+  // Repository metadata is in <head>; the viewer and the repository tabs are in the global
+  // navigation, near the top of the page, found by its right-hand end.
+  const metaContent = (root, name) => (root.head ?? root).querySelector(`meta[name="octolytics-dimension-${name}"]`)?.content;
+  const topNavigation = () => document.querySelector('[data-testid="top-nav-right"]');
 
   const readRepositoryContext = (root = document) => {
     const nwo = metaContent(root, "repository_nwo")
-      ?? root.querySelector("qbsearch-input[data-current-repository]")?.dataset.currentRepository;
+      ?? root.querySelector("header")?.querySelector("qbsearch-input[data-current-repository]")?.dataset.currentRepository;
     return nwo && {
       nwo,
       rootNwo: metaContent(root, "repository_network_root_nwo") ?? metaContent(root, "repository_parent_nwo") ?? nwo,
@@ -551,10 +556,13 @@ const html = (strings, ...values) => {
   };
 
   // Stable hooks only (see gibbous.css): GitHub's generated class names change with every build.
-  const userMenu = 'header [data-testid="top-nav-right"] :has(> button[data-login])';
-  const viewerLogin = () => document.querySelector(`${userMenu} > button[data-login]`)?.dataset.login
-    ?? document.querySelector('meta[name="user-login"]')?.content;
-  const repositoryNavigation = () => document.querySelector('nav[aria-label="Repository"], nav[aria-label="Repository navigation"]');
+  const viewerButton = () => topNavigation()?.querySelector("button[data-login]");
+  const viewerLogin = () => viewerButton()?.dataset.login ?? (document.head ?? document).querySelector('meta[name="user-login"]')?.content;
+  // In the global header, or in the repository header of pages that still have one.
+  const repositoryNavigation = () => [topNavigation()?.closest("header"), document.getElementById("repository-container-header")]
+    .map(container => container?.querySelector('nav[aria-label="Repository"], nav[aria-label="Repository navigation"]')).find(Boolean);
+  // A repository's code view, root or folder: where the file table, the sidebar and the README are.
+  const onCodeView = () => /^\/[^/]+\/[^/]+(?:\/tree\/.+)?\/?$/.test(location.pathname);
   const textOf = element => element.textContent.replace(/\s+/g, " ").trim();
 
   const markRepositoryTabs = () => {
@@ -573,7 +581,7 @@ const html = (strings, ...values) => {
   const pushAccessPayloads = new WeakMap();
   const viewerCanPush = (context, viewer) => {
     const key = `${viewer}|${context.nwo}`.toLowerCase();
-    const script = document.querySelector('script[data-target="react-app.embeddedData"]');
+    const script = onCodeView() && document.querySelector('script[data-target="react-app.embeddedData"]');
     if (script && !pushAccessPayloads.has(script)) {
       let repo;
       try {
@@ -605,6 +613,7 @@ const html = (strings, ...values) => {
   // Sections are told apart by heading text, which is there even while they are still skeletons:
   // data-gibbous-section is about, releases, contributors, languages, or other.
   const markSidebarSections = () => {
+    if (!onCodeView()) return;
     for (const section of document.querySelectorAll('[data-component="SplitPageLayout.Pane"] > div > div:has(> h2):not(.gibbous-sidebar-tags)')) {
       const title = section.querySelector(":scope > h2")?.textContent.trim() ?? "";
       sync(section, {"data-gibbous-section": title.match(/^(About|Releases|Contributors|Languages)(?![a-z])/i)?.[1].toLowerCase() ?? "other"});
@@ -628,16 +637,18 @@ const html = (strings, ...values) => {
     };
   };
 
+  let sidebarTags;
   const mountSidebarTags = () => {
-    const releases = document.querySelector('[data-gibbous-section="releases"]');
-    const context = readRepositoryContext();
+    const releases = onCodeView() && document.querySelector('[data-gibbous-section="releases"]');
+    const context = releases && readRepositoryContext();
     const count = context && document.querySelector(`a[href="/${context.nwo}/tags"]`)?.textContent.match(/\d[\d,.]*k?/i)?.[0];
-    let panel = document.querySelector(".gibbous-sidebar-tags");
+    let panel = sidebarTags?.isConnected ? sidebarTags : undefined;
     if (!enabled || !releases || !count || !root.hasAttribute("data-gibbous-repository-insider")) return panel?.remove();
     if (!panel) {
       panel = releases.cloneNode(false);
       panel.classList.add("gibbous-sidebar-tags");
       panel.dataset.gibbousSection = "tags";
+      sidebarTags = panel;
     }
     if (releases.nextElementSibling !== panel) releases.after(panel);
     const render = tag => {
@@ -665,9 +676,11 @@ const html = (strings, ...values) => {
   };
 
   const markSuggestedWorkflows = () => {
+    if (!added("h1, h2, h3, a, button").some(element => /^(Suggested|More) workflows$/.test(element.textContent.trim()))) return;
     const heading = [...document.querySelectorAll("h1, h2, h3")].find(element => element.textContent.trim() === "Suggested workflows");
+    if (!heading || heading.closest(".gibbous-suggested-workflows")) return;
     const more = [...document.querySelectorAll("a, button")].find(element => element.textContent.trim() === "More workflows");
-    if (!heading || !more || heading.closest(".gibbous-suggested-workflows")) return;
+    if (!more) return;
     let section = heading.parentElement;
     while (section && !section.contains(more)) section = section.parentElement;
     if (section && section !== document.body) section.classList.add("gibbous-suggested-workflows");
@@ -705,6 +718,7 @@ const html = (strings, ...values) => {
   let quoteLoadRequested = false;
   let quoteHiddenLoaded = false;
   let quoteSignature = "";
+  let quoteStatus;
   let quoteObserver;
   const timelineChunks = new Map();
 
@@ -1111,6 +1125,7 @@ const html = (strings, ...values) => {
   const refreshQuoteLinks = () => {
     const context = pullRequestContext();
     if (context?.tab !== "") {
+      if (quoteContextKey === undefined) return;
       quoteContextKey = undefined;
       quoteMatches = [];
       releaseQuoteTarget();
@@ -1146,10 +1161,12 @@ const html = (strings, ...values) => {
       return;
     }
     // Comments the visitor loaded since we matched are free to fold in: no request needed.
-    const signature = timelineSignature();
-    if (quoteSignature && signature !== quoteSignature) {
-      quoteSignature = signature;
-      void loadQuoteMatches(context, quoteHiddenLoaded).catch(reportError);
+    if (quoteSignature && added('.js-discussion :is([id^="issuecomment-"], form.ajax-pagination-form)').length) {
+      const signature = timelineSignature();
+      if (signature !== quoteSignature) {
+        quoteSignature = signature;
+        void loadQuoteMatches(context, quoteHiddenLoaded).catch(reportError);
+      }
     }
     const rateLimited = quoteError.includes("rate limit") && "GitHub rate limit (403/429)";
 
@@ -1183,15 +1200,11 @@ const html = (strings, ...values) => {
       }
     }
 
-    let status = document.querySelector(".gibbous-quote-status");
-    if (!quoteError) status?.remove();
-    else if (!status) {
-      status = create("div", {class: "flash flash-warn mb-3 gibbous-quote-status", role: "status"}, quoteError);
-      document.querySelector(".js-discussion")?.prepend(status);
-    } else sync(status, {text: quoteError});
-    for (const node of document.querySelectorAll(".gibbous-quote-rail, .gibbous-quote-picker, .gibbous-quote-status")) {
-      sync(node, {hidden: !enabled && ""});
-    }
+    if (!quoteError) quoteStatus?.remove();
+    else if (!quoteStatus?.isConnected) {
+      quoteStatus = create("div", {class: "flash flash-warn mb-3 gibbous-quote-status", role: "status"}, quoteError);
+      document.querySelector(".js-discussion")?.prepend(quoteStatus);
+    } else sync(quoteStatus, {text: quoteError});
     if (quoteScrollTarget?.context === context.key) scrollQuoteTarget(quoteScrollTarget);
     else if (quoteScrollTarget) releaseQuoteTarget();
   };
@@ -1235,8 +1248,9 @@ const html = (strings, ...values) => {
   let whitespaceDiffstat;
   let diffstatSwap;
   let diffstatHost;
-  let diffstatSearchedAt = 0;
-  let diffstatRetry;
+  // The whole page is searched again only when what a counter is matched against changed: the
+  // counter was lost, or counts arrived. Otherwise only what was added.
+  let diffstatSearchAll = false;
 
   const formatCount = count => count.toLocaleString("en-US");
 
@@ -1246,8 +1260,12 @@ const html = (strings, ...values) => {
     .reduce((text, own) => own && element.contains(own) ? text.replace(own.textContent, "") : text, element.textContent)
     .replace(/\s+/g, "");
 
-  function* diffstatCandidates() {
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+  function* diffstatCandidates(roots) {
+    for (const root of roots) yield* diffstatCandidatesIn(root);
+  }
+
+  function* diffstatCandidatesIn(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
       acceptNode: node => /^\s*\+[\d,\s]*$/.test(node.data) && !node.parentElement?.closest(".gibbous-whitespace-diffstat, .gibbous-diffstat-swap")
         ? NodeFilter.FILTER_ACCEPT
         : NodeFilter.FILTER_SKIP,
@@ -1286,6 +1304,7 @@ const html = (strings, ...values) => {
       if (!counts) return;
       if (counts.error) throw new Error(counts.error);
       cacheSet("whitespaceDiffstat", context.key, counts);
+      diffstatSearchAll = true;
       scheduleRefresh();
     }).catch(reportError);
   };
@@ -1317,43 +1336,38 @@ const html = (strings, ...values) => {
     const showsIgnored = shown => Boolean(counts) && !showsFull(shown)
       && near(shown.additions, counts.whitespaceAdditions, counts.additions)
       && near(shown.deletions, counts.whitespaceDeletions, counts.deletions);
-    // Keep the last host while it shows the same text; otherwise search the page, at most once a
-    // second, for GitHub's full count, else its whitespace-ignored one, else the first +A −D to count.
-    if (!(diffstatHost?.key === context.key && diffstatHost.element.isConnected && diffstatText(diffstatHost.element) === diffstatHost.text)) {
+    // Keep the last host while it shows the same text. Until one matches the counts, look for
+    // GitHub's full count, else its whitespace-ignored one, else the first +A −D to count.
+    if (diffstatHost && !(diffstatHost.key === context.key && diffstatHost.element.isConnected && diffstatText(diffstatHost.element) === diffstatHost.text)) {
       diffstatHost = undefined;
-      const wait = diffstatSearchedAt + 1000 - Date.now();
-      if (wait > 0) {
-        diffstatRetry ??= setTimeout(() => {
-          diffstatRetry = undefined;
-          scheduleRefresh();
-        }, wait);
-        return;
-      }
-      diffstatSearchedAt = Date.now();
+      diffstatSearchAll = true;
+    }
+    if (!diffstatHost || (!showsFull(diffstatHost) && !showsIgnored(diffstatHost))) {
       let first;
       let ignored;
+      let full;
       let seen = 0;
-      for (const candidate of diffstatCandidates()) {
+      for (const candidate of diffstatCandidates(diffstatSearchAll ? [document.body] : addedRoots)) {
         first ??= candidate;
         if (showsFull(candidate)) {
-          diffstatHost = candidate;
+          full = candidate;
           break;
         }
         if (showsIgnored(candidate)) ignored ??= candidate;
         if (++seen >= 20) break;
       }
-      const pick = diffstatHost ?? ignored ?? first;
-      diffstatHost = pick && {...pick, key: context.key};
+      diffstatSearchAll = false;
+      const pick = full ?? ignored ?? (diffstatHost ? undefined : first);
+      if (pick) diffstatHost = {...pick, key: context.key};
     }
     const host = diffstatHost;
     if (!host) return;
     const full = showsFull(host);
     if (!full && !showsIgnored(host)) {
-      // Count this host's numbers once; until a host matches, keep searching the page.
+      // Count this host's numbers once, and keep it until counts arrive or a host that matches.
       whitespaceDiffstat?.remove();
       restoreDiffstatNumbers();
       requestWhitespaceCounts(context, host);
-      diffstatHost = undefined;
       return;
     }
     // Close but not equal: shown the same, and counted again once in case the counts are stale.
@@ -1413,23 +1427,41 @@ const html = (strings, ...values) => {
     if (host.element.lastChild !== whitespaceDiffstat) host.element.append(whitespaceDiffstat);
   };
 
-  // Pull request diffs: a Viewed checkbox on each hunk, as GitHub has on each file. A viewed hunk
-  // folds to its @@ row; lines expanded around it stay, as they are outside its @@ range. A hunk is
-  // known by its pull request, file and changed lines, so a push that changes it shows it again,
-  // and one that only moves it does not.
+  // Pull request diffs: a Viewed button on each hunk, in a column under GitHub's Viewed button for
+  // the file (placed by the stylesheet). A viewed hunk folds to its @@ row; lines expanded around
+  // it stay, as they are outside its @@ range. A hunk is known by its pull request, file and
+  // changed lines, so a push that changes it shows it again, and one that only moves it does not.
+  // Rows are tagged with their hunk once, as they are added; folding is a stylesheet naming the
+  // viewed hunks, so a click changes one rule and walks no rows.
   const VIEWED_HUNK_LIMIT = 5000;
   let viewedHunks = new Set();
   // Clicks not yet stored: they win over what storage reports until their own write lands, so a
-  // quick second click is not undone for a frame by the first one's write.
+  // quick second click is not undone by the first one's write.
   const pendingHunks = new Map();
-  const hunkContents = new WeakMap();
+  const hunkStyle = create("style", {id: "gibbous-hunks", "data-pull-request": ""});
+  const hunkViewed = key => pendingHunks.get(key) ?? viewedHunks.has(key);
+  const hunkTitle = viewed => viewed ? "Unfold this hunk" : "Mark this hunk viewed and fold it";
+
+  const renderViewedHunks = () => {
+    const pullRequest = pullRequestContext()?.key ?? "";
+    const keys = [...new Set([...viewedHunks, ...pendingHunks.keys()])].filter(key => key.startsWith(`${pullRequest} `) && hunkViewed(key));
+    sync(hunkStyle, {
+      "data-pull-request": pullRequest,
+      text: keys.length ? `html:not([data-gibbous-disabled]) :is(${keys.map(key => `tr[data-gibbous-hunk=${cssString(key)}]`).join(",")}) { display: none; }` : "",
+    });
+    if (keys.length && !hunkStyle.isConnected) (document.head ?? root).append(hunkStyle);
+    for (const button of document.querySelectorAll(".gibbous-hunk-viewed")) {
+      const viewed = hunkViewed(button.dataset.hunk);
+      sync(button, {"aria-pressed": String(viewed), title: hunkTitle(viewed)});
+    }
+  };
   const setViewedHunks = keys => {
     viewedHunks = new Set(keys);
-    scheduleRefresh();
+    renderViewedHunks();
   };
   const toggleViewedHunk = (key, viewed) => {
     pendingHunks.set(key, viewed);
-    scheduleRefresh();
+    renderViewedHunks();
     const update = keys => (viewed ? [...keys, key] : keys.filter(other => other !== key)).slice(-VIEWED_HUNK_LIMIT);
     updateStoredNames("viewedHunks", update, keys => {
       if (pendingHunks.get(key) === viewed) pendingHunks.delete(key);
@@ -1443,50 +1475,63 @@ const html = (strings, ...values) => {
     return (value >>> 0).toString(36);
   };
 
+  // GitHub's file Viewed button, sized to the @@ row; the check shows once pressed.
+  const createHunkButton = header => {
+    const button = html`<button class="gibbous-hunk-viewed" type="button">
+      <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><rect x="1.75" y="1.75" width="12.5" height="12.5" rx="1"></rect><path d="m4.75 8.25 2 2 4.5-4.5"></path></svg>
+      Viewed
+    </button>`;
+    button.onclick = () => toggleViewedHunk(button.dataset.hunk, button.getAttribute("aria-pressed") !== "true");
+    // Kept from GitHub's grid, which handles clicks and keys in its cells.
+    for (const type of ["click", "keydown"]) button.addEventListener(type, event => event.stopPropagation());
+    (header.firstElementChild ?? header).append(button);
+    return button;
+  };
+
+  // A file's hunks: each @@ row and the rows in its range, read from the cells.
+  const readHunkTable = (context, table) => {
+    const hunks = [];
+    for (const row of table.rows) {
+      let header;
+      const lines = {};
+      for (const cell of row.cells) {
+        if (cell.classList.contains("diff-hunk-cell")) header = cell;
+        else if (cell.dataset.lineNumber) lines[cell.dataset.diffSide] = Number(cell.dataset.lineNumber);
+      }
+      const range = header && /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(textOf(header.querySelector("code") ?? header));
+      if (range) {
+        hunks.push({header, range: range.slice(1).map(number => Number(number ?? 1)), rows: []});
+        continue;
+      }
+      const [oldStart, oldCount, newStart, newCount] = hunks.at(-1)?.range ?? [];
+      const within = (number, start, count) => number >= start && number < start + count;
+      if (within(lines.left, oldStart, oldCount) || within(lines.right, newStart, newCount)) hunks.at(-1).rows.push(row);
+      else sync(row, {"data-gibbous-hunk": null});
+    }
+    const seen = new Map();
+    for (const {header, rows} of hunks) {
+      // Deletions and additions apart, so the split and unified views agree.
+      const changed = rows.flatMap(row => [...row.querySelectorAll("code.deletion, code.addition")]);
+      const text = kind => changed.filter(code => code.classList.contains(kind)).map(code => code.textContent).join("\n");
+      const content = hash(`${table.dataset.diffAnchor}\n${text("deletion")}\0${text("addition")}`);
+      // The same change twice in a file: each its own hunk.
+      const occurrence = seen.get(content) ?? 0;
+      seen.set(content, occurrence + 1);
+      const key = `${context.key} ${content}${occurrence ? `.${occurrence}` : ""}`;
+      const button = header.querySelector(".gibbous-hunk-viewed") ?? createHunkButton(header);
+      sync(button, {"data-hunk": key, "aria-pressed": String(hunkViewed(key)), title: hunkTitle(hunkViewed(key))});
+      for (const row of rows) sync(row, {"data-gibbous-hunk": key});
+    }
+  };
+
+  // Files as they are added, and again when rows are added to them or GitHub redraws an @@ row.
   const refreshHunks = () => {
     const context = pullRequestContext();
-    for (const table of context ? document.querySelectorAll("table[data-diff-anchor]") : []) {
-      const hunks = [];
-      for (const row of table.rows) {
-        const header = row.querySelector(".diff-hunk-cell");
-        const range = header && /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(textOf(header.querySelector("code") ?? header));
-        if (range) hunks.push({header, range: range.slice(1).map(number => Number(number ?? 1)), rows: []});
-        else if (hunks.length) {
-          const [oldStart, oldCount, newStart, newCount] = hunks.at(-1).range;
-          const line = side => Number(row.querySelector(`[data-diff-side="${side}"][data-line-number]`)?.dataset.lineNumber);
-          const within = (number, start, count) => number >= start && number < start + count;
-          if (within(line("left"), oldStart, oldCount) || within(line("right"), newStart, newCount)) hunks.at(-1).rows.push(row);
-        }
-      }
-      const seen = new Map();
-      for (const {header, range, rows} of hunks) {
-        const changed = rows.flatMap(row => [...row.querySelectorAll("code.deletion, code.addition")]);
-        const signature = `${range} ${changed.length}`;
-        let [cachedSignature, content] = hunkContents.get(header) ?? [];
-        if (cachedSignature !== signature) {
-          // Deletions and additions apart, so the split and unified views agree.
-          const lines = kind => changed.filter(code => code.classList.contains(kind)).map(code => code.textContent).join("\n");
-          content = hash(`${table.dataset.diffAnchor}\n${lines("deletion")}\0${lines("addition")}`);
-          hunkContents.set(header, [signature, content]);
-        }
-        // The same change twice in a file: each its own hunk.
-        const occurrence = seen.get(content) ?? 0;
-        seen.set(content, occurrence + 1);
-        const key = `${context.key} ${content}${occurrence ? `.${occurrence}` : ""}`;
-        const viewed = pendingHunks.get(key) ?? viewedHunks.has(key);
-        let box = header.querySelector(".gibbous-hunk-viewed");
-        if (!box) {
-          box = html`<label class="gibbous-hunk-viewed"><input type="checkbox"> Viewed</label>`;
-          box.firstChild.onchange = () => toggleViewedHunk(box.dataset.hunk, box.firstChild.checked);
-          // Kept from GitHub's grid, which handles clicks and keys in its cells.
-          for (const type of ["click", "keydown"]) box.addEventListener(type, event => event.stopPropagation());
-          (header.firstElementChild ?? header).append(box);
-        }
-        sync(box, {"data-hunk": key, title: viewed ? "Unfold this hunk" : "Mark this hunk viewed and fold it"});
-        if (box.firstChild.checked !== viewed) box.firstChild.checked = viewed;
-        for (const row of rows) sync(row, {"data-gibbous-hunk-viewed": viewed && ""});
-      }
-    }
+    if (hunkStyle.dataset.pullRequest !== (context?.key ?? "")) renderViewedHunks();
+    if (!context) return;
+    const tables = added("table[data-diff-anchor], table[data-diff-anchor] :is(tr, .diff-hunk-cell > *)")
+      .map(node => node.closest("table[data-diff-anchor]"));
+    for (const table of new Set(tables)) readHunkTable(context, table);
   };
 
   // Top repositories, in the dashboard (new and classic) and in the global navigation drawer:
@@ -1521,15 +1566,28 @@ const html = (strings, ...values) => {
     searchButton: () => root.querySelector('[data-testid="dynamic-side-panel-items-search-button"], button:has(svg.octicon-search), a[href="/new"]'),
   });
 
+  // The navigation drawers that list repositories, found as they open.
+  const drawers = new Set();
+  const topRepositorySelector = '[data-testid="dynamic-side-panel-items-item"]';
+  const noteDrawers = () => {
+    for (const item of added(topRepositorySelector)) {
+      const dialog = item.closest('[role="dialog"]');
+      if (dialog) drawers.add(dialog);
+    }
+    for (const drawer of drawers) if (!drawer.isConnected) drawers.delete(drawer);
+  };
+
   const topRepositorySurfaces = () => {
-    const selector = '[data-testid="dynamic-side-panel-items-item"]';
-    const lists = new Set([...document.querySelectorAll(selector)].map(repository => repository.closest("ul")).filter(Boolean));
+    const selector = topRepositorySelector;
+    const onDashboard = ["/", "/dashboard"].includes(location.pathname);
+    const items = [...drawers, ...onDashboard ? [document] : []].flatMap(container => [...container.querySelectorAll(selector)]);
+    const lists = new Set(items.map(repository => repository.closest("ul")).filter(Boolean));
     const surfaces = [...lists].flatMap(list => {
       const dialog = list.closest('[role="dialog"]');
       const root = dialog ?? list.closest('[data-testid="dashboard-repositories"], .feed-left-sidebar');
       return root ? [repositorySurface(dialog ? "drawer" : "dashboard", root, list, selector)] : [];
     });
-    if (["/", "/dashboard"].includes(location.pathname)) {
+    if (onDashboard) {
       const root = document.querySelector('[data-testid="dashboard-repositories"]') ?? document.querySelector(".feed-left-sidebar .js-repos-container");
       const list = root && [...root.querySelectorAll("ul")].find(candidate => repositoryEntries(candidate).length);
       if (list && !lists.has(list)) surfaces.push(repositorySurface("dashboard", root, list));
@@ -1708,12 +1766,14 @@ const html = (strings, ...values) => {
       sortTopRepositories(entries, viewer, surfaceForks);
       if (surface.kind === "dashboard") queueRepositoryForkLookups(entries, viewer);
     }
+    // Within the lists only: what Gibbous added anywhere else left with the list it was in.
     const rows = new Set(allEntries.map(({row}) => row));
     const controls = new Set(surfaces.map(surface => hiddenRepositoryControls.get(surface.root)?.element));
-    document.querySelectorAll(".gibbous-repository-fork").forEach(action => forkedRepositories.has(action.parentElement) || action.remove());
-    document.querySelectorAll(".gibbous-hide-repository").forEach(hide => rows.has(hide.parentElement) || hide.remove());
-    document.querySelectorAll(".gibbous-hidden-repositories-control").forEach(element => controls.has(element) || element.remove());
-    document.querySelectorAll(".gibbous-represented-fork").forEach(row => representedForks.has(row) || row.classList.remove("gibbous-represented-fork"));
+    const within = selector => surfaces.flatMap(surface => [...surface.root.querySelectorAll(selector)]);
+    within(".gibbous-repository-fork").forEach(action => forkedRepositories.has(action.parentElement) || action.remove());
+    within(".gibbous-hide-repository").forEach(hide => rows.has(hide.parentElement) || hide.remove());
+    within(".gibbous-hidden-repositories-control").forEach(element => controls.has(element) || element.remove());
+    within(".gibbous-represented-fork").forEach(row => representedForks.has(row) || row.classList.remove("gibbous-represented-fork"));
     for (const row of representedForks) row.classList.toggle("gibbous-represented-fork", true);
   };
 
@@ -1734,8 +1794,8 @@ const html = (strings, ...values) => {
   };
 
   const mountForkedIn = () => {
-    const legacyTitle = document.querySelector('#repository-container-header strong[itemprop="name"]');
-    const title = document.querySelector("#repo-title-component") ?? legacyTitle?.parentElement?.parentElement;
+    const legacyTitle = document.getElementById("repository-container-header")?.querySelector('strong[itemprop="name"]');
+    const title = document.getElementById("repo-title-component") ?? legacyTitle?.parentElement?.parentElement;
     if (!title) return;
     forkedIn ??= html`<span class="gibbous-forked-in text-small lh-condensed-ultra no-wrap mt-1" data-repository-hovercards-enabled="">
       forked in <a class="Link--inTextBlock" data-hovercard-type="repository"></a>
@@ -2020,6 +2080,7 @@ const html = (strings, ...values) => {
   // Classic dashboard with Gibbous on: replace the feed column with the same "Pull requests" and
   // "Issues" lists the new dashboard shows, so both dashboards render the one Gibbous experience.
   let classicDashboardLookup;
+  let classicDashboard;
 
   const renderDashboardRow = item => html`<div class="gibbous-dashboard-row">
     <span class="${item.pullRequest && item.draft ? "color-fg-muted" : "color-fg-open"}" aria-hidden="true">${createOcticon(itemIcon(item))}</span>
@@ -2044,7 +2105,7 @@ const html = (strings, ...values) => {
     const onClassic = ["/", "/dashboard"].includes(location.pathname) && !document.querySelector('[data-testid="dashboard-repositories"]')
       && document.querySelector(".feed-left-sidebar .js-repos-container");
     const main = onClassic && document.querySelector(".feed-main > main, .feed-content main");
-    const existing = document.querySelector(".gibbous-classic-dashboard");
+    const existing = classicDashboard?.isConnected ? classicDashboard : undefined;
     root.toggleAttribute("data-gibbous-classic-dashboard", Boolean(main && enabled));
     if (!main || !enabled) {
       existing?.remove();
@@ -2054,7 +2115,7 @@ const html = (strings, ...values) => {
     const viewer = viewerLogin();
     if (!viewer || (existing?.isConnected && classicDashboardLookup === viewer)) return;
     classicDashboardLookup = viewer;
-    const container = existing ?? create("div", {class: "gibbous-classic-dashboard"});
+    const container = classicDashboard = existing ?? create("div", {class: "gibbous-classic-dashboard"});
     if (container.parentElement !== main) main.prepend(container);
     const render = ({pulls, issues}) => container.replaceChildren(
       renderDashboardSection("Pull requests", `/pulls?q=${encodeURIComponent("is:open is:pr author:@me")}`, pulls, "No pull requests found, try a different filter."),
@@ -2074,16 +2135,15 @@ const html = (strings, ...values) => {
 
   const refreshRepository = () => {
     const pageContext = readRepositoryContext();
-    const table = document.querySelector('table[aria-labelledby="folders-and-files"]');
+    const table = pageContext && onCodeView() && document.querySelector('table[aria-labelledby="folders-and-files"]');
     const context = table && pageContext;
     const viewer = viewerLogin();
-    if (pageContext) {
-      markRepositoryTabs();
-      if (enabled) markSuggestedWorkflows();
-    }
+    if (pageContext) markRepositoryTabs();
     mountPullRequestShortcuts(pageContext, viewer);
     mountSidebarTags();
     if (!context) {
+      // Once, on leaving the file table.
+      if (repositoryKey === undefined && forkLookup === undefined) return;
       repositoryKey = undefined;
       hiddenNames = [];
       loadedHiddenNamesKey = undefined;
@@ -2143,8 +2203,9 @@ const html = (strings, ...values) => {
   };
 
   const mountControl = () => {
-    const anchor = document.querySelector(userMenu)
-      ?? document.querySelector('header [data-testid="top-nav-right"] a[href^="/login"], header .HeaderMenu-link-wrap:has(a.HeaderMenu-link--sign-in)');
+    const anchor = viewerButton()?.parentElement
+      ?? topNavigation()?.querySelector('a[href^="/login"]')
+      ?? document.querySelector('header .HeaderMenu-link-wrap:has(a.HeaderMenu-link--sign-in)');
     if (!anchor) return;
     if (!control) {
       control = create("button", {
@@ -2160,14 +2221,33 @@ const html = (strings, ...values) => {
     if (control.nextElementSibling !== anchor) anchor.before(control);
   };
 
+  // What the page added since the last refresh, for the features whose elements can appear on any
+  // page: they look only there, so a refresh costs what changed, not what the page holds. First
+  // the parser's work, then GitHub's renders. Only the topmost added elements are kept; a selector
+  // searches each one and everything in it.
+  let addedNodes = [];
+  let addedRoots = [];
+  const added = selector => addedRoots.flatMap(node => [...node.matches(selector) ? [node] : [], ...node.querySelectorAll(selector)]);
+  const takeAddedRoots = () => {
+    const nodes = new Set(addedNodes);
+    addedNodes = [];
+    addedRoots = [...nodes].filter(node => {
+      for (let parent = node.parentNode; parent; parent = parent.parentNode) if (nodes.has(parent)) return false;
+      return node.isConnected;
+    });
+  };
+
   function refresh() {
     // Needs only the DOM, so it runs before storage is loaded and the gate is right on first paint.
     updateRepositoryInsider();
     markSidebarSections();
     if (!ready) return;
+    takeAddedRoots();
     mountControl();
     mountClassicDashboard();
     mountMermaidLightboxes();
+    markSuggestedWorkflows();
+    noteDrawers();
     expandTopRepositories();
     refreshRepository();
     mountTopRepositories();
@@ -2221,6 +2301,7 @@ const html = (strings, ...values) => {
   }
 
   new MutationObserver(records => {
+    for (const record of records) for (const node of record.addedNodes) if (node.nodeType === Node.ELEMENT_NODE) addedNodes.push(node);
     if (ready && enabled && records.some(record => record.target instanceof Element && record.target.closest('[role="dialog"]'))) {
       mountTopRepositories();
     }
