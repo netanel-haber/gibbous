@@ -157,6 +157,41 @@ const openChanges = query => async page => {
   await page.waitFor(".gibbous-whitespace-diffstat");
 };
 
+// Files in the new view's split diff, as GitHub renders them: an @@ row per hunk, then rows with a
+// number and a line on each side. Lines are [left, right, text]; a missing side makes an addition
+// or a deletion. ?pushed changes the first hunk and moves the second.
+const diffCells = (side, number, kind, text) => number === undefined
+  ? '<td class="empty-diff-line"></td><td class="empty-diff-line"></td>'
+  : `<td class="new-diff-line-number" data-diff-side="${side}" data-line-number="${number}">${number}</td><td class="diff-text-cell" data-diff-side="${side}"><code class="diff-text ${kind}"><div class="diff-text-inner">${text}</div></code></td>`;
+const diffRow = row => {
+  if (typeof row === "string") return `<tr class="diff-line-row"><td colspan="4" class="diff-hunk-cell" ${row ? `id="hunk-${row.match(/-(\d+)/)[1]}"` : ""}><div class="d-flex flex-row"><button aria-label="Expand" data-direction="up"></button><code class="diff-text-cell hunk"><div class="diff-text-inner color-fg-muted">${row}</div></code></div></td></tr>`;
+  const [left, right, text] = row;
+  const kind = left === undefined ? "addition" : right === undefined ? "deletion" : "";
+  return `<tr class="diff-line-row">${diffCells("left", left, kind, text)}${diffCells("right", right, kind, text)}</tr>`;
+};
+const diffFile = (path, rows) => `<div role="region"><h3><code>${path}</code></h3>
+  <table aria-label="Diff for: ${path}" data-diff-anchor="diff-${Buffer.from(path).toString("hex")}" role="grid" class="width-full"><tbody>${[...rows, ""].map(diffRow).join("")}</tbody></table></div>`;
+const hunksPage = pushed => page(`<div data-testid="progressive-diffs-list">
+  ${diffFile("csrc/trtllm_batched_gemm_runner.cu", [
+    "@@ -552,4 +552,4 @@",
+    [552, 552, "return optionsA.mTileN > optionsB.mTileN;"],
+    [553, undefined, "// Tier 2+: prefer the persistent tile scheduler."],
+    [undefined, 553, pushed ? "// Tier 2+: rank by tile scheduler, static first." : "// Tier 2+: rank by tile scheduler."],
+    [554, 554, "if (optionsA.mTileScheduler != optionsB.mTileScheduler) {"],
+    [555, 555, "auto options = bmm.getOptionsFromConfigAndData(configs[idx0], gemmData);"],
+    [556, 556, "auto numCtas = bmm.getNumCtas(options);"],
+    `@@ -600,3 +${pushed ? 603 : 600},4 @@`,
+    [600, pushed ? 603 : 600, "}"],
+    [undefined, pushed ? 604 : 601, "return schedulerRank(optionsA) < schedulerRank(optionsB);"],
+    [601, pushed ? 605 : 602, ""],
+    [602, pushed ? 606 : 603, "return false;"],
+  ])}
+  ${diffFile("flashinfer/gemm.py", [
+    "@@ -10,2 +10,2 @@", [10, undefined, "x = old()"], [undefined, 10, "x = new()"], [11, 11, "y = 1"],
+    "@@ -40,2 +40,2 @@", [40, undefined, "x = old()"], [undefined, 40, "x = new()"], [41, 41, "y = 1"],
+  ])}
+</div>`);
+
 // A rendered Mermaid diagram in GitHub's viewer frame, kept in-process so its requests are mocked too.
 const mermaidPage = page(`<article class="markdown-body"><h1>Diagram</h1><section class="js-render-needs-enrichment"><div class="render-container"><iframe class="render-viewer" src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com&color_mode=dark#fixture" width="600" height="300"></iframe></div></section></article>`);
 const mermaidFrame = `<!doctype html><html><head><style>body{margin:0;background:#0d1117} .mermaid-view{width:100%;height:100%}</style></head><body><div class="mermaid-view"><div><svg viewBox="0 0 400 200" width="400" height="200"><rect x="10" y="10" width="380" height="180" fill="#30363d"/><text x="200" y="100" fill="white" text-anchor="middle">Client → Server</text></svg></div></div></body></html>`;
@@ -264,6 +299,28 @@ const scenarios = [
     waitFor: ".gibbous-whitespace-diffstat",
     routes: {"https://github.com/vllm-project/vllm/pull/41518/changes*": url => html(url.includes("ignored") ? changesPage(896, 380) : changesPage(997, 481))},
     steps: [["w1", openChanges("?w=1")], ["w1-ignored-header", openChanges("?w=1&header=ignored")], toggle[0]],
+  },
+  {
+    // Line 556 is context expanded below the first hunk: it stays when the hunk folds.
+    name: "pr-hunks",
+    url: "https://github.com/vllm-project/vllm/pull/41518/changes",
+    routes: {"https://github.com/vllm-project/vllm/pull/41518/changes*": url => html(hunksPage(url.includes("pushed")))},
+    steps: [
+      ["view-hunks", async page => {
+        // One at a time: a fold moves everything below it.
+        for (const hunk of ["552", "600", "40"]) {
+          await page.click(`#hunk-${hunk} .gibbous-hunk-viewed`);
+          await sleep(300);
+        }
+      }],
+      ["pushed", async page => {
+        await page.evaluate(`location.href = "/vllm-project/vllm/pull/41518/changes?pushed"`);
+        await sleep(500);
+        await page.waitFor(".gibbous-hunk-viewed");
+      }],
+      ...toggle,
+      ["unview-hunk", page => page.click("#hunk-600 .gibbous-hunk-viewed")],
+    ],
   },
   {
     name: "pr-files-classic",

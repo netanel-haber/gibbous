@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Gibbous",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "GitHub, but with the UX you asked for. https://netanel-haber.github.io/gibbous/",
   "homepage_url": "https://netanel-haber.github.io/gibbous/",
   "minimum_chrome_version": "134",

@@ -1413,6 +1413,82 @@ const html = (strings, ...values) => {
     if (host.element.lastChild !== whitespaceDiffstat) host.element.append(whitespaceDiffstat);
   };
 
+  // Pull request diffs: a Viewed checkbox on each hunk, as GitHub has on each file. A viewed hunk
+  // folds to its @@ row; lines expanded around it stay, as they are outside its @@ range. A hunk is
+  // known by its pull request, file and changed lines, so a push that changes it shows it again,
+  // and one that only moves it does not.
+  const VIEWED_HUNK_LIMIT = 5000;
+  let viewedHunks = new Set();
+  // Clicks not yet stored: they win over what storage reports until their own write lands, so a
+  // quick second click is not undone for a frame by the first one's write.
+  const pendingHunks = new Map();
+  const hunkContents = new WeakMap();
+  const setViewedHunks = keys => {
+    viewedHunks = new Set(keys);
+    scheduleRefresh();
+  };
+  const toggleViewedHunk = (key, viewed) => {
+    pendingHunks.set(key, viewed);
+    scheduleRefresh();
+    const update = keys => (viewed ? [...keys, key] : keys.filter(other => other !== key)).slice(-VIEWED_HUNK_LIMIT);
+    updateStoredNames("viewedHunks", update, keys => {
+      if (pendingHunks.get(key) === viewed) pendingHunks.delete(key);
+      setViewedHunks(keys);
+    });
+  };
+  // FNV-1a, 32 bits.
+  const hash = text => {
+    let value = 0x811c9dc5;
+    for (let index = 0; index < text.length; index++) value = Math.imul(value ^ text.charCodeAt(index), 16777619);
+    return (value >>> 0).toString(36);
+  };
+
+  const refreshHunks = () => {
+    const context = pullRequestContext();
+    for (const table of context ? document.querySelectorAll("table[data-diff-anchor]") : []) {
+      const hunks = [];
+      for (const row of table.rows) {
+        const header = row.querySelector(".diff-hunk-cell");
+        const range = header && /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(textOf(header.querySelector("code") ?? header));
+        if (range) hunks.push({header, range: range.slice(1).map(number => Number(number ?? 1)), rows: []});
+        else if (hunks.length) {
+          const [oldStart, oldCount, newStart, newCount] = hunks.at(-1).range;
+          const line = side => Number(row.querySelector(`[data-diff-side="${side}"][data-line-number]`)?.dataset.lineNumber);
+          const within = (number, start, count) => number >= start && number < start + count;
+          if (within(line("left"), oldStart, oldCount) || within(line("right"), newStart, newCount)) hunks.at(-1).rows.push(row);
+        }
+      }
+      const seen = new Map();
+      for (const {header, range, rows} of hunks) {
+        const changed = rows.flatMap(row => [...row.querySelectorAll("code.deletion, code.addition")]);
+        const signature = `${range} ${changed.length}`;
+        let [cachedSignature, content] = hunkContents.get(header) ?? [];
+        if (cachedSignature !== signature) {
+          // Deletions and additions apart, so the split and unified views agree.
+          const lines = kind => changed.filter(code => code.classList.contains(kind)).map(code => code.textContent).join("\n");
+          content = hash(`${table.dataset.diffAnchor}\n${lines("deletion")}\0${lines("addition")}`);
+          hunkContents.set(header, [signature, content]);
+        }
+        // The same change twice in a file: each its own hunk.
+        const occurrence = seen.get(content) ?? 0;
+        seen.set(content, occurrence + 1);
+        const key = `${context.key} ${content}${occurrence ? `.${occurrence}` : ""}`;
+        const viewed = pendingHunks.get(key) ?? viewedHunks.has(key);
+        let box = header.querySelector(".gibbous-hunk-viewed");
+        if (!box) {
+          box = html`<label class="gibbous-hunk-viewed"><input type="checkbox"> Viewed</label>`;
+          box.firstChild.onchange = () => toggleViewedHunk(box.dataset.hunk, box.firstChild.checked);
+          // Kept from GitHub's grid, which handles clicks and keys in its cells.
+          for (const type of ["click", "keydown"]) box.addEventListener(type, event => event.stopPropagation());
+          (header.firstElementChild ?? header).append(box);
+        }
+        sync(box, {"data-hunk": key, title: viewed ? "Unfold this hunk" : "Mark this hunk viewed and fold it"});
+        if (box.firstChild.checked !== viewed) box.firstChild.checked = viewed;
+        for (const row of rows) sync(row, {"data-gibbous-hunk-viewed": viewed && ""});
+      }
+    }
+  };
+
   // Top repositories, in the dashboard (new and classic) and in the global navigation drawer:
   // the viewer's forks of listed repositories first, a fork shortcut beside each, a hide button on
   // every row, and the list expanded while there is room.
@@ -2097,6 +2173,7 @@ const html = (strings, ...values) => {
     mountTopRepositories();
     refreshQuoteLinks();
     refreshWhitespaceDiffstat();
+    refreshHunks();
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -2114,14 +2191,16 @@ const html = (strings, ...values) => {
       refreshQuoteLinks();
     }
     if (changes.hiddenRepositories) setHiddenRepositories(changes.hiddenRepositories.newValue ?? []);
+    if (changes.viewedHunks) setViewedHunks(normalizeNames(changes.viewedHunks.newValue));
     const key = hiddenStorageKey();
     if (key && changes[key]) setHiddenNames(changes[key].newValue ?? []);
   });
 
   void (async () => {
-    const stored = await storageGet({enabled: true, hiddenRepositories: [], cache: {}});
+    const stored = await storageGet({enabled: true, hiddenRepositories: [], cache: {}, viewedHunks: []});
     if (!stored) return;
     cache = stored.cache && typeof stored.cache === "object" ? stored.cache : {};
+    viewedHunks = new Set(normalizeNames(stored.viewedHunks));
     for (const [key, entry] of Object.entries(cache.forks ?? {})) {
       if (entry && typeof entry === "object" && "value" in entry) knownRepositoryForks.set(key, entry.value);
     }

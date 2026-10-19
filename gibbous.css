@@ -758,6 +758,48 @@ html:not([data-gibbous-disabled]) [data-gibbous-diffstat-swapped] {
   display: none !important;
 }
 
+/* The Viewed checkbox at the end of each hunk's @@ row, a small button like GitHub's file one;
+   a viewed hunk's lines fold away. */
+.gibbous-hunk-viewed {
+  align-items: center;
+  align-self: center;
+  border: var(--borderWidth-thin, 1px) solid var(--borderColor-default, var(--color-border-default));
+  border-radius: var(--borderRadius-medium, 6px);
+  color: var(--fgColor-muted, var(--color-fg-muted));
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 12px;
+  gap: 4px;
+  line-height: 18px;
+  margin-inline: auto 8px;
+  padding-inline: 6px 8px;
+  white-space: nowrap;
+
+  & > input {
+    cursor: pointer;
+    margin: 0;
+  }
+
+  &:hover {
+    color: var(--fgColor-default, var(--color-fg-default));
+  }
+
+  &:has(:checked) {
+    background: var(--bgColor-accent-muted, var(--color-accent-subtle));
+    border-color: var(--borderColor-accent-muted, var(--color-accent-muted));
+    color: var(--fgColor-default, var(--color-fg-default));
+  }
+}
+
+html[data-gibbous-disabled] .gibbous-hunk-viewed {
+  display: none;
+}
+
+html:not([data-gibbous-disabled]) tr[data-gibbous-hunk-viewed] {
+  display: none;
+}
+
 /* The hide button sits in the gutter left of the file table, away from the name. The button is a
    transparent strip as tall as its row reaching to the table, so the strips stack into one column:
    the pointer never drops out of a row on the way to a button, or moving along the column. The
