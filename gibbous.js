@@ -1431,28 +1431,23 @@ const html = (strings, ...values) => {
   // the file (placed by the stylesheet). A viewed hunk folds to its @@ row; lines expanded around
   // it stay, as they are outside its @@ range. A hunk is known by its pull request, file and
   // changed lines, so a push that changes it shows it again, and one that only moves it does not.
-  // Rows are tagged with their hunk once, as they are added; folding is a stylesheet naming the
-  // viewed hunks, so a click changes one rule and walks no rows.
+  // Rows and buttons are tagged with their hunk once, as they are added; a click finds that hunk's
+  // by the tag and marks them viewed, so only they are restyled.
   const VIEWED_HUNK_LIMIT = 5000;
   let viewedHunks = new Set();
   // Clicks not yet stored: they win over what storage reports until their own write lands, so a
   // quick second click is not undone by the first one's write.
   const pendingHunks = new Map();
-  const hunkStyle = create("style", {id: "gibbous-hunks", "data-pull-request": ""});
   const hunkViewed = key => pendingHunks.get(key) ?? viewedHunks.has(key);
-  const hunkTitle = viewed => viewed ? "Unfold this hunk" : "Mark this hunk viewed and fold it";
-
-  const renderViewedHunks = () => {
-    const pullRequest = pullRequestContext()?.key ?? "";
-    const keys = [...new Set([...viewedHunks, ...pendingHunks.keys()])].filter(key => key.startsWith(`${pullRequest} `) && hunkViewed(key));
-    sync(hunkStyle, {
-      "data-pull-request": pullRequest,
-      text: keys.length ? `html:not([data-gibbous-disabled]) :is(${keys.map(key => `tr[data-gibbous-hunk=${cssString(key)}]`).join(",")}) { display: none; }` : "",
-    });
-    if (keys.length && !hunkStyle.isConnected) (document.head ?? root).append(hunkStyle);
-    for (const button of document.querySelectorAll(".gibbous-hunk-viewed")) {
-      const viewed = hunkViewed(button.dataset.hunk);
-      sync(button, {"aria-pressed": String(viewed), title: hunkTitle(viewed)});
+  const markHunk = (element, key) => {
+    const viewed = Boolean(key) && hunkViewed(key);
+    if (element.localName === "tr") sync(element, {"data-gibbous-hunk": key, "data-gibbous-hunk-viewed": viewed && ""});
+    else sync(element, {"data-gibbous-hunk": key, "aria-pressed": String(viewed), title: viewed ? "Unfold this hunk" : "Mark this hunk viewed and fold it"});
+  };
+  // One hunk's rows and button, or every hunk's.
+  const renderViewedHunks = key => {
+    for (const element of document.querySelectorAll(key ? `[data-gibbous-hunk=${cssString(key)}]` : "[data-gibbous-hunk]")) {
+      markHunk(element, element.dataset.gibbousHunk);
     }
   };
   const setViewedHunks = keys => {
@@ -1461,7 +1456,7 @@ const html = (strings, ...values) => {
   };
   const toggleViewedHunk = (key, viewed) => {
     pendingHunks.set(key, viewed);
-    renderViewedHunks();
+    renderViewedHunks(key);
     const update = keys => (viewed ? [...keys, key] : keys.filter(other => other !== key)).slice(-VIEWED_HUNK_LIMIT);
     updateStoredNames("viewedHunks", update, keys => {
       if (pendingHunks.get(key) === viewed) pendingHunks.delete(key);
@@ -1481,7 +1476,7 @@ const html = (strings, ...values) => {
       <svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16"><rect x="1.75" y="1.75" width="12.5" height="12.5" rx="1"></rect><path d="m4.75 8.25 2 2 4.5-4.5"></path></svg>
       Viewed
     </button>`;
-    button.onclick = () => toggleViewedHunk(button.dataset.hunk, button.getAttribute("aria-pressed") !== "true");
+    button.onclick = () => toggleViewedHunk(button.dataset.gibbousHunk, button.getAttribute("aria-pressed") !== "true");
     // Kept from GitHub's grid, which handles clicks and keys in its cells.
     for (const type of ["click", "keydown"]) button.addEventListener(type, event => event.stopPropagation());
     (header.firstElementChild ?? header).append(button);
@@ -1506,7 +1501,7 @@ const html = (strings, ...values) => {
       const [oldStart, oldCount, newStart, newCount] = hunks.at(-1)?.range ?? [];
       const within = (number, start, count) => number >= start && number < start + count;
       if (within(lines.left, oldStart, oldCount) || within(lines.right, newStart, newCount)) hunks.at(-1).rows.push(row);
-      else sync(row, {"data-gibbous-hunk": null});
+      else markHunk(row, null);
     }
     const seen = new Map();
     for (const {header, rows} of hunks) {
@@ -1518,16 +1513,13 @@ const html = (strings, ...values) => {
       const occurrence = seen.get(content) ?? 0;
       seen.set(content, occurrence + 1);
       const key = `${context.key} ${content}${occurrence ? `.${occurrence}` : ""}`;
-      const button = header.querySelector(".gibbous-hunk-viewed") ?? createHunkButton(header);
-      sync(button, {"data-hunk": key, "aria-pressed": String(hunkViewed(key)), title: hunkTitle(hunkViewed(key))});
-      for (const row of rows) sync(row, {"data-gibbous-hunk": key});
+      for (const element of [header.querySelector(".gibbous-hunk-viewed") ?? createHunkButton(header), ...rows]) markHunk(element, key);
     }
   };
 
   // Files as they are added, and again when rows are added to them or GitHub redraws an @@ row.
   const refreshHunks = () => {
     const context = pullRequestContext();
-    if (hunkStyle.dataset.pullRequest !== (context?.key ?? "")) renderViewedHunks();
     if (!context) return;
     const tables = added("table[data-diff-anchor], table[data-diff-anchor] :is(tr, .diff-hunk-cell > *)")
       .map(node => node.closest("table[data-diff-anchor]"));
