@@ -591,80 +591,82 @@ const render = async () => {
     protocol.socket.close();
     browser.process?.kill("SIGTERM");
   }
-  console.log(`Rendered ${rendered.length * states.length} WebP fallbacks below 100 KiB.`);
+  console.log(`Rendered ${rendered.length * states.length} fallback images, each below 100 KiB.`);
 };
 
+// Audits every theme, feature and state of the served site, then writes a contact sheet
+// and report.json next to the screenshots.
 const audit = async () => {
-  await mkdir(outputDirectory, {recursive: true});
-  await auditAssets();
-  await assertSiteAvailable();
+    await mkdir(outputDirectory, {recursive: true});
+    await auditAssets();
+    await assertSiteAvailable();
 
-  const browser = await connectToBrowser();
-  const protocol = await openProtocol(browser.target);
+    const browser = await connectToBrowser();
+    const protocol = await openProtocol(browser.target);
 
-  try {
-    await protocol.send("Page.enable");
-    await protocol.send("Runtime.enable");
-    await protocol.send("Log.enable");
-    await protocol.send("Network.enable");
-    await protocol.send("Network.setCacheDisabled", {cacheDisabled: true});
-    await protocol.send("Emulation.setDeviceMetricsOverride", {
-      deviceScaleFactor: 1,
-      height: viewport.height,
-      mobile: false,
-      width: viewport.width,
-    });
-    await protocol.send("Emulation.setEmulatedMedia", {
-      features: [{name: "prefers-reduced-motion", value: "reduce"}],
-    });
+    try {
+      await protocol.send("Page.enable");
+      await protocol.send("Runtime.enable");
+      await protocol.send("Log.enable");
+      await protocol.send("Network.enable");
+      await protocol.send("Network.setCacheDisabled", {cacheDisabled: true});
+      await protocol.send("Emulation.setDeviceMetricsOverride", {
+        deviceScaleFactor: 1,
+        height: viewport.height,
+        mobile: false,
+        width: viewport.width,
+      });
+      await protocol.send("Emulation.setEmulatedMedia", {
+        features: [{name: "prefers-reduced-motion", value: "reduce"}],
+      });
 
-    for (const theme of themes) {
-      for (const feature of features) {
-        activeCase = `${theme}/${feature}/navigation`;
-        const url = new URL(siteUrl);
-        url.searchParams.set("audit", `${theme}-${feature}-${Date.now()}`);
-        url.hash = feature;
-        await protocol.send("Page.navigate", {url: url.href});
-        await waitForDocument(protocol);
-        await settle(protocol);
-        for (const state of states) {
-          activeCase = `${theme}/${feature}/${state}`;
-          try {
-            await prepareCase(protocol, theme, feature, state);
-            await settle(protocol);
-            const inspection = await inspectCase(protocol, feature);
-            auditInspection(inspection, theme, feature, state);
-            await auditHeaderPixel(protocol, inspection, theme, feature, state);
-            await capture(protocol, join(outputDirectory, `${theme}-${feature}-${state}.png`));
-          } catch (error) {
-            fail(activeCase, error.message);
+      for (const theme of themes) {
+        for (const feature of features) {
+          activeCase = `${theme}/${feature}/navigation`;
+          const url = new URL(siteUrl);
+          url.searchParams.set("audit", `${theme}-${feature}-${Date.now()}`);
+          url.hash = feature;
+          await protocol.send("Page.navigate", {url: url.href});
+          await waitForDocument(protocol);
+          await settle(protocol);
+          for (const state of states) {
+            activeCase = `${theme}/${feature}/${state}`;
+            try {
+              await prepareCase(protocol, theme, feature, state);
+              await settle(protocol);
+              const inspection = await inspectCase(protocol, feature);
+              auditInspection(inspection, theme, feature, state);
+              await auditHeaderPixel(protocol, inspection, theme, feature, state);
+              await capture(protocol, join(outputDirectory, `${theme}-${feature}-${state}.png`));
+            } catch (error) {
+              fail(activeCase, error.message);
+            }
           }
         }
       }
+    } finally {
+      protocol.socket.close();
+      browser.process?.kill("SIGTERM");
     }
-  } finally {
-    protocol.socket.close();
-    browser.process?.kill("SIGTERM");
-  }
 
-  for (const error of browserErrors) fail(error.case, `${error.type}: ${error.value}`);
-  await writeContactSheet();
-  const report = {
-    failures,
-    outputDirectory,
-    renders: themes.length * features.length * states.length,
-    siteUrl,
-  };
-  await writeFile(join(outputDirectory, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
+    for (const error of browserErrors) fail(error.case, `${error.type}: ${error.value}`);
+    await writeContactSheet();
+    const report = {
+      failures,
+      outputDirectory,
+      renders: themes.length * features.length * states.length,
+      siteUrl,
+    };
+    await writeFile(join(outputDirectory, "report.json"), `${JSON.stringify(report, null, 2)}\n`);
 
-  if (failures.length) {
-    console.error(`Visual audit failed: ${failures.length} failures across ${report.renders} renders`);
-    for (const failure of failures) console.error(`${failure.case}: ${failure.message}`);
-    process.exitCode = 1;
-  } else {
-    console.log(`Visual audit passed: ${report.renders} renders`);
-  }
-  console.log(`Artifacts: ${outputDirectory}`);
+    if (failures.length) {
+      console.error(`Visual audit failed: ${failures.length} failures across ${report.renders} renders`);
+      for (const failure of failures) console.error(`${failure.case}: ${failure.message}`);
+      process.exitCode = 1;
+    } else {
+      console.log(`Visual audit passed: ${report.renders} renders`);
+    }
+    console.log(`Artifacts: ${outputDirectory}`);
 };
 
 if (mode === "render") await render();
