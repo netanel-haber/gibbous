@@ -1590,11 +1590,17 @@
         if (text.length > 120) break;
         const match = diffstatPattern.exec(text);
         if (!match) continue;
+        // GitHub's own number elements, whose look the counter copies.
+        const plus = node.parentElement;
+        const minusWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+          acceptNode: candidate => /^\s*[−–-]\s*\d[\d,]*\s*$/.test(candidate.data) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP,
+        });
+        const minus = minusWalker.nextNode()?.parentElement ?? plus;
         // Climb over wrappers that add no text, such as the one around GitHub's five squares.
         while (element.parentElement && element.parentElement !== document.body && diffstatText(element.parentElement) === text) {
           element = element.parentElement;
         }
-        yield {element, text, additions: Number(match[1].replaceAll(",", "")), deletions: Number(match[2].replaceAll(",", ""))};
+        yield {element, plus, minus, text, additions: Number(match[1].replaceAll(",", "")), deletions: Number(match[2].replaceAll(",", ""))};
         break;
       }
     }
@@ -1667,6 +1673,19 @@
       create("span", {class: "gibbous-whitespace-diffstat-deletions"}),
     );
     const [label, additions, deletions] = whitespaceDiffstat.children;
+    // Same type as GitHub's numbers, whatever its markup: copied from the rendered elements.
+    const copyStyle = (target, source, properties) => {
+      const computed = getComputedStyle(source);
+      for (const property of properties) {
+        const value = computed.getPropertyValue(property);
+        if (target.style.getPropertyValue(property) !== value) target.style.setProperty(property, value);
+      }
+    };
+    const type = ["font-family", "font-size", "line-height"];
+    copyStyle(whitespaceDiffstat, host.plus, type);
+    copyStyle(label, host.plus, type);
+    copyStyle(additions, host.plus, [...type, "font-weight", "color"]);
+    copyStyle(deletions, host.minus, [...type, "font-weight", "color"]);
     setText(label, full ? "ignoring whitespace" : "with whitespace");
     setText(additions, `+${formatCount(full ? counts.whitespaceAdditions : counts.additions)}`);
     setText(deletions, `−${formatCount(full ? counts.whitespaceDeletions : counts.deletions)}`);

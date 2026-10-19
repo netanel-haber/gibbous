@@ -710,23 +710,29 @@ html[data-gibbous-repository-insider]:not([data-gibbous-disabled]) :has(> .gibbo
   opacity: 0.75;
 }
 
-/* The second diffstat on pull requests, after a divider and under its own label. */
+/* The second diffstat on pull requests, after a divider and under its own label. The script copies
+   the type and colors of GitHub's numbers onto it; the divider is one text line tall. */
 .gibbous-whitespace-diffstat {
-  align-items: baseline;
-  border-inline-start: var(--borderWidth-thin, 1px) solid var(--borderColor-default, var(--color-border-default));
+  align-items: center;
+  align-self: center;
   display: inline-flex;
-  font-weight: var(--base-text-weight-semibold, 600);
   gap: 4px;
   margin-inline-start: 8px;
-  padding-inline-start: 8px;
   text-decoration: none !important;
-  vertical-align: baseline;
+  vertical-align: middle;
   white-space: nowrap;
+
+  &::before {
+    background: var(--borderColor-default, var(--color-border-default));
+    block-size: 1em;
+    content: "";
+    inline-size: var(--borderWidth-thin, 1px);
+    margin-inline-end: 4px;
+  }
 }
 
 .gibbous-whitespace-diffstat-label {
   color: var(--fgColor-muted, var(--color-fg-muted));
-  font-size: var(--text-body-size-small, 12px);
   font-weight: var(--base-text-weight-normal, 400);
 }
 
