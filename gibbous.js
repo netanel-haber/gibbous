@@ -2,58 +2,44 @@
 // GitHub's theme mirrored to the Gibbous site (both sites), the Mermaid viewer frame GitHub
 // embeds (zoom and pan once enlarged), and GitHub itself.
 
+// An element from a tag, attributes (on* become listeners) and children; "svg:" tags are SVG.
+const create = (tag, attributes = {}, ...children) => {
+  const node = tag.startsWith("svg:")
+    ? document.createElementNS("http://www.w3.org/2000/svg", tag.slice(4))
+    : document.createElement(tag);
+  for (const [name, value] of Object.entries(attributes)) {
+    if (name.startsWith("on")) node.addEventListener(name.slice(2), value);
+    else node.setAttribute(name, value);
+  }
+  node.append(...children);
+  return node;
+};
+
 (() => {
-  const themes = new Set([
-    "light",
-    "light-high-contrast",
-    "light-colorblind",
-    "light-colorblind-high-contrast",
-    "dark",
-    "dark-high-contrast",
-    "dark-colorblind",
-    "dark-colorblind-high-contrast",
-    "dark-dimmed",
-    "dark-dimmed-high-contrast",
-  ]);
   const root = document.documentElement;
-
-  const exposeStoredTheme = async () => {
-    const {githubTheme} = await chrome.storage.local.get("githubTheme");
-    if (themes.has(githubTheme)) root.dataset.githubTheme = githubTheme;
-    chrome.storage.onChanged.addListener((changes, area) => {
-      const theme = changes.githubTheme?.newValue;
-      if (area === "local" && themes.has(theme)) root.dataset.githubTheme = theme;
-    });
+  const isTheme = theme => /^(light|dark)(-colorblind)?(-high-contrast)?$|^dark-dimmed(-high-contrast)?$/.test(theme);
+  const fail = error => console.error("Gibbous could not synchronize the GitHub theme.", error);
+  if (location.hostname === "netanel-haber.github.io") {
+    const expose = theme => {
+      if (isTheme(theme)) root.dataset.githubTheme = theme;
+    };
+    chrome.storage.local.get("githubTheme").then(({githubTheme}) => expose(githubTheme), fail);
+    chrome.storage.onChanged.addListener((changes, area) => area === "local" && expose(changes.githubTheme?.newValue));
+    return;
+  }
+  if (location.hostname !== "github.com") return;
+  const storeTheme = () => {
+    const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+    const mode = root.dataset.colorMode === "auto" ? (dark ? "dark" : "light") : root.dataset.colorMode;
+    const theme = root.dataset[`${mode}Theme`]?.replaceAll("_", "-");
+    if (isTheme(theme)) chrome.storage.local.set({githubTheme: theme}).catch(fail);
   };
-
-  const activeGitHubTheme = () => {
-    const colorMode = root.dataset.colorMode;
-    const mode = colorMode === "auto"
-      ? matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-      : colorMode;
-    return root.dataset[`${mode}Theme`]?.replaceAll("_", "-");
-  };
-
-  const storeGitHubTheme = async () => {
-    const theme = activeGitHubTheme();
-    if (themes.has(theme)) await chrome.storage.local.set({githubTheme: theme});
-  };
-
-  const main = async () => {
-    if (location.hostname === "netanel-haber.github.io") {
-      await exposeStoredTheme();
-      return;
-    }
-    if (location.hostname !== "github.com") return;
-    new MutationObserver(() => void storeGitHubTheme()).observe(root, {
-      attributes: true,
-      attributeFilter: ["data-color-mode", "data-light-theme", "data-dark-theme"],
-    });
-    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => void storeGitHubTheme());
-    await storeGitHubTheme();
-  };
-
-  void main().catch(error => console.error("Gibbous could not synchronize the GitHub theme.", error));
+  new MutationObserver(storeTheme).observe(root, {
+    attributes: true,
+    attributeFilter: ["data-color-mode", "data-light-theme", "data-dark-theme"],
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", storeTheme);
+  storeTheme();
 })();
 
 (() => {
@@ -73,21 +59,12 @@
   let width = 0;
   let height = 0;
   let drag;
-  let controls;
   let zoomLabel;
 
   const svg = () => document.querySelector(".mermaid-view svg");
   const stage = () => svg()?.parentElement;
   const clamp = (value, low, high) => Math.min(Math.max(value, low), high);
-  const clampScale = value => clamp(value, fitScale / 2, MAX_SCALE);
-
-  const measure = () => {
-    const diagram = svg();
-    const box = diagram?.viewBox?.baseVal;
-    width = box?.width || diagram?.getBoundingClientRect().width || 0;
-    height = box?.height || diagram?.getBoundingClientRect().height || 0;
-    return width > 0 && height > 0;
-  };
+  const center = () => [innerWidth / 2, innerHeight / 2];
 
   const apply = animate => {
     const target = stage();
@@ -105,11 +82,13 @@
   };
 
   const fit = animate => {
-    if (!measure()) return;
-    const target = stage();
-    target.style.width = `${width}px`;
-    target.style.height = `${height}px`;
-    svg().style.transform = "";
+    const diagram = svg();
+    const box = diagram?.viewBox?.baseVal;
+    width = box?.width || diagram?.getBoundingClientRect().width || 0;
+    height = box?.height || diagram?.getBoundingClientRect().height || 0;
+    if (!(width > 0 && height > 0)) return;
+    Object.assign(stage().style, {width: `${width}px`, height: `${height}px`});
+    diagram.style.transform = "";
     fitScale = Math.min((innerWidth - 2 * PADDING) / width, (innerHeight - 2 * PADDING) / height, MAX_SCALE);
     scale = fitScale;
     x = (innerWidth - width * scale) / 2;
@@ -118,45 +97,16 @@
   };
 
   const zoomAt = (factor, clientX, clientY, animate = true) => {
-    const next = clampScale(scale * factor);
+    const next = clamp(scale * factor, fitScale / 2, MAX_SCALE);
     const ratio = next / scale;
     scale = next;
     place(clientX - (clientX - x) * ratio, clientY - (clientY - y) * ratio, animate);
   };
 
-  const button = (label, text, onclick) => {
-    const node = document.createElement("button");
-    node.type = "button";
-    node.className = "btn";
-    node.setAttribute("aria-label", label);
-    node.title = label;
-    node.textContent = text;
-    node.addEventListener("click", onclick);
-    return node;
-  };
+  const button = (label, text, onclick, className = "btn") =>
+    create("button", {type: "button", class: className, "aria-label": label, title: label, onclick}, text);
 
-  const mountControls = () => {
-    if (controls) return;
-    controls = document.createElement("div");
-    controls.className = "gibbous-mermaid-controls";
-    zoomLabel = button("Fit to view", "100%", () => fit(true));
-    zoomLabel.classList.add("gibbous-zoom-level");
-    controls.append(
-      button("Zoom out", "−", () => zoomAt(1 / ZOOM_STEP, innerWidth / 2, innerHeight / 2)),
-      zoomLabel,
-      button("Zoom in", "+", () => zoomAt(ZOOM_STEP, innerWidth / 2, innerHeight / 2)),
-    );
-    document.body.append(controls);
-  };
-
-  const collapse = () => {
-    const target = stage();
-    if (target) {
-      target.classList.remove("gibbous-animate");
-      target.style.removeProperty("transform");
-      target.style.removeProperty("width");
-      target.style.removeProperty("height");
-    }
+  const endDrag = () => {
     drag = undefined;
     root.removeAttribute("data-gibbous-mermaid-dragging");
   };
@@ -164,29 +114,37 @@
   const setExpanded = value => {
     expanded = value;
     root.toggleAttribute("data-gibbous-mermaid-expanded", expanded);
-    if (!expanded) return collapse();
-    mountControls();
-    requestAnimationFrame(() => fit(false));
+    if (expanded) {
+      if (!zoomLabel) {
+        zoomLabel = button("Fit to view", "100%", () => fit(true), "btn gibbous-zoom-level");
+        document.body.append(create(
+          "div",
+          {class: "gibbous-mermaid-controls"},
+          button("Zoom out", "−", () => zoomAt(1 / ZOOM_STEP, ...center())),
+          zoomLabel,
+          button("Zoom in", "+", () => zoomAt(ZOOM_STEP, ...center())),
+        ));
+      }
+      requestAnimationFrame(() => fit(false));
+      return;
+    }
+    const target = stage();
+    target?.classList.remove("gibbous-animate");
+    for (const property of ["transform", "width", "height"]) target?.style.removeProperty(property);
+    endDrag();
   };
 
   addEventListener("message", event => {
-    if (event.source !== parent || event.origin !== parentOrigin
-      || event.data?.type !== "gibbous-mermaid-expanded") return;
+    if (event.source !== parent || event.origin !== parentOrigin || event.data?.type !== "gibbous-mermaid-expanded") return;
     setExpanded(Boolean(event.data.value));
   });
 
   // GitHub re-renders the diagram when the frame is resized; refit when it does.
-  new MutationObserver(() => {
-    if (expanded) requestAnimationFrame(() => fit(false));
-  }).observe(document.querySelector(".mermaid-view") ?? document.body, {childList: true});
-  addEventListener("resize", () => {
-    if (expanded) fit(false);
-  });
+  new MutationObserver(() => expanded && requestAnimationFrame(() => fit(false)))
+    .observe(document.querySelector(".mermaid-view") ?? document.body, {childList: true});
+  addEventListener("resize", () => expanded && fit(false));
 
-  const onDiagram = event => {
-    const target = event.target instanceof Element && event.target;
-    return expanded && target && !target.closest("a, .clickable, button");
-  };
+  const onDiagram = event => expanded && event.target instanceof Element && !event.target.closest("a, .clickable, button");
 
   addEventListener("dblclick", event => {
     if (!onDiagram(event)) return;
@@ -198,18 +156,16 @@
     if (!expanded) return;
     event.preventDefault();
     const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
-    const factor = Math.exp(-delta * (event.ctrlKey ? 0.01 : 0.0025));
-    zoomAt(factor, event.clientX, event.clientY, false);
+    zoomAt(Math.exp(-delta * (event.ctrlKey ? 0.01 : 0.0025)), event.clientX, event.clientY, false);
   }, {passive: false});
 
   addEventListener("keydown", event => {
     if (!expanded || event.altKey || event.metaKey) return;
-    const center = [innerWidth / 2, innerHeight / 2];
     const step = event.shiftKey ? 240 : 80;
     const pan = {ArrowLeft: [step, 0], ArrowRight: [-step, 0], ArrowUp: [0, step], ArrowDown: [0, -step]}[event.key];
     if (event.key === "Escape") parent.postMessage({type: "gibbous-close-mermaid"}, parentOrigin);
-    else if (event.key === "+" || event.key === "=") zoomAt(ZOOM_STEP, ...center);
-    else if (event.key === "-" || event.key === "_") zoomAt(1 / ZOOM_STEP, ...center);
+    else if (event.key === "+" || event.key === "=") zoomAt(ZOOM_STEP, ...center());
+    else if (event.key === "-" || event.key === "_") zoomAt(1 / ZOOM_STEP, ...center());
     else if (event.key === "0") fit(true);
     else if (pan) place(x + pan[0], y + pan[1], true);
     else return;
@@ -225,23 +181,17 @@
   });
 
   addEventListener("pointermove", event => {
-    if (drag?.id !== event.pointerId) return;
-    place(drag.x + event.clientX - drag.clientX, drag.y + event.clientY - drag.clientY, false);
+    if (drag?.id === event.pointerId) place(drag.x + event.clientX - drag.clientX, drag.y + event.clientY - drag.clientY, false);
   });
 
-  const finishDrag = event => {
-    if (drag?.id !== event.pointerId) return;
-    drag = undefined;
-    root.removeAttribute("data-gibbous-mermaid-dragging");
-  };
-  addEventListener("pointerup", finishDrag);
-  addEventListener("pointercancel", finishDrag);
+  for (const type of ["pointerup", "pointercancel"]) addEventListener(type, event => drag?.id === event.pointerId && endDrag());
 
   parent.postMessage({type: "gibbous-mermaid-ready"}, parentOrigin);
 })();
 
 (() => {
   if (location.hostname !== "github.com" || matchMedia("(max-width: 767px)").matches) return;
+  const root = document.documentElement;
 
   // First paint must already be right. chrome.storage is async, so the settings that decide what
   // the page looks like are mirrored into localStorage (synchronous, same origin) and read here,
@@ -265,42 +215,25 @@
   };
   const mirror = readMirror();
   let enabled = mirror.enabled !== false;
-  document.documentElement.toggleAttribute("data-gibbous-disabled", !enabled);
+  root.toggleAttribute("data-gibbous-disabled", !enabled);
   let ready = false;
   let contextInvalidated = false;
-  let repositoryKey;
-  let hiddenNames = [];
   let hiddenRepositories = Array.isArray(mirror.hiddenRepositories) ? mirror.hiddenRepositories : [];
   let mirroredHiddenNames = mirror.hiddenNames && typeof mirror.hiddenNames === "object" ? mirror.hiddenNames : {};
-  let loadedHiddenNamesKey;
-  let forkLookup;
-  let userFork;
-  let control;
-  let forkedIn;
-  let forkLink;
-  let hiddenFilesControl;
-  let pullRequestShortcuts;
-  let quoteContextKey;
-  let quoteMatches = [];
-  let quoteChoices = {};
-  let quoteError = "";
-  let quotePreview;
-  let quotePreviewTimer;
-  let quoteRevealController;
-  let quoteScrollTarget;
-  let quoteScrollTimer;
-  let mermaidDialog;
-  let activeMermaidFrame;
 
-  const expandingRepositoryLists = new WeakSet();
-  const repositoryExpansionAttempts = new WeakMap();
-  const topRepositoryOrders = new WeakMap();
-  const knownRepositoryForks = new Map();
-  const queuedRepositoryForks = new Set();
-  const repositoryForkQueue = [];
-  const hiddenRepositoryControls = new WeakMap();
-  let resolvingRepositoryForks = false;
-  let hiddenItemsControlId = 0;
+  const reportError = error => console.error("Gibbous:", error);
+  const extensionCall = async (operation, fallback) => {
+    if (contextInvalidated) return fallback;
+    try {
+      return await operation();
+    } catch (error) {
+      if (!String(error).includes("Extension context invalidated")) throw error;
+      contextInvalidated = true;
+      return fallback;
+    }
+  };
+  const storageGet = keys => extensionCall(() => chrome.storage.local.get(keys), null);
+  const storageSet = values => extensionCall(() => chrome.storage.local.set(values));
 
   // Everything fetched from GitHub is persisted so a revisit paints the last known result in the
   // same frame the DOM appears, then revalidates quietly. Buckets: myPulls, dashboard, forks,
@@ -315,12 +248,10 @@
   const cacheSet = (bucket, key, value) => {
     const entries = (cache[bucket] ??= {});
     entries[key] = {value, at: Date.now()};
-    const keys = Object.keys(entries);
-    if (keys.length > CACHE_ENTRY_LIMIT) {
-      keys.sort((left, right) => entries[left].at - entries[right].at)
-        .slice(0, keys.length - CACHE_ENTRY_LIMIT)
-        .forEach(stale => delete entries[stale]);
-    }
+    Object.keys(entries)
+      .sort((left, right) => entries[right].at - entries[left].at)
+      .slice(CACHE_ENTRY_LIMIT)
+      .forEach(stale => delete entries[stale]);
     clearTimeout(cacheWriteTimer);
     cacheWriteTimer = setTimeout(() => void storageSet({cache}).catch(reportError), 200);
   };
@@ -339,43 +270,43 @@
     return entry?.value;
   };
 
+  // Writes only what differs. A refresh that changes nothing must not mutate the page, or the
+  // observer at the end would schedule the next refresh forever. "text" sets textContent; null or
+  // false removes the attribute.
+  const sync = (node, attributes) => {
+    for (const [name, value] of Object.entries(attributes)) {
+      if (name === "text") {
+        if (node.textContent !== value) node.textContent = value;
+      } else if (value === null || value === false) node.removeAttribute(name);
+      else if (node.getAttribute(name) !== String(value)) node.setAttribute(name, value);
+    }
+    return node;
+  };
+
+  const setStyle = (node, property, value) => {
+    if (node.style.getPropertyValue(property) !== value) node.style.setProperty(property, value);
+  };
+
   // Rules for what the user has hidden are generated from the mirror and inserted before any
   // paint, so hidden files and repositories never appear even for a frame. The JS below still
   // toggles the same classes; this stylesheet just gets there first.
   const cssString = value => JSON.stringify(String(value));
-  const firstPaintStyle = document.createElement("style");
-  firstPaintStyle.id = "gibbous-first-paint";
+  const firstPaintStyle = create("style", {id: "gibbous-first-paint"});
   const renderFirstPaintStyle = () => {
-    const rules = [];
-    for (const nwo of hiddenRepositories) {
-      const href = cssString(`/${nwo}`);
-      rules.push(
-        // Innermost li only: the new dashboard nests the repository list inside a NavList group li.
-        `html:not([data-gibbous-disabled]) li:not(:has(li)):has(a[data-testid="dynamic-side-panel-items-item"][href=${href} i]),`
-        + `html:not([data-gibbous-disabled]) .js-dashboard-repos-list > li:has(a[href=${href} i]) { display: none !important; }`,
-      );
-    }
-    for (const [rootNwo, names] of Object.entries(mirroredHiddenNames)) {
-      if (!Array.isArray(names) || !names.length) continue;
-      const scope = `html:not([data-gibbous-disabled]):has(meta[name="octolytics-dimension-repository_network_root_nwo"][content=${cssString(rootNwo)} i])`;
+    const on = "html:not([data-gibbous-disabled])";
+    const repositories = hiddenRepositories.map(nwo => cssString(`/${nwo}`)).map(href =>
+      // Innermost li only: the new dashboard nests the repository list inside a NavList group li.
+      `${on} li:not(:has(li)):has(a[data-testid="dynamic-side-panel-items-item"][href=${href} i]),`
+      + `${on} .js-dashboard-repos-list > li:has(a[href=${href} i]) { display: none !important; }`);
+    const files = Object.entries(mirroredHiddenNames).filter(([, names]) => Array.isArray(names) && names.length).map(([rootNwo, names]) => {
+      const scope = `${on}:has(meta[name="octolytics-dimension-repository_network_root_nwo"][content=${cssString(rootNwo)} i])`;
       const rows = names.map(name => `tr.react-directory-row:has(a.Link--primary[title=${cssString(name)}])`).join(",");
-      rules.push(`${scope} table[aria-labelledby="folders-and-files"] :is(${rows}) { display: none !important; }`);
-    }
-    const text = rules.join("\n");
-    if (firstPaintStyle.textContent !== text) firstPaintStyle.textContent = text;
-    if (!firstPaintStyle.isConnected) (document.head ?? document.documentElement).append(firstPaintStyle);
+      return `${scope} table[aria-labelledby="folders-and-files"] :is(${rows}) { display: none !important; }`;
+    });
+    sync(firstPaintStyle, {text: [...repositories, ...files].join("\n")});
+    if (!firstPaintStyle.isConnected) (document.head ?? root).append(firstPaintStyle);
   };
   renderFirstPaintStyle();
-
-  const create = (tag, attributes = {}, ...children) => {
-    const node = document.createElement(tag);
-    for (const [name, value] of Object.entries(attributes)) {
-      if (name.startsWith("on")) node.addEventListener(name.slice(2), value);
-      else node.setAttribute(name, value);
-    }
-    node.append(...children);
-    return node;
-  };
 
   // Octicon paths by octicon name; the icon gets GitHub's own octicon-<name> class.
   const octicons = {
@@ -394,72 +325,62 @@
     "tag": "M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z",
     "repo-forked": "M5 5.372v.878c0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75v-.878a2.25 2.25 0 1 1 1.5 0v.878a2.25 2.25 0 0 1-2.25 2.25h-1.5v2.128a2.251 2.251 0 1 1-1.5 0V8.5h-1.5A2.25 2.25 0 0 1 3.5 6.25v-.878a2.25 2.25 0 1 1 1.5 0ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Zm6.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm-3 8.75a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z",
   };
+  const createOcticon = name => create(
+    "svg:svg",
+    {"aria-hidden": "true", class: `octicon octicon-${name}`, fill: "currentColor", height: "16", viewBox: "0 0 16 16", width: "16"},
+    create("svg:path", {d: octicons[name]}),
+  );
 
-  const createOcticon = name => {
-    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    icon.setAttribute("aria-hidden", "true");
-    icon.setAttribute("class", `octicon octicon-${name}`);
-    icon.setAttribute("fill", "currentColor");
-    icon.setAttribute("height", "16");
-    icon.setAttribute("viewBox", "0 0 16 16");
-    icon.setAttribute("width", "16");
-    path.setAttribute("d", octicons[name]);
-    icon.append(path);
-    return icon;
-  };
-
-  const mountMermaidDialog = () => {
-    if (mermaidDialog?.isConnected) return;
-    mermaidDialog = create(
-      "dialog",
-      {
-        class: "gibbous-mermaid-dialog",
-        closedby: "any",
-        "aria-label": "Enlarged Mermaid diagram",
-      },
-      create("button", {
-        class: "Button Button--secondary Button--medium Button--iconOnly gibbous-mermaid-close",
-        type: "button",
-        "aria-label": "Close enlarged diagram",
-        title: "Close (Esc)",
-        onclick: () => mermaidDialog.close(),
-      }, createOcticon("x")),
-    );
-    mermaidDialog.addEventListener("close", () => {
-      if (!activeMermaidFrame) return;
-      const {frame, placeholder} = activeMermaidFrame;
-      document.documentElement.removeAttribute("data-gibbous-mermaid-open");
-      frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value: false}, new URL(frame.src).origin);
-      if (placeholder.parentNode) {
-        placeholder.parentNode.moveBefore(frame, placeholder);
-        placeholder.remove();
-      } else frame.remove();
-      activeMermaidFrame = undefined;
-    });
-    document.body.append(mermaidDialog);
-  };
+  // Mermaid: an Enlarge button on each diagram moves GitHub's viewer frame into a dialog, where the
+  // frame's own Gibbous section handles zoom and pan.
+  let mermaidDialog;
+  let activeMermaidFrame;
+  const expandMermaid = (frame, value) =>
+    frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value}, new URL(frame.src).origin);
 
   const openMermaid = frame => {
     if (!enabled || activeMermaidFrame) return;
-    mountMermaidDialog();
+    if (!mermaidDialog?.isConnected) {
+      mermaidDialog = create(
+        "dialog",
+        {class: "gibbous-mermaid-dialog", closedby: "any", "aria-label": "Enlarged Mermaid diagram"},
+        create("button", {
+          class: "Button Button--secondary Button--medium Button--iconOnly gibbous-mermaid-close",
+          type: "button",
+          "aria-label": "Close enlarged diagram",
+          title: "Close (Esc)",
+          onclick: () => mermaidDialog.close(),
+        }, createOcticon("x")),
+      );
+      mermaidDialog.addEventListener("close", () => {
+        if (!activeMermaidFrame) return;
+        const {frame, placeholder} = activeMermaidFrame;
+        root.removeAttribute("data-gibbous-mermaid-open");
+        expandMermaid(frame, false);
+        if (placeholder.parentNode) {
+          placeholder.parentNode.moveBefore(frame, placeholder);
+          placeholder.remove();
+        } else frame.remove();
+        activeMermaidFrame = undefined;
+      });
+      document.body.append(mermaidDialog);
+    }
     const placeholder = document.createComment("gibbous-mermaid");
     frame.before(placeholder);
     activeMermaidFrame = {frame, placeholder};
     mermaidDialog.moveBefore(frame, null);
-    document.documentElement.setAttribute("data-gibbous-mermaid-open", "");
+    root.setAttribute("data-gibbous-mermaid-open", "");
     mermaidDialog.showModal();
-    frame.contentWindow.postMessage({type: "gibbous-mermaid-expanded", value: true}, new URL(frame.src).origin);
+    expandMermaid(frame, true);
     frame.focus();
   };
 
   const mountMermaidLightboxes = () => {
-    for (const frame of document.querySelectorAll('iframe[src*="/markdown/mermaid"]')) {
-      if (frame.closest(".gibbous-mermaid-dialog") || frame.classList.contains("gibbous-mermaid-preview")) continue;
+    for (const frame of document.querySelectorAll('iframe[src*="/markdown/mermaid"]:not(.gibbous-mermaid-preview)')) {
+      if (frame.closest(".gibbous-mermaid-dialog")) continue;
       frame.classList.add("gibbous-mermaid-preview");
-      const surface = frame.parentElement;
-      surface.classList.add("gibbous-mermaid-surface");
-      surface.append(create(
+      frame.parentElement.classList.add("gibbous-mermaid-surface");
+      frame.parentElement.append(create(
         "button",
         {
           class: "Button Button--secondary Button--small gibbous-mermaid-open",
@@ -481,38 +402,21 @@
     const frame = [...document.querySelectorAll('iframe[src*="/markdown/mermaid"]')]
       .find(candidate => candidate.contentWindow === event.source && new URL(candidate.src).origin === event.origin);
     if (!frame) return;
-    if (event.data.type === "gibbous-close-mermaid" && activeMermaidFrame?.frame === frame) {
-      mermaidDialog.close();
-    } else if (event.data.type === "gibbous-mermaid-ready") {
-      frame.contentWindow.postMessage({
-        type: "gibbous-mermaid-expanded",
-        value: activeMermaidFrame?.frame === frame,
-      }, event.origin);
-    }
+    if (event.data.type === "gibbous-mermaid-ready") expandMermaid(frame, activeMermaidFrame?.frame === frame);
+    else if (activeMermaidFrame?.frame === frame) mermaidDialog.close();
   });
 
-  const extensionCall = async (operation, fallback) => {
-    if (contextInvalidated) return fallback;
-    try {
-      return await operation();
-    } catch (error) {
-      if (!String(error).includes("Extension context invalidated")) throw error;
-      contextInvalidated = true;
-      return fallback;
-    }
-  };
-
-  const reportError = error => console.error("Gibbous:", error);
-  const storageGet = keys => extensionCall(() => chrome.storage.local.get(keys), null);
-  const storageSet = values => extensionCall(() => chrome.storage.local.set(values));
+  // Hidden files (per repository network) and hidden repositories (dashboard and sidebar lists):
+  // stored as name lists, updated under a lock so tabs never overwrite each other.
+  let repositoryKey;
+  let hiddenNames = [];
+  let loadedHiddenNamesKey;
+  let hiddenFilesControl;
+  let hiddenItemsControlId = 0;
   const hiddenStorageKey = () => repositoryKey && `hiddenNames:${repositoryKey}`;
-
   const normalizeNames = names => Array.isArray(names)
     ? [...new Set(names.filter(name => typeof name === "string").map(name => name.trim()).filter(Boolean))]
     : [];
-
-  const sameNames = (left, right) => left.length === right.length
-    && left.every((name, index) => name === right[index]);
 
   const updateStoredNames = (key, update, apply) => {
     if (!key) return;
@@ -524,18 +428,17 @@
       await storageSet({[key]: next});
     }).catch(reportError);
   };
+  const toggleStoredName = (key, name, hide, apply) =>
+    updateStoredNames(key, names => hide ? [...names, name] : names.filter(other => other !== name), apply);
+  const updateHiddenName = (name, hide) => {
+    const key = hiddenStorageKey();
+    toggleStoredName(key, name, hide, names => key === hiddenStorageKey() && setHiddenNames(names));
+  };
+  const updateHiddenRepository = (nwo, hide) => toggleStoredName("hiddenRepositories", nwo, hide, setHiddenRepositories);
 
-  const createHiddenItemsControl = ({
-    title,
-    detail = () => "",
-    items,
-    onShow,
-    className = "",
-    size = "small",
-    variant = "invisible",
-  }) => {
+  // The eye button and its popover listing what is hidden, each with a Show button.
+  const createHiddenItemsControl = ({title, detail = () => "", items, onShow, className, size = "small", variant = "invisible"}) => {
     const id = `gibbous-hidden-menu-${hiddenItemsControlId++}`;
-    const anchor = `--${id}`;
     const toggle = create(
       "button",
       {
@@ -544,6 +447,7 @@
         "aria-label": title,
         popovertarget: id,
         title,
+        style: `anchor-name: --${id};`,
       },
       createOcticon("eye"),
     );
@@ -551,49 +455,44 @@
     const list = create("div", {class: "gibbous-hidden-list"});
     const menu = create(
       "div",
-      {id, class: "gibbous-hidden-menu", popover: "auto"},
+      {id, class: "gibbous-hidden-menu", popover: "auto", style: `position-anchor: --${id};`},
       create("strong", {}, title),
       detailElement,
       list,
     );
-    toggle.style.anchorName = anchor;
-    menu.style.positionAnchor = anchor;
-    let rendered = "";
+    let rendered;
     const render = () => {
       const names = items();
-      const detailText = detail();
-      const nextRendered = `${detailText}\0${names.join("\0")}`;
-      if (nextRendered === rendered) return;
-      rendered = nextRendered;
-      detailElement.textContent = detailText;
-      detailElement.hidden = !detailText;
+      const key = JSON.stringify([detail(), names]);
+      if (key === rendered) return;
+      rendered = key;
+      detailElement.textContent = detail();
+      detailElement.hidden = !detail();
       list.replaceChildren(...(names.length ? names.map(name => create(
         "div",
         {class: "gibbous-hidden-item"},
         create("code", {title: name}, name),
-        create(
-          "button",
-          {
-            class: "Button Button--secondary Button--small gibbous-list-button",
-            type: "button",
-            "aria-label": `Show ${name}`,
-            onclick: () => onShow(name),
-          },
-          "Show",
-        ),
+        create("button", {
+          class: "Button Button--secondary Button--small gibbous-list-button",
+          type: "button",
+          "aria-label": `Show ${name}`,
+          onclick: () => onShow(name),
+        }, "Show"),
       )) : [create("span", {class: "gibbous-hidden-menu-empty"}, "Nothing hidden.")]));
     };
     render();
-    return {
-      element: create("div", {class: `gibbous-hidden-items-control ${className}`}, toggle, menu),
-      render,
-      toggle,
-    };
+    return {element: create("div", {class: `gibbous-hidden-items-control ${className}`}, toggle, menu), render, toggle};
+  };
+
+  const placeHiddenItemsControl = (control, anchor) => {
+    control.render();
+    sync(control.toggle, {hidden: !enabled && ""});
+    if (control.element.nextElementSibling !== anchor) anchor.before(control.element);
   };
 
   const setHiddenNames = names => {
     const next = normalizeNames(names);
-    if (sameNames(next, hiddenNames)) return;
+    if (JSON.stringify(next) === JSON.stringify(hiddenNames)) return;
     hiddenNames = next;
     if (repositoryKey) {
       const entries = Object.entries(mirroredHiddenNames).filter(([key]) => key !== repositoryKey).slice(-40);
@@ -608,7 +507,7 @@
 
   const setHiddenRepositories = names => {
     const next = [...new Set(normalizeNames(names).map(name => name.replace(/^\/+|\/+$/g, "").toLowerCase()))];
-    if (sameNames(next, hiddenRepositories)) return;
+    if (JSON.stringify(next) === JSON.stringify(hiddenRepositories)) return;
     hiddenRepositories = next;
     writeMirror({hiddenRepositories: next});
     renderFirstPaintStyle();
@@ -625,21 +524,7 @@
     if (stored && key === hiddenStorageKey()) setHiddenNames(stored[key] ?? []);
   };
 
-  const updateHiddenNames = update => {
-    const key = hiddenStorageKey();
-    updateStoredNames(key, update, names => {
-      if (key === hiddenStorageKey()) setHiddenNames(names);
-    });
-  };
-
-  const updateHiddenRepositories = update => updateStoredNames(
-    "hiddenRepositories",
-    update,
-    setHiddenRepositories,
-  );
-
-  const closeHiddenMenus = () => document.querySelectorAll(".gibbous-hidden-menu:popover-open")
-    .forEach(menu => menu.hidePopover());
+  const closeHiddenMenus = () => document.querySelectorAll(".gibbous-hidden-menu:popover-open").forEach(menu => menu.hidePopover());
 
   const createHideButton = (name, className, onHide) => create(
     "button",
@@ -658,21 +543,14 @@
   );
 
   const refreshRows = () => {
-    const table = document.querySelector('table[aria-labelledby="folders-and-files"]');
-    if (!table) return;
     const hidden = new Set(hiddenNames);
-    for (const row of table.querySelectorAll("tr.react-directory-row")) {
-      const nameLink = row.querySelector(".react-directory-row-name-cell-large-screen a.Link--primary, a.Link--primary");
-      const name = nameLink?.textContent.trim();
+    for (const row of document.querySelectorAll('table[aria-labelledby="folders-and-files"] tr.react-directory-row')) {
+      const name = row.querySelector(".react-directory-row-name-cell-large-screen a.Link--primary, a.Link--primary")?.textContent.trim();
       if (!name || name === "..") continue;
       row.classList.toggle("gibbous-file-excluded", hidden.has(name));
       const cell = row.querySelector(".react-directory-row-name-cell-large-screen");
       if (cell && !cell.querySelector(":scope > .gibbous-hide-file")) {
-        cell.append(createHideButton(
-          name,
-          "gibbous-hide-file",
-          () => updateHiddenNames(names => names.includes(name) ? names : [...names, name]),
-        ));
+        cell.append(createHideButton(name, "gibbous-hide-file", () => updateHiddenName(name, true)));
       }
     }
   };
@@ -684,35 +562,25 @@
       ?? root.querySelector("qbsearch-input[data-current-repository]")?.dataset.currentRepository;
     return nwo && {
       nwo,
-      rootNwo: metaContent(root, "repository_network_root_nwo")
-        ?? metaContent(root, "repository_parent_nwo")
-        ?? nwo,
+      rootNwo: metaContent(root, "repository_network_root_nwo") ?? metaContent(root, "repository_parent_nwo") ?? nwo,
       isFork: metaContent(root, "repository_is_fork") === "true",
     };
   };
 
   // Stable hooks only (see gibbous.css): GitHub's generated class names change with every build.
   const userMenu = 'header [data-testid="top-nav-right"] :has(> button[data-login])';
-
-  const viewerLogin = () => document.querySelector(
-    `${userMenu} > button[data-login]`,
-  )?.dataset.login ?? document.querySelector('meta[name="user-login"]')?.content;
-
-  const repositoryNavigation = () => document.querySelector(
-    'nav[aria-label="Repository"], nav[aria-label="Repository navigation"]',
-  );
+  const viewerLogin = () => document.querySelector(`${userMenu} > button[data-login]`)?.dataset.login
+    ?? document.querySelector('meta[name="user-login"]')?.content;
+  const repositoryNavigation = () => document.querySelector('nav[aria-label="Repository"], nav[aria-label="Repository navigation"]');
+  const textOf = element => element.textContent.replace(/\s+/g, " ").trim();
 
   const markRepositoryTabs = () => {
     const navigation = repositoryNavigation();
-    if (!navigation) return;
-    for (const item of navigation.querySelectorAll("a, button")) {
-      const label = item.textContent.replace(/\s+/g, " ").trim();
-      if (/^(Agents|Discussions|Projects|Wiki|Security and quality|Insights|More)(?:\s|$)/.test(label)) {
-        const container = label.startsWith("More") && item.parentElement !== navigation
-          ? item.parentElement
-          : item.closest("li") ?? item;
-        container.classList.add("gibbous-hidden-repository-tab");
-      }
+    for (const item of navigation?.querySelectorAll("a, button") ?? []) {
+      const label = textOf(item);
+      if (!/^(Agents|Discussions|Projects|Wiki|Security and quality|Insights|More)(?:\s|$)/.test(label)) continue;
+      const more = label.startsWith("More") && item.parentElement !== navigation;
+      (more ? item.parentElement : item.closest("li") ?? item).classList.toggle("gibbous-hidden-repository-tab", true);
     }
   };
 
@@ -730,7 +598,7 @@
       } catch {
         // Not a payload we understand; fall back to what was remembered.
       }
-      pushAccessPayloads.set(script, repo && typeof repo.currentUserCanPush === "boolean"
+      pushAccessPayloads.set(script, typeof repo?.currentUserCanPush === "boolean"
         ? {nwo: `${repo.ownerLogin}/${repo.name}`.toLowerCase(), canPush: repo.currentUserCanPush}
         : null);
     }
@@ -742,39 +610,33 @@
 
   // The one gate for hiding what only matters to outsiders (topics, social stats, Watch and Fork):
   // the viewer owns the repository, can push to it, or has a fork of it.
-  const isRepositoryInsider = (context, viewer) => {
-    if (context.nwo.split("/")[0].toLowerCase() === viewer.toLowerCase()) return true;
-    if (cacheEntry("userForks", `${viewer}|${context.nwo}|${context.rootNwo}`)?.value) return true;
-    return viewerCanPush(context, viewer);
-  };
-
   const updateRepositoryInsider = () => {
     const context = readRepositoryContext();
     const viewer = viewerLogin();
-    document.documentElement.toggleAttribute(
-      "data-gibbous-repository-insider",
-      Boolean(context && viewer && isRepositoryInsider(context, viewer)),
-    );
+    root.toggleAttribute("data-gibbous-repository-insider", Boolean(context && viewer && (
+      context.nwo.split("/")[0].toLowerCase() === viewer.toLowerCase()
+      || cacheEntry("userForks", `${viewer}|${context.nwo}|${context.rootNwo}`)?.value
+      || viewerCanPush(context, viewer))));
   };
 
   // Sections are told apart by heading text, which is there even while they are still skeletons:
   // data-gibbous-section is about, releases, contributors, languages, or other.
-  const keptSidebarSection = /^(About|Releases|Contributors|Languages)(?![a-z])/i;
   const markSidebarSections = () => {
-    for (const section of document.querySelectorAll(
-      '[data-component="SplitPageLayout.Pane"] > div > div:has(> h2):not(.gibbous-sidebar-tags)',
-    )) {
+    for (const section of document.querySelectorAll('[data-component="SplitPageLayout.Pane"] > div > div:has(> h2):not(.gibbous-sidebar-tags)')) {
       const title = section.querySelector(":scope > h2")?.textContent.trim() ?? "";
-      const name = title.match(keptSidebarSection)?.[1].toLowerCase() ?? "other";
-      if (section.dataset.gibbousSection !== name) section.dataset.gibbousSection = name;
+      sync(section, {"data-gibbous-section": title.match(/^(About|Releases|Contributors|Languages)(?![a-z])/i)?.[1].toLowerCase() ?? "other"});
     }
   };
 
   // A Tags panel beside Releases, shaped like its entry: the count, the newest tag, when it was made.
+  const fetchPage = async url => {
+    const response = await fetch(url, {credentials: "include"});
+    if (!response.ok) throw new Error(`${url} returned ${response.status}`);
+    return new DOMParser().parseFromString(await response.text(), "text/html");
+  };
+
   const fetchLatestTag = async nwo => {
-    const response = await fetch(`/${nwo}/tags`, {credentials: "include"});
-    if (!response.ok) throw new Error(`Tags lookup failed (${response.status})`);
-    const row = new DOMParser().parseFromString(await response.text(), "text/html").querySelector(".Box-row");
+    const row = (await fetchPage(`/${nwo}/tags`)).querySelector(".Box-row");
     const link = row?.querySelector("h2 a[href]");
     return link && {
       name: link.textContent.trim(),
@@ -788,10 +650,7 @@
     const context = readRepositoryContext();
     const count = context && document.querySelector(`a[href="/${context.nwo}/tags"]`)?.textContent.match(/\d[\d,.]*k?/i)?.[0];
     let panel = document.querySelector(".gibbous-sidebar-tags");
-    if (!enabled || !releases || !count || !document.documentElement.hasAttribute("data-gibbous-repository-insider")) {
-      panel?.remove();
-      return;
-    }
+    if (!enabled || !releases || !count || !root.hasAttribute("data-gibbous-repository-insider")) return panel?.remove();
     if (!panel) {
       panel = releases.cloneNode(false);
       panel.classList.add("gibbous-sidebar-tags");
@@ -812,28 +671,20 @@
         if (counter) counter.textContent = count;
         if (counter?.nextElementSibling) counter.nextElementSibling.textContent = ` (${count})`;
       } else heading.replaceChildren("Tags ", create("span", {class: "Counter"}, count));
+      const date = tag?.createdAt && create("relative-time", {datetime: tag.createdAt}, new Date(tag.createdAt).toLocaleDateString());
       panel.replaceChildren(heading, ...(tag ? [create(
         "a",
         {class: "gibbous-sidebar-tag", href: tag.url},
         createOcticon("tag"),
-        create(
-          "span",
-          {},
-          create("strong", {}, tag.name),
-          tag.createdAt ? create("relative-time", {datetime: tag.createdAt}, new Date(tag.createdAt).toLocaleDateString()) : "",
-        ),
+        create("span", {}, create("strong", {}, tag.name), date || ""),
       )] : []));
     };
-    render(cached("tags", context.nwo, 10 * MINUTE, () => fetchLatestTag(context.nwo), fresh => {
-      if (panel.isConnected) render(fresh);
-    }));
+    render(cached("tags", context.nwo, 10 * MINUTE, () => fetchLatestTag(context.nwo), fresh => panel.isConnected && render(fresh)));
   };
 
   const markSuggestedWorkflows = () => {
-    const heading = [...document.querySelectorAll("h1, h2, h3")]
-      .find(element => element.textContent.trim() === "Suggested workflows");
-    const more = [...document.querySelectorAll("a, button")]
-      .find(element => element.textContent.trim() === "More workflows");
+    const heading = [...document.querySelectorAll("h1, h2, h3")].find(element => element.textContent.trim() === "Suggested workflows");
+    const more = [...document.querySelectorAll("a, button")].find(element => element.textContent.trim() === "More workflows");
     if (!heading || !more || heading.closest(".gibbous-suggested-workflows")) return;
     let section = heading.parentElement;
     while (section && !section.contains(more)) section = section.parentElement;
@@ -849,44 +700,31 @@
       resolve(value);
     };
     const abort = () => finish(false);
-    const observer = new MutationObserver(() => {
-      if (done()) finish(true);
-    });
+    const observer = new MutationObserver(() => done() && finish(true));
     const timer = setTimeout(abort, timeout);
     observer.observe(root, {childList: true, subtree: true, ...options});
     signal?.addEventListener("abort", abort, {once: true});
     if (done()) finish(true);
   });
 
-  const expandRepositoryList = async surface => {
-    const initialButton = surface.button();
-    if (!enabled || !initialButton || expandingRepositoryLists.has(surface.root)) return;
-    expandingRepositoryLists.add(surface.root);
-    try {
-      for (let expansion = 0; expansion < 4; expansion += 1) {
-        const button = surface.button();
-        if (!enabled || !surface.root.isConnected || !button || button.disabled) return;
-        const attempts = repositoryExpansionAttempts.get(surface.root) ?? 0;
-        if (attempts >= 4) return;
-        const availableBottom = surface.kind === "dashboard"
-          ? innerHeight
-          : Math.min(surface.root.getBoundingClientRect().bottom, innerHeight);
-        if (availableBottom - button.getBoundingClientRect().bottom <= 32) return;
-        const count = surface.entries().length;
-        repositoryExpansionAttempts.set(surface.root, attempts + 1);
-        button.click();
-        const grew = await waitForMutation(surface.root, {attributes: true, attributeFilter: ["disabled"]}, () => {
-          mountTopRepositories();
-          return surface.entries().length > count && !surface.button()?.disabled;
-        }, 5000);
-        if (!grew) return;
-        mountTopRepositories();
-      }
-    } finally {
-      expandingRepositoryLists.delete(surface.root);
-      mountTopRepositories();
-    }
-  };
+  // Quote navigation on pull request conversations: each quote links up to the comment it quotes,
+  // and each quoted comment down to its replies. Comments come from the page itself; only those
+  // GitHub has collapsed behind "Load more" are fetched, from GitHub's own timeline endpoint rather
+  // than the rate-limited REST API. The fuzzy matching runs in the background worker.
+  let quoteContextKey;
+  let quoteMatches = [];
+  let quoteChoices = {};
+  let quoteError = "";
+  let quotePreview;
+  let quotePreviewTimer;
+  let quoteRevealController;
+  let quoteScrollTarget;
+  let quoteScrollTimer;
+  let quoteLoadRequested = false;
+  let quoteHiddenLoaded = false;
+  let quoteSignature = "";
+  let quoteObserver;
+  const timelineChunks = new Map();
 
   const normalizeQuote = text => text
     .normalize("NFKC")
@@ -905,8 +743,6 @@
     })
     .filter(({text}) => text.length >= 24);
 
-  // Comments come from the page itself; only comments GitHub has collapsed behind "Load more" are
-  // fetched, and then from GitHub's own timeline endpoint rather than the rate-limited REST API.
   const parseTimelineComment = root => {
     const body = root.querySelector(".comment-body");
     if (!body) return;
@@ -914,10 +750,9 @@
     const quotes = quoteBlocks(content).map(({text}) => text);
     content.querySelectorAll("blockquote").forEach(quote => quote.remove());
     const id = /^issuecomment-\d+$/.test(root.id) ? root.id : "pullrequest-body";
-    const permalink = root.querySelector("a.js-timestamp[href]")?.getAttribute("href");
     return {
       id,
-      url: new URL(permalink ?? `#${id}`, location.href).href,
+      url: new URL(root.querySelector("a.js-timestamp[href]")?.getAttribute("href") ?? `#${id}`, location.href).href,
       user: root.querySelector(".author")?.textContent.trim() ?? "someone",
       createdAt: root.querySelector("relative-time")?.getAttribute("datetime") ?? "",
       html: body.innerHTML,
@@ -926,63 +761,49 @@
     };
   };
 
+  // The pull request body, then the comments and "Load more" chunks in timeline order.
   const collectTimeline = root => {
-    const entries = [];
-    const pullBody = root.querySelector(".js-command-palette-pull-body");
-    const pullComment = pullBody && parseTimelineComment(pullBody);
-    if (pullComment) entries.push({comment: pullComment});
     const scope = root.querySelector(".js-discussion") ?? root;
-    for (const node of scope.querySelectorAll('[id^="issuecomment-"], form.ajax-pagination-form')) {
+    const pullBody = root.querySelector(".js-command-palette-pull-body");
+    return [pullBody, ...scope.querySelectorAll('[id^="issuecomment-"], form.ajax-pagination-form')].flatMap(node => {
       if (node instanceof HTMLFormElement) {
         const action = node.getAttribute("action");
-        if (action?.includes("/timeline_more_items")) entries.push({more: new URL(action, location.href).href});
-      } else if (/^issuecomment-\d+$/.test(node.id)) {
-        const comment = parseTimelineComment(node);
-        if (comment) entries.push({comment});
+        return action?.includes("/timeline_more_items") ? [{more: new URL(action, location.href).href}] : [];
       }
-    }
-    return entries;
-  };
-
-  const timelineChunks = new Map();
-
-  const fetchTimelineChunk = async url => {
-    const response = await fetch(url, {
-      credentials: "include",
-      headers: {Accept: "text/html", "X-Requested-With": "XMLHttpRequest"},
+      const comment = node && (node === pullBody || /^issuecomment-\d+$/.test(node.id)) && parseTimelineComment(node);
+      return comment ? [{comment}] : [];
     });
-    if (!response.ok) throw new Error(`GitHub returned ${response.status} for hidden comments.`);
-    return collectTimeline(new DOMParser().parseFromString(await response.text(), "text/html").body);
   };
 
   const expandTimeline = async (entries, depth = 0) => {
     const comments = [];
     for (const entry of entries) {
-      if (entry.comment) {
-        comments.push(entry.comment);
-        continue;
+      if (entry.comment) comments.push(entry.comment);
+      if (!entry.more || depth >= 4) continue;
+      if (!timelineChunks.has(entry.more)) {
+        const response = await fetch(entry.more, {
+          credentials: "include",
+          headers: {Accept: "text/html", "X-Requested-With": "XMLHttpRequest"},
+        });
+        if (!response.ok) throw new Error(`GitHub returned ${response.status} for hidden comments.`);
+        timelineChunks.set(entry.more, collectTimeline(new DOMParser().parseFromString(await response.text(), "text/html").body));
+        const chunks = Object.fromEntries(timelineChunks);
+        void storageSet({quoteChunks: {version: 7, savedAt: Date.now(), chunks}}).catch(reportError);
       }
-      if (depth >= 4) continue;
-      let chunk = timelineChunks.get(entry.more);
-      if (!chunk) {
-        chunk = await fetchTimelineChunk(entry.more);
-        timelineChunks.set(entry.more, chunk);
-        void storageSet({quoteChunks: {version: 7, savedAt: Date.now(), chunks: Object.fromEntries(timelineChunks)}}).catch(reportError);
-      }
-      comments.push(...await expandTimeline(chunk, depth + 1));
+      comments.push(...await expandTimeline(timelineChunks.get(entry.more), depth + 1));
     }
     return comments;
   };
 
-  const currentQuoteContext = () => {
-    const match = location.pathname.match(/^\/([^/]+\/[^/]+)\/pull\/(\d+)\/?$/);
-    return match && {key: `${match[1]}#${match[2]}`, nwo: match[1], number: match[2]};
+  // The pull request being viewed. tab is "" on the conversation, else "files", "changes", and so on.
+  const pullRequestContext = () => {
+    const match = location.pathname.match(/^\/([^/]+\/[^/]+)\/pull\/(\d+)(?:$|\/([^/]*))/);
+    return match && {key: `${match[1]}#${match[2]}`, nwo: match[1], number: match[2], tab: match[3] ?? ""};
   };
 
   const quoteCommentRoot = comment => comment.id === "pullrequest-body"
     ? document.querySelector(".js-command-palette-pull-body")
     : document.getElementById(comment.id);
-
   const quoteCommentBody = comment => quoteCommentRoot(comment)?.querySelector(".comment-body");
 
   const findQuoteMatches = async comments => {
@@ -999,84 +820,57 @@
         quoteIndex,
         quote: reply.quotes[quoteIndex],
         reply,
-        sources: sourceIndices.map((index, position) => ({
-          ...comments[index],
-          matchRate: sourceRates[position],
-        })),
+        sources: sourceIndices.map((index, position) => ({...comments[index], matchRate: sourceRates[position]})),
         fullSourceIds: fullSourceIndices.map(index => comments[index].id),
       };
     });
   };
 
   const isFullQuote = (match, source) => match.fullSourceIds.includes(source.id);
-  const matchRateLabel = source => source.matchRate === 100
-    ? "full match"
-    : `${source.matchRate}% match`;
+  const matchRateLabel = source => source.matchRate === 100 ? "full match" : `${source.matchRate}% match`;
   const matchLabel = (arrow, source) => `${arrow} ${matchRateLabel(source)}`;
 
+  // The quote's text as a range in root, compared the way quotes are normalized. positions holds,
+  // per UTF-16 unit of the normalized text, the source node and offsets it came from.
   const findQuoteRange = (root, quote) => {
-    const characters = [];
+    let text = "";
     const positions = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-      acceptNode: node => node.parentElement.closest("blockquote, .gibbous-quote-rail")
-        ? NodeFilter.FILTER_REJECT
-        : NodeFilter.FILTER_ACCEPT,
+      acceptNode: node => node.parentElement.closest("blockquote, .gibbous-quote-rail") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
     });
     for (let node; (node = walker.nextNode());) {
       for (let offset = 0; offset < node.data.length;) {
         const input = String.fromCodePoint(node.data.codePointAt(offset));
         for (const output of input.normalize("NFKC").toLowerCase()) {
           const character = /\s/.test(output) ? " " : output;
-          if (character === " " && characters.at(-1) === " ") continue;
-          characters.push(character);
-          positions.push({node, start: offset, end: offset + input.length});
+          if (character === " " && text.endsWith(" ")) continue;
+          text += character;
+          for (let unit = 0; unit < character.length; unit++) positions.push({node, start: offset, end: offset + input.length});
         }
         offset += input.length;
       }
     }
-    const flattened = characters.join("");
-    const exact = flattened.indexOf(quote);
-    if (exact < 0) return;
-    const offsets = [];
-    let offset = 0;
-    for (const character of characters) {
-      offsets.push(offset);
-      offset += character.length;
-    }
-    const start = offsets.indexOf(exact);
-    const end = exact + quote.length === flattened.length
-      ? characters.length
-      : offsets.indexOf(exact + quote.length);
+    const start = text.indexOf(quote);
+    if (start < 0) return;
     const range = document.createRange();
     range.setStart(positions[start].node, positions[start].start);
-    const last = positions[end - 1];
+    const last = positions[start + quote.length - 1];
     range.setEnd(last.node, last.end);
     return range;
   };
 
-  const findQuoteRect = (root, quote) => findQuoteRange(root, quote)?.getBoundingClientRect();
-
   const highlightQuote = (root, quote) => {
     const range = findQuoteRange(root, quote);
     if (!range) return;
-    const boundaries = {
-      startContainer: range.startContainer,
-      startOffset: range.startOffset,
-      endContainer: range.endContainer,
-      endOffset: range.endOffset,
-    };
+    const {startContainer, startOffset, endContainer, endOffset} = range;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const nodes = [];
-    for (let node; (node = walker.nextNode());) {
-      if (range.intersectsNode(node)) nodes.push(node);
-    }
+    for (let node; (node = walker.nextNode());) if (range.intersectsNode(node)) nodes.push(node);
     for (const node of nodes.reverse()) {
       const selection = document.createRange();
-      selection.setStart(node, node === boundaries.startContainer ? boundaries.startOffset : 0);
-      selection.setEnd(node, node === boundaries.endContainer ? boundaries.endOffset : node.length);
-      if (selection.collapsed) continue;
-      const mark = create("mark", {class: "gibbous-quote-highlight"});
-      selection.surroundContents(mark);
+      selection.setStart(node, node === startContainer ? startOffset : 0);
+      selection.setEnd(node, node === endContainer ? endOffset : node.length);
+      if (!selection.collapsed) selection.surroundContents(create("mark", {class: "gibbous-quote-highlight"}));
     }
   };
 
@@ -1091,6 +885,8 @@
     quotePreviewTimer = setTimeout(closeQuotePreview, 500);
   };
 
+  // The other end of a link, in a popover: the comment from the page, or rebuilt from its HTML when
+  // it is collapsed, scrolled so the quote shows.
   const showQuotePreview = (button, target) => {
     closeQuotePreview();
     if (target.fullQuote) return;
@@ -1112,28 +908,22 @@
     content.querySelectorAll("[id]").forEach(node => node.removeAttribute("id"));
     if (target.source) highlightQuote(body, target.match.quote);
     else quoteBlocks(body)[target.match.quoteIndex]?.element.classList.add("gibbous-quote-highlight");
-    quotePreview = create(
-      "div",
-      {
-        class: `gibbous-quote-preview gibbous-quote-preview-${target.source ? "source" : "reply"} color-fg-default color-shadow-large`,
-        popover: "manual",
-        onpointerenter: () => clearTimeout(quotePreviewTimer),
-        onpointerleave: hideQuotePreview,
-      },
-      content,
-    );
+    quotePreview = create("div", {
+      class: `gibbous-quote-preview gibbous-quote-preview-${target.source ? "source" : "reply"} color-fg-default color-shadow-large`,
+      popover: "manual",
+      onpointerenter: () => clearTimeout(quotePreviewTimer),
+      onpointerleave: hideQuotePreview,
+    }, content);
     document.body.append(quotePreview);
     quotePreview.showPopover({source: button});
-    const highlights = [...quotePreview.querySelectorAll(".gibbous-quote-highlight")]
-      .map(highlight => highlight.getBoundingClientRect());
-    if (highlights.length) {
-      const viewport = quotePreview.getBoundingClientRect();
-      const highlightTop = Math.min(...highlights.map(rect => rect.top));
-      const highlightBottom = Math.max(...highlights.map(rect => rect.bottom));
-      quotePreview.scrollTop += (highlightTop + highlightBottom - viewport.top - viewport.bottom) / 2;
-    }
+    const highlights = [...quotePreview.querySelectorAll(".gibbous-quote-highlight")].map(highlight => highlight.getBoundingClientRect());
+    if (!highlights.length) return;
+    const viewport = quotePreview.getBoundingClientRect();
+    const middle = (Math.min(...highlights.map(rect => rect.top)) + Math.max(...highlights.map(rect => rect.bottom))) / 2;
+    quotePreview.scrollTop += middle - (viewport.top + viewport.bottom) / 2;
   };
 
+  // Hover previews the other end; a click scrolls to it, loading collapsed comments when needed.
   const createQuoteLink = (comment, label, attributes, target, onactivate) => create("a", {
     ...attributes,
     href: comment.url,
@@ -1146,14 +936,10 @@
       closeQuotePreview();
       const origin = event.currentTarget.closest(".timeline-comment");
       onactivate?.();
-      const destination = {
-        context: quoteContextKey,
-        key: target.match.key,
-        sourceId: target.source?.id,
-      };
       quoteRevealController?.abort();
       const controller = new AbortController();
       quoteRevealController = controller;
+      const destination = {context: quoteContextKey, key: target.match.key, sourceId: target.source?.id};
       try {
         if (!await revealQuoteTarget(destination, origin, Boolean(target.source), controller.signal)) {
           throw new Error("Target comment could not be revealed.");
@@ -1169,15 +955,16 @@
   const quoteTargetRect = target => {
     const match = quoteMatches.find(candidate => candidate.key === target.key);
     if (!match) return;
-    if (target.sourceId) {
-      const source = match.sources.find(candidate => candidate.id === target.sourceId);
-      const body = source && quoteCommentBody(source);
-      return body && (isFullQuote(match, source) ? body.getBoundingClientRect() : findQuoteRect(body, match.quote));
+    if (!target.sourceId) {
+      const body = quoteCommentBody(match.reply);
+      return body && quoteBlocks(body)[match.quoteIndex]?.element.getBoundingClientRect();
     }
-    const body = quoteCommentBody(match.reply);
-    return body && quoteBlocks(body)[match.quoteIndex]?.element.getBoundingClientRect();
+    const source = match.sources.find(candidate => candidate.id === target.sourceId);
+    const body = source && quoteCommentBody(source);
+    return body && (isFullQuote(match, source) ? body.getBoundingClientRect() : findQuoteRange(body, match.quote)?.getBoundingClientRect());
   };
 
+  // Scrolls the target just below GitHub's sticky headers.
   const scrollQuoteTarget = target => {
     const rect = quoteTargetRect(target);
     if (!rect?.height) return false;
@@ -1196,31 +983,24 @@
     clearTimeout(quoteScrollTimer);
   };
 
-  const holdQuoteTarget = target => {
-    if (!scrollQuoteTarget(target)) return false;
-    quoteScrollTarget = target;
-    clearTimeout(quoteScrollTimer);
-    quoteScrollTimer = setTimeout(releaseQuoteTarget, 15_000);
-    return true;
-  };
-
-  const nextTimelinePage = (origin, upward, attempted) => {
-    const buttons = [...document.querySelectorAll(
-      ".js-discussion .ajax-pagination-form button[data-disable-with]",
-    )].filter(button => !attempted.has(button.form.action) && !button.disabled && button.getClientRects().length);
-    if (!origin) return buttons[0];
-    const directional = buttons.filter(button => upward
-      ? button.compareDocumentPosition(origin) & Node.DOCUMENT_POSITION_FOLLOWING
-      : origin.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING);
-    return (upward ? directional.at(-1) : directional[0]) ?? buttons[0];
-  };
-
+  // Loads "Load more" pages toward the target until it renders, then holds it in place for 15
+  // seconds while the page settles around it.
   const revealQuoteTarget = async (target, origin, upward, signal) => {
     const attempted = new Set();
     const deadline = performance.now() + 30_000;
     while (!signal.aborted && performance.now() < deadline) {
-      if (holdQuoteTarget(target)) return true;
-      const button = nextTimelinePage(origin, upward, attempted);
+      if (scrollQuoteTarget(target)) {
+        quoteScrollTarget = target;
+        clearTimeout(quoteScrollTimer);
+        quoteScrollTimer = setTimeout(releaseQuoteTarget, 15_000);
+        return true;
+      }
+      const buttons = [...document.querySelectorAll(".js-discussion .ajax-pagination-form button[data-disable-with]")]
+        .filter(button => !attempted.has(button.form.action) && !button.disabled && button.getClientRects().length);
+      const directional = origin ? buttons.filter(button => upward
+        ? button.compareDocumentPosition(origin) & Node.DOCUMENT_POSITION_FOLLOWING
+        : origin.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING) : [];
+      const button = (upward ? directional.at(-1) : directional[0]) ?? buttons[0];
       if (!button) return false;
       attempted.add(button.form.action);
       const loaded = waitForMutation(
@@ -1236,27 +1016,17 @@
     return false;
   };
 
+  // A rail in the margin of a comment, level with rect, holding its quote buttons.
   const mountQuoteRail = (body, direction, key, rect) => {
     const className = `gibbous-quote-rail-${direction}`;
     const comment = body.closest(".timeline-comment") ?? body;
-    comment.classList.add("gibbous-source-comment");
+    comment.classList.toggle("gibbous-source-comment", true);
     let rail = comment.querySelector(`:scope > .${className}[data-gibbous-rail-key="${key}"]`);
-    if (!rail) {
-      rail = create("span", {
-        class: `gibbous-quote-rail ${className}`,
-        "data-gibbous-rail-key": key,
-      });
-      comment.append(rail);
-    }
+    if (!rail) comment.append(rail = create("span", {class: `gibbous-quote-rail ${className}`, "data-gibbous-rail-key": key}));
     const commentRect = comment.getBoundingClientRect();
-    rail.style.setProperty("--gibbous-quote-top", `${rect.top - commentRect.top}px`);
-    rail.style.setProperty("--gibbous-quote-height", `${rect.height}px`);
+    setStyle(rail, "--gibbous-quote-top", `${rect.top - commentRect.top}px`);
+    setStyle(rail, "--gibbous-quote-height", `${rect.height}px`);
     return rail;
-  };
-
-  const mountReplyRail = (body, match, source) => {
-    const rect = isFullQuote(match, source) ? body.getBoundingClientRect() : findQuoteRect(body, match.quote);
-    return rect?.height && mountQuoteRail(body, "replies", match.key, rect);
   };
 
   // The arrow on a quote: up from the reply's quote to its source, or down from the source to the reply.
@@ -1280,29 +1050,17 @@
   const mountDisabledQuoteButton = (rail, label) => {
     let button = rail.querySelector(".gibbous-quote-missing");
     if (!button) {
-      button = create(
-        "button",
-        {
-          class: "Button Button--invisible Button--small Button--iconOnly gibbous-quote-button gibbous-quote-missing",
-          type: "button",
-          disabled: "",
-        },
-        "?",
-      );
+      button = create("button", {
+        class: "Button Button--invisible Button--small Button--iconOnly gibbous-quote-button gibbous-quote-missing",
+        type: "button",
+        disabled: "",
+      }, "?");
       rail.append(button);
     }
-    button.setAttribute("aria-label", label);
-    button.title = label;
+    sync(button, {"aria-label": label, title: label});
   };
 
-  const chooseQuoteSource = (key, source, picker) => {
-    quoteChoices = {...quoteChoices, [key]: source.id};
-    document.querySelectorAll(".gibbous-quote-rail-replies").forEach(node => node.remove());
-    picker.hidePopover();
-    refreshQuoteLinks();
-    void storageSet({quoteChoices}).catch(reportError);
-  };
-
+  // Several comments match a quote: a picker of them, remembering the choice.
   const mountQuotePicker = (rail, match, selected) => {
     let button = rail.querySelector(`[data-gibbous-quote-key="${match.key}"]`);
     if (!button) {
@@ -1324,67 +1082,58 @@
             "data-gibbous-candidate": source.id,
           },
           {match, source, fullQuote: isFullQuote(match, source)},
-          () => chooseQuoteSource(match.key, source, picker),
+          () => {
+            quoteChoices = {...quoteChoices, [match.key]: source.id};
+            document.querySelectorAll(".gibbous-quote-rail-replies").forEach(node => node.remove());
+            picker.hidePopover();
+            refreshQuoteLinks();
+            void storageSet({quoteChoices}).catch(reportError);
+          },
         )),
       );
-      button = create(
-        "button",
-        {
-          class: "Button Button--invisible Button--small Button--iconOnly gibbous-quote-button",
-          type: "button",
-          popovertarget: id,
-          "data-gibbous-quote-key": match.key,
-        },
-        "↑",
-      );
+      button = create("button", {
+        class: "Button Button--invisible Button--small Button--iconOnly gibbous-quote-button",
+        type: "button",
+        popovertarget: id,
+        "data-gibbous-quote-key": match.key,
+      }, "↑");
       rail.append(button, picker);
     }
     const fullQuote = selected && isFullQuote(match, selected);
-    button.setAttribute("aria-label", selected
+    const label = selected
       ? `${matchRateLabel(selected)}; ${fullQuote ? "full comment quoted; " : ""}source is @${selected.user}; choose another`
-      : `Choose among ${match.sources.length} sources`);
-    button.title = button.getAttribute("aria-label");
-    button.textContent = selected ? matchLabel("↑", selected) : "↑";
+      : `Choose among ${match.sources.length} sources`;
+    sync(button, {"aria-label": label, title: label, text: selected ? matchLabel("↑", selected) : "↑"});
     button.classList.toggle("Button--iconOnly", !selected);
-    button.onpointerenter = selected
-      ? () => showQuotePreview(button, {match, source: selected, fullQuote})
-      : null;
+    button.onpointerenter = selected ? () => showQuotePreview(button, {match, source: selected, fullQuote}) : null;
     button.onpointerleave = selected ? hideQuotePreview : null;
     button.onfocus = button.onpointerenter;
     button.onblur = button.onpointerleave;
-    const picker = document.getElementById(button.getAttribute("popovertarget"));
-    for (const option of picker.querySelectorAll("[data-gibbous-candidate]")) {
-      option.setAttribute("aria-current", option.dataset.gibbousCandidate === selected?.id);
+    for (const option of document.getElementById(button.getAttribute("popovertarget")).querySelectorAll("[data-gibbous-candidate]")) {
+      sync(option, {"aria-current": String(option.dataset.gibbousCandidate === selected?.id)});
     }
   };
 
-  let quoteLoadRequested = false;
-  let quoteHiddenLoaded = false;
-  let quoteSignature = "";
-  let quoteObserver;
-
-  const timelineSignature = () => [...document.querySelectorAll(
-    '.js-discussion [id^="issuecomment-"], .js-discussion form.ajax-pagination-form',
-  )].map(node => node.id || node.getAttribute("action")).filter(Boolean).join("|");
+  const timelineSignature = () => [...document.querySelectorAll('.js-discussion [id^="issuecomment-"], .js-discussion form.ajax-pagination-form')]
+    .map(node => node.id || node.getAttribute("action")).filter(Boolean).join("|");
 
   const loadQuoteMatches = async (context, includeHidden = false) => {
     const stored = await storageGet(["quoteChoices", "quoteChunks"]);
     quoteChoices = stored?.quoteChoices ?? quoteChoices;
-    if (stored?.quoteChunks?.version === 7 && Date.now() - stored.quoteChunks.savedAt < 30 * 60_000) {
+    if (stored?.quoteChunks?.version === 7 && Date.now() - stored.quoteChunks.savedAt < 30 * MINUTE) {
       for (const [url, chunk] of Object.entries(stored.quoteChunks.chunks)) timelineChunks.set(url, chunk);
     }
     const entries = collectTimeline(document);
     quoteSignature = timelineSignature();
     const hasHidden = entries.some(entry => entry.more);
-    let comments;
+    const visible = entries.filter(entry => entry.comment).map(entry => entry.comment);
+    let comments = visible;
     try {
-      comments = includeHidden && hasHidden
-        ? await expandTimeline(entries)
-        : entries.filter(entry => entry.comment).map(entry => entry.comment);
+      if (includeHidden && hasHidden) comments = await expandTimeline(entries);
       quoteHiddenLoaded = includeHidden && hasHidden;
       quoteError = "";
     } catch (error) {
-      comments = entries.filter(entry => entry.comment).map(entry => entry.comment);
+      comments = visible;
       quoteError = `Hidden comments unavailable — ${error.message}`;
     }
     const matches = await findQuoteMatches(comments);
@@ -1397,30 +1146,9 @@
     }
   };
 
-  const startQuoteLoad = context => {
-    if (quoteLoadRequested) return;
-    quoteLoadRequested = true;
-    quoteObserver?.disconnect();
-    void loadQuoteMatches(context).catch(error => {
-      if (quoteContextKey !== context.key) return;
-      quoteError = `Quote links unavailable — ${error.message}`;
-      refreshQuoteLinks();
-    });
-  };
-
-  // Resolve lazily: nothing runs until a quoted reply actually scrolls into view.
-  const watchQuotes = context => {
-    quoteObserver ??= new IntersectionObserver(entries => {
-      if (entries.some(entry => entry.isIntersecting)) startQuoteLoad(context);
-    }, {rootMargin: "200px 0px"});
-    for (const blockquote of document.querySelectorAll(".js-discussion .comment-body blockquote, .js-command-palette-pull-body .comment-body blockquote")) {
-      quoteObserver.observe(blockquote);
-    }
-  };
-
   const refreshQuoteLinks = () => {
-    const context = currentQuoteContext();
-    if (!context) {
+    const context = pullRequestContext();
+    if (context?.tab !== "") {
       quoteContextKey = undefined;
       quoteMatches = [];
       releaseQuoteTarget();
@@ -1440,7 +1168,19 @@
       quoteObserver = undefined;
     }
     if (!quoteLoadRequested) {
-      watchQuotes(context);
+      // Resolve lazily: nothing runs until a quoted reply actually scrolls into view.
+      quoteObserver ??= new IntersectionObserver(entries => {
+        if (quoteLoadRequested || !entries.some(entry => entry.isIntersecting)) return;
+        quoteLoadRequested = true;
+        quoteObserver.disconnect();
+        void loadQuoteMatches(context).catch(error => {
+          if (quoteContextKey !== context.key) return;
+          quoteError = `Quote links unavailable — ${error.message}`;
+          refreshQuoteLinks();
+        });
+      }, {rootMargin: "200px 0px"});
+      const quotes = ".js-discussion .comment-body blockquote, .js-command-palette-pull-body .comment-body blockquote";
+      for (const blockquote of document.querySelectorAll(quotes)) quoteObserver.observe(blockquote);
       return;
     }
     // Comments the visitor loaded since we matched are free to fold in: no request needed.
@@ -1449,52 +1189,36 @@
       quoteSignature = signature;
       void loadQuoteMatches(context, quoteHiddenLoaded).catch(reportError);
     }
+    const rateLimited = quoteError.includes("rate limit") && "GitHub rate limit (403/429)";
 
     for (const match of quoteMatches) {
       const {quote, quoteIndex, reply, sources} = match;
-      const source = sources.length === 1
-        ? sources[0]
-        : sources.find(candidate => candidate.id === quoteChoices[match.key]);
+      const source = sources.length === 1 ? sources[0] : sources.find(candidate => candidate.id === quoteChoices[match.key]);
       const replyBody = quoteCommentBody(reply);
       const blockquote = replyBody && quoteBlocks(replyBody)[quoteIndex]?.element;
-      if (blockquote) {
-        const text = blockquote.dataset.gibbousQuote ??= quote;
-        const rail = text === quote && mountQuoteRail(
-          replyBody,
-          "source",
-          match.key,
-          blockquote.getBoundingClientRect(),
-        );
-        if (rail && !sources.length) mountDisabledQuoteButton(
-          rail,
-          quoteError.includes("rate limit")
-            ? "GitHub rate limit (403/429)"
-            : "Source not found (likely edited out)",
-        );
-        else if (rail && sources.length > 1) mountQuotePicker(rail, match, source);
-        else if (rail && source) mountQuoteLink(rail, match, source, true);
+      // The quote GitHub renders must still read as the one matched (it may have been edited).
+      if (blockquote && (blockquote.dataset.gibbousQuote ??= quote) === quote) {
+        const rail = mountQuoteRail(replyBody, "source", match.key, blockquote.getBoundingClientRect());
+        if (!sources.length) mountDisabledQuoteButton(rail, rateLimited || "Source not found (likely edited out)");
+        else {
+          // A source found later, among collapsed comments, replaces the "not found" button.
+          rail.querySelector(".gibbous-quote-missing")?.remove();
+          if (sources.length > 1) mountQuotePicker(rail, match, source);
+          else mountQuoteLink(rail, match, source, true);
+        }
       }
-
       const sourceBody = source && quoteCommentBody(source);
-      const replies = sourceBody && mountReplyRail(sourceBody, match, source);
-      if (replies) mountQuoteLink(replies, match, source, false);
+      const rect = sourceBody && (isFullQuote(match, source) ? sourceBody.getBoundingClientRect() : findQuoteRange(sourceBody, quote)?.getBoundingClientRect());
+      if (rect?.height) mountQuoteLink(mountQuoteRail(sourceBody, "replies", match.key, rect), match, source, false);
     }
 
     if (!quoteMatches.length && quoteError) {
-      const label = quoteError.includes("rate limit")
-        ? "GitHub rate limit (403/429)"
-        : "Source lookup unavailable";
-      document.querySelectorAll(".js-discussion .comment-body").forEach(body => {
-        quoteBlocks(body).forEach(({element}, quoteIndex) => {
-          const rail = mountQuoteRail(
-            body,
-            "source",
-            `error:${quoteIndex}`,
-            element.getBoundingClientRect(),
-          );
-          mountDisabledQuoteButton(rail, label);
-        });
-      });
+      for (const body of document.querySelectorAll(".js-discussion .comment-body")) {
+        quoteBlocks(body).forEach(({element}, quoteIndex) => mountDisabledQuoteButton(
+          mountQuoteRail(body, "source", `error:${quoteIndex}`, element.getBoundingClientRect()),
+          rateLimited || "Source lookup unavailable",
+        ));
+      }
     }
 
     let status = document.querySelector(".gibbous-quote-status");
@@ -1502,54 +1226,48 @@
     else if (!status) {
       status = create("div", {class: "flash flash-warn mb-3 gibbous-quote-status", role: "status"}, quoteError);
       document.querySelector(".js-discussion")?.prepend(status);
-    } else status.textContent = quoteError;
-    document.querySelectorAll(".gibbous-quote-rail, .gibbous-quote-picker, .gibbous-quote-status")
-      .forEach(node => node.toggleAttribute("hidden", !enabled));
+    } else sync(status, {text: quoteError});
+    for (const node of document.querySelectorAll(".gibbous-quote-rail, .gibbous-quote-picker, .gibbous-quote-status")) {
+      sync(node, {hidden: !enabled && ""});
+    }
     if (quoteScrollTarget?.context === context.key) scrollQuoteTarget(quoteScrollTarget);
     else if (quoteScrollTarget) releaseQuoteTarget();
   };
 
+  // My pull requests, open or closed, beside the Pull requests tab.
+  let pullRequestShortcuts;
   const readPullRequestState = (context, viewer) => {
     const path = `/${context.nwo}/pulls`;
     const filters = new URLSearchParams(location.search).get("q")?.toLowerCase() ?? "";
     const author = filters.match(/\bauthor:([^\s]+)/)?.[1];
-    const mine = location.pathname === `${path}/@me`
-      || author === "@me"
-      || Boolean(author && viewer && author === viewer.toLowerCase());
-    if (!location.pathname.startsWith(path) || !mine) return;
-    return filters.includes("is:closed") ? "closed" : "open";
+    const mine = location.pathname === `${path}/@me` || author === "@me" || Boolean(author && viewer && author === viewer.toLowerCase());
+    if (location.pathname.startsWith(path) && mine) return filters.includes("is:closed") ? "closed" : "open";
   };
 
   const mountPullRequestShortcuts = (context, viewer) => {
-    const navigation = repositoryNavigation();
-    const pullRequests = [...(navigation?.querySelectorAll("a") ?? [])]
-      .find(link => link.textContent.replace(/\s+/g, " ").trim().startsWith("Pull requests"));
+    const pullRequests = [...(repositoryNavigation()?.querySelectorAll("a") ?? [])].find(link => textOf(link).startsWith("Pull requests"));
     const item = pullRequests?.closest("li") ?? pullRequests;
     if (!item) return;
-    if (!pullRequestShortcuts) {
-      pullRequestShortcuts = create(
-        "li",
-        {class: "gibbous-pull-request-shortcuts"},
-        ...[["open", "git-pull-request"], ["closed", "git-pull-request-closed"]].map(([state, iconName]) => create(
-          "a",
-          {
-            class: "Button Button--invisible Button--small Button--iconOnly gibbous-pull-request-shortcut",
-            "data-state": state,
-            "aria-label": `My ${state} pull requests`,
-            title: `My ${state} pull requests`,
-          },
-          createOcticon(iconName),
-        )),
-      );
-    }
+    pullRequestShortcuts ??= create(
+      "li",
+      {class: "gibbous-pull-request-shortcuts"},
+      ...[["open", "git-pull-request"], ["closed", "git-pull-request-closed"]].map(([state, icon]) => create(
+        "a",
+        {
+          class: "Button Button--invisible Button--small Button--iconOnly gibbous-pull-request-shortcut",
+          "data-state": state,
+          "aria-label": `My ${state} pull requests`,
+          title: `My ${state} pull requests`,
+        },
+        createOcticon(icon),
+      )),
+    );
     if (pullRequestShortcuts.previousElementSibling !== item) item.after(pullRequestShortcuts);
     const active = context && readPullRequestState(context, viewer);
-    pullRequestShortcuts.hidden = !enabled || !context || !viewer;
+    sync(pullRequestShortcuts, {hidden: (!enabled || !context || !viewer) && ""});
     for (const link of pullRequestShortcuts.children) {
       const state = link.dataset.state;
-      link.href = context
-        ? `/${context.nwo}/pulls?q=${encodeURIComponent(`is:pr is:${state} author:@me`)}`
-        : "#";
+      sync(link, {href: context ? `/${context.nwo}/pulls?q=${encodeURIComponent(`is:pr is:${state} author:@me`)}` : "#"});
       link.classList.toggle("gibbous-pull-request-shortcut-active", state === active);
     }
   };
@@ -1560,28 +1278,20 @@
   // counter never lands on another element or shows an older push.
   const diffstatPattern = /\+(\d[\d,]*)[−–-](\d[\d,]*)/;
   const whitespaceRequests = new Set();
+  const swappedNumbers = new Set();
   let whitespaceDiffstat;
   let diffstatSwap;
   let diffstatHost;
   let diffstatSearchedAt = 0;
   let diffstatRetry;
 
-  const pullRequestContext = () => {
-    const match = location.pathname.match(/^\/([^/]+\/[^/]+)\/pull\/(\d+)(?:\/|$)/);
-    return match && {key: `${match[1]}#${match[2]}`, nwo: match[1], number: match[2]};
-  };
-
   const formatCount = count => count.toLocaleString("en-US");
 
   // An element's text without what Gibbous adds to it (the counter, and on ?w=1 the swapped
   // numbers), whitespace removed.
-  const diffstatText = element => {
-    let text = element.textContent;
-    for (const own of [whitespaceDiffstat, diffstatSwap]) {
-      if (own && element.contains(own)) text = text.replace(own.textContent, "");
-    }
-    return text.replace(/\s+/g, "");
-  };
+  const diffstatText = element => [whitespaceDiffstat, diffstatSwap]
+    .reduce((text, own) => own && element.contains(own) ? text.replace(own.textContent, "") : text, element.textContent)
+    .replace(/\s+/g, "");
 
   function* diffstatCandidates() {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
@@ -1597,24 +1307,18 @@
         if (!match) continue;
         // GitHub's own number elements, whose look the counter copies. React splits "−" and "258"
         // into separate text nodes, so the minus is the first text after the whole "+1,655".
-        const plus = node.parentElement;
         const minusWalker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
         minusWalker.currentNode = node;
         let minus;
-        for (let read = node.data.replace(/\s+/g, ""), next = minusWalker.nextNode(); next; next = minusWalker.nextNode()) {
-          const data = next.data.replace(/\s+/g, "");
-          if (read.length > match[1].length && data) {
-            minus = next.parentElement;
-            break;
-          }
-          read += data;
+        for (let read = node.data.replace(/\s+/g, ""), next = minusWalker.nextNode(); next && !minus; next = minusWalker.nextNode()) {
+          if (read.length > match[1].length && next.data.trim()) minus = next.parentElement;
+          read += next.data.replace(/\s+/g, "");
         }
-        minus ??= plus;
         // Climb over wrappers that add no text, such as the one around GitHub's five squares.
         while (element.parentElement && element.parentElement !== document.body && diffstatText(element.parentElement) === text) {
           element = element.parentElement;
         }
-        yield {element, plus, minus, text, additions: Number(match[1].replaceAll(",", "")), deletions: Number(match[2].replaceAll(",", ""))};
+        yield {element, plus: node.parentElement, minus: minus ?? node.parentElement, text, additions: Number(match[1].replaceAll(",", "")), deletions: Number(match[2].replaceAll(",", ""))};
         break;
       }
     }
@@ -1624,46 +1328,33 @@
     const request = `${context.key} ${shown.additions} ${shown.deletions}`;
     if (whitespaceRequests.has(request)) return;
     whitespaceRequests.add(request);
-    void extensionCall(() => chrome.runtime.sendMessage({type: "countPullRequestDiff", nwo: context.nwo, number: context.number}), null)
-      .then(counts => {
-        if (!counts) return;
-        if (counts.error) throw new Error(counts.error);
-        cacheSet("whitespaceDiffstat", context.key, counts);
-        scheduleRefresh();
-      })
-      .catch(reportError);
-  };
-
-  const setText = (node, text) => {
-    if (node.textContent !== text) node.textContent = text;
-  };
-
-  // ?w=1 is GitHub's view with whitespace hidden.
-  const hidingWhitespace = () => ["1", "true"].includes(new URLSearchParams(location.search).get("w"));
-
-  // The diff being viewed (files, or changes in the new view) with whitespace shown or hidden;
-  // from the pull request's other tabs, its files.
-  const whitespaceViewHref = (context, hide) => {
-    const onDiff = /^\/[^/]+\/[^/]+\/pull\/\d+\/(?:files|changes)(?:\/|$)/.test(location.pathname);
-    const url = new URL(onDiff ? location.pathname + location.search : `/${context.nwo}/pull/${context.number}/files`, location.origin);
-    url.searchParams.set("w", hide ? "1" : "0");
-    return url.pathname + url.search;
+    const message = {type: "countPullRequestDiff", nwo: context.nwo, number: context.number};
+    void extensionCall(() => chrome.runtime.sendMessage(message), null).then(counts => {
+      if (!counts) return;
+      if (counts.error) throw new Error(counts.error);
+      cacheSet("whitespaceDiffstat", context.key, counts);
+      scheduleRefresh();
+    }).catch(reportError);
   };
 
   // GitHub's own numbers come back; only attributes and siblings were added, never its text.
-  const swappedNumbers = new Set();
   const restoreDiffstatNumbers = () => {
     diffstatSwap?.remove();
     for (const number of swappedNumbers) number.removeAttribute("data-gibbous-diffstat-swapped");
     swappedNumbers.clear();
   };
 
+  // Same type as GitHub's numbers, whatever its markup: copied from the rendered elements.
+  const copyStyle = (target, source, properties = ["font-family", "font-size", "line-height", "font-weight", "color"]) => {
+    const computed = getComputedStyle(source);
+    for (const property of properties) setStyle(target, property, computed.getPropertyValue(property));
+  };
+
   const refreshWhitespaceDiffstat = () => {
     const context = pullRequestContext();
     if (!context || !enabled || !document.body) {
       whitespaceDiffstat?.remove();
-      restoreDiffstatNumbers();
-      return;
+      return restoreDiffstatNumbers();
     }
     const counts = cacheEntry("whitespaceDiffstat", context.key)?.value;
     const showsFull = shown => counts?.additions === shown.additions && counts.deletions === shown.deletions;
@@ -1692,7 +1383,7 @@
       for (const candidate of diffstatCandidates()) {
         first ??= candidate;
         if (showsFull(candidate)) {
-          diffstatHost = {...candidate, key: context.key};
+          diffstatHost = candidate;
           break;
         }
         if (showsIgnored(candidate)) ignored ??= candidate;
@@ -1724,23 +1415,14 @@
       create("span", {class: "gibbous-whitespace-diffstat-deletions"}),
     );
     const [label, additions, deletions] = whitespaceDiffstat.children;
-    // Same type as GitHub's numbers, whatever its markup: copied from the rendered elements.
-    const copyStyle = (target, source, properties) => {
-      const computed = getComputedStyle(source);
-      for (const property of properties) {
-        const value = computed.getPropertyValue(property);
-        if (target.style.getPropertyValue(property) !== value) target.style.setProperty(property, value);
-      }
-    };
     const type = ["font-family", "font-size", "line-height"];
-    const numberStyle = [...type, "font-weight", "color"];
     copyStyle(whitespaceDiffstat, host.plus, type);
     copyStyle(label, host.plus, type);
-    copyStyle(additions, host.plus, numberStyle);
-    copyStyle(deletions, host.minus, numberStyle);
+    copyStyle(additions, host.plus);
+    copyStyle(deletions, host.minus);
     // GitHub showing its whitespace-ignored count means whitespace is hidden, even when only a
     // saved setting, not ?w=1, says so.
-    const hiding = !full || hidingWhitespace();
+    const hiding = !full || ["1", "true"].includes(new URLSearchParams(location.search).get("w"));
     // GitHub keeps its full count on ?w=1. Then the two swap: its numbers show the count of the
     // diff being viewed, and the counter the full one, labeled. Its number elements are hidden and
     // a copy takes their place, so its own text is never rewritten under React.
@@ -1750,160 +1432,147 @@
     if (swap) {
       diffstatSwap ??= create("span", {class: "gibbous-diffstat-swap"}, create("span"), " ", create("span"));
       const [swapAdditions, swapDeletions] = diffstatSwap.querySelectorAll("span");
-      copyStyle(swapAdditions, host.plus, numberStyle);
-      copyStyle(swapDeletions, host.minus, numberStyle);
-      setText(swapAdditions, `+${formatCount(counts.whitespaceAdditions)}`);
-      setText(swapDeletions, `−${formatCount(counts.whitespaceDeletions)}`);
-      const swapTitle = "Lines changed with whitespace changes ignored, as in this diff";
-      if (diffstatSwap.title !== swapTitle) diffstatSwap.title = swapTitle;
+      copyStyle(swapAdditions, host.plus);
+      copyStyle(swapDeletions, host.minus);
+      sync(swapAdditions, {text: `+${formatCount(counts.whitespaceAdditions)}`});
+      sync(swapDeletions, {text: `−${formatCount(counts.whitespaceDeletions)}`});
+      sync(diffstatSwap, {title: "Lines changed with whitespace changes ignored, as in this diff"});
       for (const number of swappedNumbers) {
         if (number !== host.plus && number !== host.minus) number.removeAttribute("data-gibbous-diffstat-swapped");
       }
       swappedNumbers.clear();
       for (const number of [host.plus, host.minus]) {
         swappedNumbers.add(number);
-        if (!number.hasAttribute("data-gibbous-diffstat-swapped")) number.setAttribute("data-gibbous-diffstat-swapped", "");
+        sync(number, {"data-gibbous-diffstat-swapped": ""});
       }
       if (diffstatSwap.nextSibling !== host.plus) host.plus.before(diffstatSwap);
     } else restoreDiffstatNumbers();
-    // The counter shows whichever count GitHub's slot does not.
+    // The counter shows whichever count GitHub's slot does not, and links to the other view of the
+    // diff being viewed (files, or changes in the new view); from the other tabs, to the files.
     const ignoring = full && !swap;
-    setText(label, ignoring ? "ignoring whitespace" : "with whitespace");
-    setText(additions, `+${formatCount(ignoring ? counts.whitespaceAdditions : counts.additions)}`);
-    setText(deletions, `−${formatCount(ignoring ? counts.whitespaceDeletions : counts.deletions)}`);
-    // The link switches the diff to the other view.
-    const href = whitespaceViewHref(context, !hiding);
-    const title = `${ignoring ? "Lines changed with whitespace changes ignored" : "Lines changed counting whitespace changes"}. `
-      + `Click to ${hiding ? "show" : "hide"} whitespace in the diff.`;
-    if (whitespaceDiffstat.getAttribute("href") !== href) whitespaceDiffstat.setAttribute("href", href);
-    if (whitespaceDiffstat.title !== title) whitespaceDiffstat.title = title;
+    const onDiff = ["files", "changes"].includes(context.tab);
+    const url = new URL(onDiff ? location.pathname + location.search : `/${context.nwo}/pull/${context.number}/files`, location.origin);
+    url.searchParams.set("w", hiding ? "0" : "1");
+    sync(label, {text: ignoring ? "ignoring whitespace" : "with whitespace"});
+    sync(additions, {text: `+${formatCount(ignoring ? counts.whitespaceAdditions : counts.additions)}`});
+    sync(deletions, {text: `−${formatCount(ignoring ? counts.whitespaceDeletions : counts.deletions)}`});
+    sync(whitespaceDiffstat, {
+      href: url.pathname + url.search,
+      title: `${ignoring ? "Lines changed with whitespace changes ignored" : "Lines changed counting whitespace changes"}. `
+        + `Click to ${hiding ? "show" : "hide"} whitespace in the diff.`,
+    });
     if (host.element.lastChild !== whitespaceDiffstat) host.element.append(whitespaceDiffstat);
   };
 
+  // Top repositories, in the dashboard (new and classic) and in the global navigation drawer:
+  // the viewer's forks of listed repositories first, a fork shortcut beside each, a hide button on
+  // every row, and the list expanded while there is room.
+  const expandingRepositoryLists = new WeakSet();
+  const repositoryExpansionAttempts = new WeakMap();
+  const topRepositoryOrders = new WeakMap();
+  const hiddenRepositoryControls = new WeakMap();
+  const knownRepositoryForks = new Map();
+  const queuedRepositoryForks = new Set();
+  const repositoryForkQueue = [];
+  let resolvingRepositoryForks = false;
+  const showMorePattern = /^Show (?:even )?more$/i;
+
+  // The /owner/name of a repository link, split.
   const repositoryMatch = repository => repository.pathname.match(/^\/([^/]+)\/([^/]+)\/?$/);
 
   const repositoryEntries = (list, selector) => [...list.querySelectorAll(":scope > li")].flatMap(row => {
-    const repositories = selector
-      ? row.querySelectorAll(selector)
-      : row.querySelectorAll("a[href]");
-    const repository = [...repositories].find(link =>
-      link.closest("li") === row
-      && (
-        selector
-        || (
-          !link.classList.contains("gibbous-repository-fork")
-          && repositoryMatch(link)
-          && link.textContent.trim()
-        )
-      ),
-    );
+    const repository = [...row.querySelectorAll(selector ?? "a[href]")].find(link => link.closest("li") === row && (selector
+      || (!link.classList.contains("gibbous-repository-fork") && repositoryMatch(link) && link.textContent.trim())));
     return repository ? [{repository, row}] : [];
   });
-
-  const repositoryShowMoreButton = root => root.querySelector(
-    '[data-testid="dynamic-side-panel-items-show-more"]',
-  ) ?? [...root.querySelectorAll("button")].find(candidate =>
-    /^Show (?:even )?more$/i.test(candidate.textContent.trim()),
-  );
-
-  const repositorySearchButton = root => root.querySelector(
-    '[data-testid="dynamic-side-panel-items-search-button"], button:has(svg.octicon-search), a[href="/new"]',
-  );
 
   const repositorySurface = (kind, root, list, selector) => ({
     kind,
     root,
     list,
     entries: () => repositoryEntries(list, selector),
-    button: () => repositoryShowMoreButton(root),
-    searchButton: () => repositorySearchButton(root),
+    button: () => root.querySelector('[data-testid="dynamic-side-panel-items-show-more"]')
+      ?? [...root.querySelectorAll("button")].find(candidate => showMorePattern.test(candidate.textContent.trim())),
+    searchButton: () => root.querySelector('[data-testid="dynamic-side-panel-items-search-button"], button:has(svg.octicon-search), a[href="/new"]'),
   });
-
-  const dashboardRepositorySurface = () => {
-    if (!["/", "/dashboard"].includes(location.pathname)) return;
-    const root = document.querySelector('[data-testid="dashboard-repositories"]')
-      ?? document.querySelector(".feed-left-sidebar .js-repos-container");
-    const list = root && [...root.querySelectorAll("ul")]
-      .find(candidate => repositoryEntries(candidate).length);
-    return list && repositorySurface("dashboard", root, list);
-  };
 
   const topRepositorySurfaces = () => {
     const selector = '[data-testid="dynamic-side-panel-items-item"]';
-    const lists = new Set([...document.querySelectorAll(selector)].map(repository => repository.closest("ul")));
-    const surfaces = [...lists].filter(Boolean).flatMap(list => {
+    const lists = new Set([...document.querySelectorAll(selector)].map(repository => repository.closest("ul")).filter(Boolean));
+    const surfaces = [...lists].flatMap(list => {
       const dialog = list.closest('[role="dialog"]');
-      const dashboard = list.closest('[data-testid="dashboard-repositories"], .feed-left-sidebar');
-      const root = dialog ?? dashboard;
+      const root = dialog ?? list.closest('[data-testid="dashboard-repositories"], .feed-left-sidebar');
       return root ? [repositorySurface(dialog ? "drawer" : "dashboard", root, list, selector)] : [];
     });
-    const dashboard = dashboardRepositorySurface();
-    if (dashboard && !lists.has(dashboard.list)) surfaces.push(dashboard);
+    if (["/", "/dashboard"].includes(location.pathname)) {
+      const root = document.querySelector('[data-testid="dashboard-repositories"]') ?? document.querySelector(".feed-left-sidebar .js-repos-container");
+      const list = root && [...root.querySelectorAll("ul")].find(candidate => repositoryEntries(candidate).length);
+      if (list && !lists.has(list)) surfaces.push(repositorySurface("dashboard", root, list));
+    }
     return surfaces;
   };
 
-  const mountHiddenRepositoriesControl = surface => {
-    const searchButton = surface.searchButton();
-    if (!searchButton) return;
-    let control = hiddenRepositoryControls.get(surface.root);
-    if (!control?.element.isConnected) {
-      control = createHiddenItemsControl({
-        title: "Hidden repositories",
-        items: () => hiddenRepositories,
-        onShow: name => updateHiddenRepositories(names => names.filter(repository => repository !== name)),
-        className: "gibbous-hidden-repositories-control",
-      });
-      hiddenRepositoryControls.set(surface.root, control);
+  // Clicks "Show more" up to four times while the list's end is on screen with room to spare.
+  const expandRepositoryList = async surface => {
+    if (!enabled || !surface.button() || expandingRepositoryLists.has(surface.root)) return;
+    expandingRepositoryLists.add(surface.root);
+    try {
+      for (let expansion = 0; expansion < 4; expansion += 1) {
+        const button = surface.button();
+        if (!enabled || !surface.root.isConnected || !button || button.disabled) return;
+        const attempts = repositoryExpansionAttempts.get(surface.root) ?? 0;
+        if (attempts >= 4) return;
+        const availableBottom = surface.kind === "dashboard" ? innerHeight : Math.min(surface.root.getBoundingClientRect().bottom, innerHeight);
+        if (availableBottom - button.getBoundingClientRect().bottom <= 32) return;
+        const count = surface.entries().length;
+        repositoryExpansionAttempts.set(surface.root, attempts + 1);
+        button.click();
+        const grew = await waitForMutation(surface.root, {attributes: true, attributeFilter: ["disabled"]}, () => {
+          mountTopRepositories();
+          return surface.entries().length > count && !surface.button()?.disabled;
+        }, 5000);
+        if (!grew) return;
+        mountTopRepositories();
+      }
+    } finally {
+      expandingRepositoryLists.delete(surface.root);
+      mountTopRepositories();
     }
-    control.render();
-    control.toggle.hidden = !enabled;
-    if (control.element.nextElementSibling !== searchButton) searchButton.before(control.element);
   };
 
+  const expandTopRepositories = () => {
+    for (const surface of topRepositorySurfaces()) void expandRepositoryList(surface);
+  };
+
+  // Forks first, then the viewer's own repositories, then the rest, each in GitHub's order, by CSS
+  // order so GitHub's own DOM stays as it rendered it.
   const sortTopRepositories = (entries, viewer, forkedRepositories) => {
     const list = entries[0]?.row.parentElement;
     if (!list || entries.some(({row}) => row.parentElement !== list)) return;
-
     if (!enabled) {
       list.classList.remove("gibbous-top-repositories-list");
       for (const {row} of entries) row.style.removeProperty("--gibbous-repository-order");
       return;
     }
-
-    let originalOrder = topRepositoryOrders.get(list);
-    if (!originalOrder) {
-      originalOrder = new Map();
-      topRepositoryOrders.set(list, originalOrder);
-    }
+    const originalOrder = topRepositoryOrders.get(list) ?? new Map();
+    topRepositoryOrders.set(list, originalOrder);
     for (const {repository} of entries) {
-      if (!originalOrder.has(repository.pathname)) {
-        originalOrder.set(repository.pathname, originalOrder.size);
-      }
+      if (!originalOrder.has(repository.pathname)) originalOrder.set(repository.pathname, originalOrder.size);
     }
-
-    const category = ({repository, row}) => {
-      if (forkedRepositories.has(row)) return 0;
-      const owner = repository.pathname.match(/^\/([^/]+)\//)?.[1].toLowerCase();
-      return owner === viewer ? 1 : 2;
-    };
-    const sorted = [...entries].sort((left, right) =>
-      category(left) - category(right)
-      || originalOrder.get(left.repository.pathname) - originalOrder.get(right.repository.pathname),
-    );
+    const category = ({repository, row}) => forkedRepositories.has(row) ? 0
+      : repository.pathname.match(/^\/([^/]+)\//)?.[1].toLowerCase() === viewer ? 1 : 2;
+    const sorted = [...entries].sort((left, right) => category(left) - category(right)
+      || originalOrder.get(left.repository.pathname) - originalOrder.get(right.repository.pathname));
     const firstSort = !list.classList.contains("gibbous-top-repositories-list");
     const scroller = list.closest('[data-component="ScrollableRegion"], .js-left-column-scroll-container, [role="dialog"]');
     const scrollTop = scroller?.scrollTop;
-    const rows = new Set(sorted.map(({row}) => row));
-    scroller?.classList.add("gibbous-top-repositories-scroll");
-    list.classList.add("gibbous-top-repositories-list");
-    sorted.forEach(({row}, index) => {
-      row.style.setProperty("--gibbous-repository-order", index + 1);
-    });
+    scroller?.classList.toggle("gibbous-top-repositories-scroll", true);
+    list.classList.toggle("gibbous-top-repositories-list", true);
+    const rows = new Map(sorted.map(({row}, index) => [row, index + 1]));
     for (const child of list.children) {
-      if (rows.has(child)) continue;
       const button = child.querySelector("button");
-      const showMore = button && /^Show (?:even )?more$/i.test(button.textContent.trim());
-      child.style.setProperty("--gibbous-repository-order", showMore ? sorted.length + 1 : 0);
+      const showMore = button && showMorePattern.test(button.textContent.trim());
+      setStyle(child, "--gibbous-repository-order", String(rows.get(child) ?? (showMore ? sorted.length + 1 : 0)));
     }
     if (firstSort && scroller) {
       scroller.scrollTop = scrollTop;
@@ -1916,49 +1585,38 @@
   // The viewer's repository of the same name, if it is a fork in the same network as rootNwo.
   const fetchFork = async (candidateNwo, rootNwo, signal) => {
     const response = await fetch(`/${candidateNwo}`, {credentials: "include", signal});
-    const candidate = response.ok && readRepositoryContext(
-      new DOMParser().parseFromString(await response.text(), "text/html"),
-    );
+    const candidate = response.ok && readRepositoryContext(new DOMParser().parseFromString(await response.text(), "text/html"));
     return candidate?.isFork && candidate.rootNwo.toLowerCase() === rootNwo.toLowerCase() ? candidate.nwo : null;
   };
 
-  const resolveRepositoryForkQueue = async () => {
-    if (resolvingRepositoryForks) return;
+  // Dashboard repositories the viewer may have forked, looked up three at a time.
+  const queueRepositoryForkLookups = (entries, viewer) => {
+    if (!enabled || !viewer) return;
+    for (const {repository} of entries) {
+      const match = repositoryMatch(repository);
+      if (!match || match[1].toLowerCase() === viewer) continue;
+      const key = `${match[1]}/${match[2]}`.toLowerCase();
+      const entry = cacheEntry("forks", key);
+      if (queuedRepositoryForks.has(key) || (knownRepositoryForks.has(key) && (!entry || cacheFresh(entry, entry.value ? 24 * 60 * MINUTE : 10 * MINUTE)))) continue;
+      queuedRepositoryForks.add(key);
+      repositoryForkQueue.push({key, rootNwo: `${match[1]}/${match[2]}`, candidateNwo: `${viewer}/${match[2]}`});
+    }
+    if (!repositoryForkQueue.length || resolvingRepositoryForks) return;
     resolvingRepositoryForks = true;
-    try {
+    void (async () => {
       while (repositoryForkQueue.length) {
-        const batch = repositoryForkQueue.splice(0, 3);
-        await Promise.all(batch.map(async ({key, candidateNwo, rootNwo}) => {
+        await Promise.all(repositoryForkQueue.splice(0, 3).map(async ({key, candidateNwo, rootNwo}) => {
           try {
             const nwo = await fetchFork(candidateNwo, rootNwo, AbortSignal.timeout(5000));
-            const fork = nwo && `/${nwo}`;
-            knownRepositoryForks.set(key, fork);
-            cacheSet("forks", key, fork);
+            knownRepositoryForks.set(key, nwo && `/${nwo}`);
+            cacheSet("forks", key, nwo && `/${nwo}`);
           } catch {
             if (!knownRepositoryForks.has(key)) knownRepositoryForks.set(key, null);
           }
         }));
         mountTopRepositories();
       }
-    } finally {
-      resolvingRepositoryForks = false;
-    }
-  };
-
-  const queueRepositoryForkLookups = (entries, viewer) => {
-    if (!enabled || !viewer) return;
-    for (const {repository} of entries) {
-      const match = repositoryMatch(repository);
-      if (!match || match[1].toLowerCase() === viewer) continue;
-      const rootNwo = `${match[1]}/${match[2]}`;
-      const key = rootNwo.toLowerCase();
-      if (queuedRepositoryForks.has(key)) continue;
-      const entry = cacheEntry("forks", key);
-      if (knownRepositoryForks.has(key) && (!entry || cacheFresh(entry, entry.value ? 24 * 60 * MINUTE : 10 * MINUTE))) continue;
-      queuedRepositoryForks.add(key);
-      repositoryForkQueue.push({key, rootNwo, candidateNwo: `${viewer}/${match[2]}`});
-    }
-    if (repositoryForkQueue.length) void resolveRepositoryForkQueue().catch(reportError);
+    })().catch(reportError).finally(() => resolvingRepositoryForks = false);
   };
 
   const mountTopRepositories = () => {
@@ -1966,148 +1624,124 @@
     const context = readRepositoryContext();
     const surfaces = topRepositorySurfaces();
     const allEntries = surfaces.flatMap(surface => surface.entries());
-    const repositoryRows = new Set(allEntries.map(({row}) => row));
-    const allOwned = new Map(allEntries.flatMap(({repository}) => {
+    const ownedName = ({repository}) => {
       const match = repositoryMatch(repository);
-      return match?.[1].toLowerCase() === viewer ? [[match[2].toLowerCase(), repository]] : [];
-    }));
+      return match?.[1].toLowerCase() === viewer ? match[2].toLowerCase() : undefined;
+    };
+    // A fork listed anywhere names the repository it forks in every list.
+    const allOwned = new Map(allEntries.filter(ownedName).map(entry => [ownedName(entry), entry.repository]));
+    for (const {repository} of allEntries) {
+      const match = repositoryMatch(repository);
+      const fork = match && match[1].toLowerCase() !== viewer && allOwned.get(match[2].toLowerCase());
+      if (fork) knownRepositoryForks.set(`${match[1]}/${match[2]}`.toLowerCase(), fork.pathname);
+    }
     const hidden = new Set(hiddenRepositories);
     const forkedRepositories = new Set();
     const representedForks = new Set();
-    for (const {repository} of allEntries) {
-      const match = repositoryMatch(repository);
-      if (!match || match[1].toLowerCase() === viewer) continue;
-      const fork = allOwned.get(match[2].toLowerCase());
-      if (fork) knownRepositoryForks.set(`${match[1]}/${match[2]}`.toLowerCase(), fork.pathname);
-    }
     for (const surface of surfaces) {
-      mountHiddenRepositoriesControl(surface);
+      const searchButton = surface.searchButton();
+      if (searchButton) {
+        let control = hiddenRepositoryControls.get(surface.root);
+        if (!control?.element.isConnected) {
+          control = createHiddenItemsControl({
+            title: "Hidden repositories",
+            items: () => hiddenRepositories,
+            onShow: name => updateHiddenRepository(name, false),
+            className: "gibbous-hidden-repositories-control",
+          });
+          hiddenRepositoryControls.set(surface.root, control);
+        }
+        placeHiddenItemsControl(control, searchButton);
+      }
       const entries = surface.entries();
-      const owned = new Map(entries.flatMap(entry => {
-        const {repository} = entry;
-        const match = repositoryMatch(repository);
-        return match?.[1].toLowerCase() === viewer ? [[match[2].toLowerCase(), entry]] : [];
-      }));
+      const owned = new Map(entries.filter(ownedName).map(entry => [ownedName(entry), entry]));
       const surfaceForks = new Set();
       for (const {repository, row} of entries) {
-        repository.classList.add("gibbous-top-repository-link");
+        repository.classList.toggle("gibbous-top-repository-link", true);
         const match = repositoryMatch(repository);
         if (!match) continue;
         const nwo = `${match[1]}/${match[2]}`;
-        row.classList.toggle("gibbous-repository-excluded", hidden.has(nwo.toLowerCase()));
-        let hide = row.querySelector(":scope > .gibbous-hide-repository");
-        hide ??= createHideButton(
-          nwo,
-          "gibbous-hide-repository",
-          () => updateHiddenRepositories(names => names.includes(nwo.toLowerCase())
-            ? names
-            : [...names, nwo.toLowerCase()]),
-        );
+        const key = nwo.toLowerCase();
+        row.classList.toggle("gibbous-repository-excluded", hidden.has(key));
+        const hide = row.querySelector(":scope > .gibbous-hide-repository")
+          ?? createHideButton(nwo, "gibbous-hide-repository", () => updateHiddenRepository(key, true));
         const existingFork = row.querySelector(":scope > .gibbous-repository-fork");
-        if (hide.parentElement !== row || hide.nextElementSibling !== existingFork) {
-          row.insertBefore(hide, existingFork);
-        }
+        if (hide.parentElement !== row || hide.nextElementSibling !== existingFork) row.insertBefore(hide, existingFork);
         if (!enabled || match[1].toLowerCase() === viewer) continue;
-        const key = `${match[1]}/${match[2]}`.toLowerCase();
         const fork = owned.get(match[2].toLowerCase());
-        const pageFork = context
-          && userFork
-          && context.nwo.toLowerCase() === key
-          ? `/${userFork}`
-          : undefined;
-        if (pageFork) knownRepositoryForks.set(key, pageFork);
-        const href = fork?.repository.pathname
-          ?? knownRepositoryForks.get(key)
-          ?? pageFork;
+        if (context?.nwo.toLowerCase() === key && userFork) knownRepositoryForks.set(key, `/${userFork}`);
+        const href = fork?.repository.pathname ?? knownRepositoryForks.get(key);
         if (!href) continue;
         surfaceForks.add(row);
         forkedRepositories.add(row);
         if (fork) representedForks.add(fork.row);
-        let action = row.querySelector(":scope > .gibbous-repository-fork");
-        action ??= create(
+        const action = existingFork ?? create(
           "a",
           {class: "Button Button--invisible Button--small Button--iconOnly gibbous-repository-fork"},
           createOcticon("repo-forked"),
         );
-        action.href = href;
-        action.title = `Open your fork: ${href.slice(1)}`;
-        action.setAttribute("aria-label", action.title);
+        sync(action, {href, title: `Open your fork: ${href.slice(1)}`, "aria-label": `Open your fork: ${href.slice(1)}`});
         if (action !== row.lastElementChild) row.append(action);
       }
       sortTopRepositories(entries, viewer, surfaceForks);
       if (surface.kind === "dashboard") queueRepositoryForkLookups(entries, viewer);
     }
-    for (const action of document.querySelectorAll(".gibbous-repository-fork")) {
-      if (!forkedRepositories.has(action.parentElement)) action.remove();
-    }
-    for (const hide of document.querySelectorAll(".gibbous-hide-repository")) {
-      if (!repositoryRows.has(hide.parentElement)) hide.remove();
-    }
-    const controls = new Set(surfaces.flatMap(surface => {
-      const element = hiddenRepositoryControls.get(surface.root)?.element;
-      return element ? [element] : [];
-    }));
-    for (const element of document.querySelectorAll(".gibbous-hidden-repositories-control")) {
-      if (!controls.has(element)) element.remove();
-    }
-    for (const row of document.querySelectorAll(".gibbous-represented-fork")) {
-      if (!representedForks.has(row)) row.classList.remove("gibbous-represented-fork");
-    }
-    for (const row of representedForks) row.classList.add("gibbous-represented-fork");
+    const rows = new Set(allEntries.map(({row}) => row));
+    const controls = new Set(surfaces.map(surface => hiddenRepositoryControls.get(surface.root)?.element));
+    document.querySelectorAll(".gibbous-repository-fork").forEach(action => forkedRepositories.has(action.parentElement) || action.remove());
+    document.querySelectorAll(".gibbous-hide-repository").forEach(hide => rows.has(hide.parentElement) || hide.remove());
+    document.querySelectorAll(".gibbous-hidden-repositories-control").forEach(element => controls.has(element) || element.remove());
+    document.querySelectorAll(".gibbous-represented-fork").forEach(row => representedForks.has(row) || row.classList.remove("gibbous-represented-fork"));
+    for (const row of representedForks) row.classList.toggle("gibbous-represented-fork", true);
   };
 
-  const expandTopRepositories = () => {
-    for (const surface of topRepositorySurfaces()) void expandRepositoryList(surface);
-  };
-
+  // Your fork of the repository being viewed, linked under its title.
+  let forkLookup;
+  let userFork;
+  let forkedIn;
   const updateFork = () => {
     mountTopRepositories();
     updateRepositoryInsider();
     if (!forkedIn) return;
-    forkedIn.hidden = !enabled || !userFork;
-    forkLink.textContent = userFork ?? "";
-    forkLink.href = userFork ? `/${userFork}` : "#";
-    forkLink.dataset.hovercardUrl = userFork ? `/${userFork}/hovercard` : "";
+    sync(forkedIn, {hidden: (!enabled || !userFork) && ""});
+    sync(forkedIn.lastChild, {
+      text: userFork ?? "",
+      href: userFork ? `/${userFork}` : "#",
+      "data-hovercard-url": userFork ? `/${userFork}/hovercard` : "",
+    });
   };
 
   const mountForkedIn = () => {
     const legacyTitle = document.querySelector('#repository-container-header strong[itemprop="name"]');
     const title = document.querySelector("#repo-title-component") ?? legacyTitle?.parentElement?.parentElement;
     if (!title) return;
-    if (!forkedIn) {
-      forkLink = create("a", {class: "Link--inTextBlock", "data-hovercard-type": "repository"});
-      forkedIn = create(
-        "span",
-        {class: "gibbous-forked-in text-small lh-condensed-ultra no-wrap mt-1", "data-repository-hovercards-enabled": ""},
-        "forked in ",
-        forkLink,
-      );
-    }
+    forkedIn ??= create(
+      "span",
+      {class: "gibbous-forked-in text-small lh-condensed-ultra no-wrap mt-1", "data-repository-hovercards-enabled": ""},
+      "forked in ",
+      create("a", {class: "Link--inTextBlock", "data-hovercard-type": "repository"}),
+    );
     if (forkedIn.parentElement !== title) title.append(forkedIn);
     updateFork();
   };
 
-  const mountHiddenFilesControl = table => {
-    const root = table.closest("#repo-content-pjax-container, #repo-content-turbo-frame") ?? document;
-    const codeButton = root.querySelector(
-      'button[data-component="Button"]:has(svg.octicon-code), summary:has(svg.octicon-code)',
-    );
-    if (!codeButton) return;
-    if (!hiddenFilesControl?.element.isConnected) {
-      hiddenFilesControl = createHiddenItemsControl({
-        title: "Hidden files",
-        detail: () => repositoryKey ?? "",
-        items: () => hiddenNames,
-        onShow: name => updateHiddenNames(names => names.filter(hiddenName => hiddenName !== name)),
-        className: "gibbous-hidden-files-control",
-        size: "medium",
-        variant: "secondary",
-      });
-    }
-    hiddenFilesControl.render();
-    hiddenFilesControl.toggle.hidden = !enabled;
-    if (hiddenFilesControl.element.nextElementSibling !== codeButton) {
-      codeButton.before(hiddenFilesControl.element);
+  const resolveUserFork = (context, viewer) => {
+    const lookup = `${viewer}|${context.nwo}|${context.rootNwo}`;
+    if (lookup === forkLookup) return;
+    forkLookup = lookup;
+    userFork = undefined;
+    updateFork();
+    const candidateNwo = `${viewer}/${context.rootNwo.split("/").at(-1)}`;
+    if (!viewer || context.isFork || candidateNwo.toLowerCase() === context.nwo.toLowerCase()) return;
+    const maxAge = cacheEntry("userForks", lookup)?.value ? 24 * 60 * MINUTE : 10 * MINUTE;
+    const known = cached("userForks", lookup, maxAge, () => fetchFork(candidateNwo, context.rootNwo), fresh => {
+      if (forkLookup !== lookup) return;
+      userFork = fresh ?? undefined;
+      updateFork();
+    });
+    if (known) {
+      userFork = known;
+      updateFork();
     }
   };
 
@@ -2115,15 +1749,13 @@
   // (it opens first) and, behind the insider gate, Contributors and Languages lifted out of the
   // sidebar. While any is mounted the secondary file tabs collapse into a menu.
   let myPullRequestsLookup;
-
   const readmeNavigation = () => document.querySelector('nav[aria-label="Repository files"]');
 
+  // GitHub's label colors as the CSS variables its IssueLabel styles read.
   const labelStyle = hex => {
     const value = Number.parseInt(hex.replace("#", ""), 16);
     if (Number.isNaN(value)) return "";
-    const r = (value >> 16) & 255;
-    const g = (value >> 8) & 255;
-    const b = value & 255;
+    const [r, g, b] = [value >> 16 & 255, value >> 8 & 255, value & 255];
     const max = Math.max(r, g, b) / 255;
     const min = Math.min(r, g, b) / 255;
     const l = (max + min) / 2;
@@ -2136,9 +1768,10 @@
       h = Math.round(h * 60);
       if (h < 0) h += 360;
     }
-    const sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
-    return `--label-r:${r};--label-g:${g};--label-b:${b};--label-h:${h};--label-s:${Math.round(sat * 100)};--label-l:${Math.round(l * 100)};`;
+    const s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+    return `--label-r:${r};--label-g:${g};--label-b:${b};--label-h:${h};--label-s:${Math.round(s * 100)};--label-l:${Math.round(l * 100)};`;
   };
+  const labels = items => (items ?? []).map(label => ({name: label.name, style: labelStyle(label.color ?? "")}));
 
   // The public search API answers for public repositories without a token; the pulls page is the
   // fallback for private repositories.
@@ -2159,40 +1792,37 @@
       updatedAt: item.updated_at ?? "",
       comments: item.comments ?? 0,
       pullRequest: Boolean(item.pull_request),
-      labels: (item.labels ?? []).map(label => ({name: label.name, style: labelStyle(label.color ?? "")})),
+      labels: labels(item.labels),
     }));
   };
 
   // The pulls page is client-rendered; its embedded payload lists the matching pull requests.
-  const scrapeMyPullRequests = async (context, viewer) => {
-    const query = encodeURIComponent(`is:pr is:open author:${viewer} sort:updated-desc`);
-    const response = await fetch(`/${context.nwo}/pulls?q=${query}`, {credentials: "include"});
-    if (!response.ok) throw new Error(`Pull request lookup failed (${response.status})`);
-    const root = new DOMParser().parseFromString(await response.text(), "text/html");
-    const script = [...root.querySelectorAll('script[type="application/json"]')]
-      .find(candidate => candidate.textContent.includes('"repoPullsDashboardContentRoute"'));
-    const results = script ? JSON.parse(script.textContent).payload?.repoPullsDashboardContentRoute?.results ?? [] : [];
-    return results.map(item => ({
-      number: item.number,
-      title: item.title,
-      url: new URL(item.permalink).pathname,
-      draft: Boolean(item.isDraft),
-      author: item.author?.displayLogin ?? "",
-      openedAt: item.createdAt ?? "",
-      comments: item.commentCount ?? 0,
-      labels: (item.labels ?? []).map(label => ({name: label.name, style: labelStyle(label.color ?? "")})),
-    }));
-  };
-
   const fetchMyPullRequests = async (context, viewer) => {
     try {
-      const items = await searchIssues(`repo:${context.nwo} is:pr is:open author:${viewer}`, 50);
-      return items.filter(item => item.pullRequest);
+      return (await searchIssues(`repo:${context.nwo} is:pr is:open author:${viewer}`, 50)).filter(item => item.pullRequest);
     } catch (error) {
       reportError(error);
-      return scrapeMyPullRequests(context, viewer);
+      const query = encodeURIComponent(`is:pr is:open author:${viewer} sort:updated-desc`);
+      const script = [...(await fetchPage(`/${context.nwo}/pulls?q=${query}`)).querySelectorAll('script[type="application/json"]')]
+        .find(candidate => candidate.textContent.includes('"repoPullsDashboardContentRoute"'));
+      const results = script ? JSON.parse(script.textContent).payload?.repoPullsDashboardContentRoute?.results ?? [] : [];
+      return results.map(item => ({
+        number: item.number,
+        title: item.title,
+        url: new URL(item.permalink).pathname,
+        draft: Boolean(item.isDraft),
+        author: item.author?.displayLogin ?? "",
+        openedAt: item.createdAt ?? "",
+        comments: item.commentCount ?? 0,
+        labels: labels(item.labels),
+      }));
     }
   };
+
+  const itemIcon = item => item.pullRequest === false ? "issue-opened" : item.draft ? "git-pull-request-draft" : "git-pull-request";
+  const commentsLink = (item, className) => item.comments
+    ? create("a", {class: className, href: item.url, "aria-label": `${item.comments} comments`}, createOcticon("comment"), create("span", {}, String(item.comments)))
+    : "";
 
   const renderMyPullRequestRow = item => create(
     "div",
@@ -2200,7 +1830,7 @@
     create(
       "span",
       {class: `flex-shrink-0 pt-1 ${item.draft ? "color-fg-muted" : "color-fg-open"}`, "aria-label": item.draft ? "Draft pull request" : "Open pull request"},
-      createOcticon(item.draft ? "git-pull-request-draft" : "git-pull-request"),
+      createOcticon(itemIcon(item)),
     ),
     create(
       "div",
@@ -2219,12 +1849,7 @@
         item.author ? ` by ${item.author}` : "",
       ),
     ),
-    item.comments ? create(
-      "a",
-      {class: "Link--muted flex-shrink-0 d-inline-flex gap-1 pt-1 text-small text-bold", href: item.url, "aria-label": `${item.comments} comments`},
-      createOcticon("comment"),
-      create("span", {}, String(item.comments)),
-    ) : "",
+    commentsLink(item, "Link--muted flex-shrink-0 d-inline-flex gap-1 pt-1 text-small text-bold"),
   );
 
   // While a Gibbous tab is showing, GitHub's current tab gives up aria-current (its underline);
@@ -2235,10 +1860,8 @@
     const links = [...readmeNavigation()?.querySelectorAll("a") ?? []];
     const github = links.filter(link => !link.classList.contains("gibbous-tab-link"));
     for (const link of links) {
-      if (link.classList.contains("gibbous-tab-link")) {
-        if (link.dataset.tab === name) link.setAttribute("aria-current", "page");
-        else link.removeAttribute("aria-current");
-      } else if (name && link.hasAttribute("aria-current")) {
+      if (link.classList.contains("gibbous-tab-link")) sync(link, {"aria-current": link.dataset.tab === name && "page"});
+      else if (name && link.hasAttribute("aria-current")) {
         link.removeAttribute("aria-current");
         link.dataset.gibbousCurrent = "";
       }
@@ -2279,7 +1902,7 @@
       count: String(pulls.length),
       href: `/${context.nwo}/pulls?q=${encodeURIComponent("is:pr is:open author:@me")}`,
     }] : [];
-    if (document.documentElement.hasAttribute("data-gibbous-repository-insider")) {
+    if (root.hasAttribute("data-gibbous-repository-insider")) {
       for (const [name, label, icon] of [["contributors", "Contributors", "people"], ["languages", "Languages", "code"]]) {
         const section = document.querySelector(`[data-gibbous-section="${name}"]`);
         if (section) tabs.push({
@@ -2299,77 +1922,65 @@
     box.dataset.gibbousTabsSignature = signature;
     box.setAttribute("data-gibbous-tabs-active", "");
 
-    const sampleLink = readmeItem.querySelector("a");
-    let previous = readmeItem;
-    for (const {name, label, icon, count, href} of tabs) {
-      const tabLink = create(
-        "a",
-        {class: `${sampleLink.className} gibbous-tab-link`, "data-tab": name, href},
-        create("span", {"data-component": "icon"}, createOcticon(icon)),
-        create("span", {"data-component": "text"}, label),
-        count ? create("span", {class: "Counter ml-1"}, count) : "",
-      );
-      tabLink.addEventListener("click", event => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
-        event.preventDefault();
-        selectRepositoryTab(box, name);
-      });
-      const tab = create("li", {class: `${readmeItem.className} gibbous-tab`}, tabLink);
-      previous.after(tab);
-      previous = tab;
-    }
+    const linkClass = readmeItem.querySelector("a").className;
+    readmeItem.after(...tabs.map(({name, label, icon, count, href}) => create("li", {class: `${readmeItem.className} gibbous-tab`}, create(
+      "a",
+      {
+        class: `${linkClass} gibbous-tab-link`,
+        "data-tab": name,
+        href,
+        onclick: event => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.button) return;
+          event.preventDefault();
+          selectRepositoryTab(box, name);
+        },
+      },
+      create("span", {"data-component": "icon"}, createOcticon(icon)),
+      create("span", {"data-component": "text"}, label),
+      count ? create("span", {class: "Counter ml-1"}, count) : "",
+    ))));
 
-    const hidden = [...list.querySelectorAll("a [data-content]")]
-      .map(label => label.dataset.content)
-      .filter(name => name !== "README");
     // One menu replaces GitHub's Outline button: the collapsed file tabs, then the outline of
     // whichever document is showing. Reuse GitHub's own icon so nothing looks foreign.
-    const outlineButton = header.querySelector('button[aria-label="Outline"]');
+    const hidden = [...list.querySelectorAll("a [data-content]")].map(label => label.dataset.content).filter(name => name !== "README");
     const outline = create("div", {class: "gibbous-readme-menu-outline", role: "group", "aria-label": "Outline"});
-    const rebuildOutline = () => {
-      outline.replaceChildren();
-      const headings = [...box.querySelectorAll("article.markdown-body :is(h1, h2, h3, h4, h5, h6)")]
-        .map(heading => ({heading, anchor: heading.parentElement?.querySelector("a.anchor[href]") ?? heading.querySelector("a.anchor[href]")}))
-        .filter(({anchor}) => anchor);
-      if (!headings.length) return;
-      outline.append(create("div", {class: "gibbous-readme-menu-divider", role: "separator"}));
-      for (const {heading, anchor} of headings) {
-        const entry = create(
-          "a",
-          {class: "gibbous-readme-menu-item", role: "menuitem", href: anchor.getAttribute("href"), style: `--outline-level: ${heading.tagName.slice(1)}`},
-          heading.textContent.trim(),
-        );
-        entry.addEventListener("click", () => {
-          menu.removeAttribute("open");
-          selectRepositoryTab(box, null);
-        });
-        outline.append(entry);
-      }
+    const closeMenu = () => {
+      menu.removeAttribute("open");
+      selectRepositoryTab(box, null);
     };
     const menu = create(
       "details",
-      {class: "details-reset details-overlay gibbous-readme-menu"},
+      {class: "details-reset details-overlay gibbous-readme-menu", ontoggle: () => menu.open && rebuildOutline()},
       create(
         "summary",
         {class: "Button Button--invisible Button--iconOnly Button--medium", "aria-label": "Files and outline", title: "Files and outline"},
-        outlineButton?.querySelector("svg")?.cloneNode(true) ?? createOcticon("list-unordered"),
+        header.querySelector('button[aria-label="Outline"]')?.querySelector("svg")?.cloneNode(true) ?? createOcticon("list-unordered"),
       ),
-      create("div", {class: "gibbous-readme-menu-list", role: "menu"}, ...hidden.map(name => {
-        const source = list.querySelector(`a [data-content="${name}"]`).closest("a");
-        const entry = create("button", {class: "gibbous-readme-menu-item", type: "button", role: "menuitem"});
-        entry.append(...[...source.children].map(child => child.cloneNode(true)));
-        entry.addEventListener("click", () => {
-          menu.removeAttribute("open");
-          selectRepositoryTab(box, null);
-          // GitHub may have re-rendered the tab since we mounted; find the live anchor by name.
-          readmeNavigation()?.querySelector(`a [data-content="${name}"]`)?.closest("a")?.click();
-        });
-        return entry;
-      }), outline),
+      create("div", {class: "gibbous-readme-menu-list", role: "menu"}, ...hidden.map(name => create(
+        "button",
+        {
+          class: "gibbous-readme-menu-item",
+          type: "button",
+          role: "menuitem",
+          onclick: () => {
+            closeMenu();
+            // GitHub may have re-rendered the tab since we mounted; find the live anchor by name.
+            readmeNavigation()?.querySelector(`a [data-content="${name}"]`)?.closest("a")?.click();
+          },
+        },
+        ...[...list.querySelector(`a [data-content="${name}"]`).closest("a").children].map(child => child.cloneNode(true)),
+      )), outline),
     );
-    menu.addEventListener("toggle", () => {
-      if (menu.open) rebuildOutline();
-    });
+    const rebuildOutline = () => {
+      const headings = [...box.querySelectorAll("article.markdown-body :is(h1, h2, h3, h4, h5, h6)")]
+        .map(heading => ({heading, anchor: heading.parentElement?.querySelector("a.anchor[href]") ?? heading.querySelector("a.anchor[href]")}))
+        .filter(({anchor}) => anchor);
+      outline.replaceChildren(...(headings.length ? [create("div", {class: "gibbous-readme-menu-divider", role: "separator"})] : []), ...headings.map(({heading, anchor}) => create(
+        "a",
+        {class: "gibbous-readme-menu-item", role: "menuitem", href: anchor.getAttribute("href"), style: `--outline-level: ${heading.tagName.slice(1)}`, onclick: closeMenu},
+        heading.textContent.trim(),
+      )));
+    };
     header.append(menu);
 
     if (!navigation.dataset.gibbousTabsListener) {
@@ -2400,39 +2011,19 @@
     }
     const lookup = `${viewer}|${context.nwo}`;
     myPullRequestsLookup = lookup;
-    const items = cached("myPulls", lookup, 5 * MINUTE, () => fetchMyPullRequests(context, viewer), fresh => {
+    mountRepositoryTabs(context, cached("myPulls", lookup, 5 * MINUTE, () => fetchMyPullRequests(context, viewer), fresh => {
       if (myPullRequestsLookup === lookup && box.isConnected) mountRepositoryTabs(context, fresh);
-    });
-    mountRepositoryTabs(context, items);
+    }));
   };
 
   // Classic dashboard with Gibbous on: replace the feed column with the same "Pull requests" and
   // "Issues" lists the new dashboard shows, so both dashboards render the one Gibbous experience.
   let classicDashboardLookup;
 
-  const classicDashboardMain = () => {
-    if (!["/", "/dashboard"].includes(location.pathname)) return;
-    if (document.querySelector('[data-testid="dashboard-repositories"]')) return;
-    const feed = document.querySelector(".feed-left-sidebar .js-repos-container");
-    const main = document.querySelector(".feed-main > main, .feed-content main");
-    return feed && main ? main : undefined;
-  };
-
-  const fetchDashboardItems = async viewer => {
-    const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
-    const [pulls, issues] = await Promise.all([`is:pr author:${viewer}`, `is:issue involves:${viewer}`]
-      .map(scope => searchIssues(`${scope} is:open updated:>=${since}`, 10)));
-    return {pulls, issues};
-  };
-
   const renderDashboardRow = item => create(
     "div",
     {class: "gibbous-dashboard-row"},
-    create(
-      "span",
-      {class: item.pullRequest ? (item.draft ? "color-fg-muted" : "color-fg-open") : "color-fg-open", "aria-hidden": "true"},
-      createOcticon(item.pullRequest ? (item.draft ? "git-pull-request-draft" : "git-pull-request") : "issue-opened"),
-    ),
+    create("span", {class: item.pullRequest && item.draft ? "color-fg-muted" : "color-fg-open", "aria-hidden": "true"}, createOcticon(itemIcon(item))),
     create(
       "div",
       {class: "gibbous-dashboard-copy"},
@@ -2444,56 +2035,39 @@
         create("relative-time", {datetime: item.updatedAt}, new Date(item.updatedAt).toLocaleDateString()),
       ),
     ),
-    item.comments ? create(
-      "a",
-      {class: "Link--muted gibbous-dashboard-comments", href: item.url, "aria-label": `${item.comments} comments`},
-      createOcticon("comment"),
-      create("span", {}, String(item.comments)),
-    ) : "",
+    commentsLink(item, "Link--muted gibbous-dashboard-comments"),
   );
 
-  const dashboardSkeletonRow = () => create(
-    "div",
-    {class: "gibbous-dashboard-row"},
-    create(
-      "div",
-      {class: "gibbous-dashboard-copy"},
-      create("div", {class: "gibbous-dashboard-skeleton"}),
-      create("div", {class: "gibbous-dashboard-skeleton", style: "width: 35%"}),
-    ),
-  );
-
+  // Until the first result arrives, a section shows a skeleton row.
   const renderDashboardSection = (title, href, items, empty) => create(
     "section",
     {class: "gibbous-dashboard-section"},
-    create(
-      "div",
-      {class: "gibbous-dashboard-heading"},
-      create("h2", {}, title),
-      create("a", {class: "Link--primary", href}, "View all"),
-    ),
+    create("div", {class: "gibbous-dashboard-heading"}, create("h2", {}, title), create("a", {class: "Link--primary", href}, "View all")),
     create(
       "div",
       {class: "Box gibbous-dashboard-list"},
-      ...(!items ? [dashboardSkeletonRow()]
-        : items.length ? items.map(renderDashboardRow)
-          : [create("div", {class: "gibbous-dashboard-empty"}, empty)]),
+      ...(!items ? [create("div", {class: "gibbous-dashboard-row"}, create(
+        "div",
+        {class: "gibbous-dashboard-copy"},
+        create("div", {class: "gibbous-dashboard-skeleton"}),
+        create("div", {class: "gibbous-dashboard-skeleton", style: "width: 35%"}),
+      ))] : items.length ? items.map(renderDashboardRow) : [create("div", {class: "gibbous-dashboard-empty"}, empty)]),
     ),
   );
 
   const mountClassicDashboard = () => {
-    const main = classicDashboardMain();
+    const onClassic = ["/", "/dashboard"].includes(location.pathname) && !document.querySelector('[data-testid="dashboard-repositories"]')
+      && document.querySelector(".feed-left-sidebar .js-repos-container");
+    const main = onClassic && document.querySelector(".feed-main > main, .feed-content main");
     const existing = document.querySelector(".gibbous-classic-dashboard");
+    root.toggleAttribute("data-gibbous-classic-dashboard", Boolean(main && enabled));
     if (!main || !enabled) {
       existing?.remove();
-      document.documentElement.removeAttribute("data-gibbous-classic-dashboard");
       classicDashboardLookup = undefined;
       return;
     }
-    document.documentElement.setAttribute("data-gibbous-classic-dashboard", "");
     const viewer = viewerLogin();
-    if (!viewer) return;
-    if (existing?.isConnected && classicDashboardLookup === viewer) return;
+    if (!viewer || (existing?.isConnected && classicDashboardLookup === viewer)) return;
     classicDashboardLookup = viewer;
     const container = existing ?? create("div", {class: "gibbous-classic-dashboard"});
     if (container.parentElement !== main) main.prepend(container);
@@ -2501,32 +2075,16 @@
       renderDashboardSection("Pull requests", `/pulls?q=${encodeURIComponent("is:open is:pr author:@me")}`, pulls, "No pull requests found, try a different filter."),
       renderDashboardSection("Issues", `/issues?q=${encodeURIComponent("is:open is:issue involves:@me")}`, issues, "No issues found, try a different filter."),
     );
-    const items = cached("dashboard", viewer, 5 * MINUTE, () => fetchDashboardItems(viewer), fresh => {
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    const fetchItems = async () => {
+      const [pulls, issues] = await Promise.all([`is:pr author:${viewer}`, `is:issue involves:${viewer}`]
+        .map(scope => searchIssues(`${scope} is:open updated:>=${since}`, 10)));
+      return {pulls, issues};
+    };
+    const items = cached("dashboard", viewer, 5 * MINUTE, fetchItems, fresh => {
       if (container.isConnected && classicDashboardLookup === viewer) render(fresh);
     });
-    // Until the first result arrives, each section shows a skeleton row.
     if (items || !container.childElementCount) render(items ?? {});
-  };
-
-  const resolveUserFork = async (context, viewer) => {
-    const lookup = `${viewer}|${context.nwo}|${context.rootNwo}`;
-    if (lookup === forkLookup) return;
-    forkLookup = lookup;
-    userFork = undefined;
-    updateFork();
-    if (!viewer || context.isFork) return;
-    const candidateNwo = `${viewer}/${context.rootNwo.split("/").at(-1)}`;
-    if (candidateNwo.toLowerCase() === context.nwo.toLowerCase()) return;
-    const entry = cacheEntry("userForks", lookup);
-    const known = cached("userForks", lookup, entry?.value ? 24 * 60 * MINUTE : 10 * MINUTE, () => fetchFork(candidateNwo, context.rootNwo), fresh => {
-      if (forkLookup !== lookup) return;
-      userFork = fresh ?? undefined;
-      updateFork();
-    });
-    if (known) {
-      userFork = known;
-      updateFork();
-    }
   };
 
   const refreshRepository = () => {
@@ -2556,30 +2114,45 @@
       hiddenFilesControl?.render();
     }
     mountForkedIn();
-    mountHiddenFilesControl(table);
+    const codeButton = (table.closest("#repo-content-pjax-container, #repo-content-turbo-frame") ?? document)
+      .querySelector('button[data-component="Button"]:has(svg.octicon-code), summary:has(svg.octicon-code)');
+    if (codeButton) {
+      if (!hiddenFilesControl?.element.isConnected) {
+        hiddenFilesControl = createHiddenItemsControl({
+          title: "Hidden files",
+          detail: () => repositoryKey ?? "",
+          items: () => hiddenNames,
+          onShow: name => updateHiddenName(name, false),
+          className: "gibbous-hidden-files-control",
+          size: "medium",
+          variant: "secondary",
+        });
+      }
+      placeHiddenItemsControl(hiddenFilesControl, codeButton);
+    }
     void loadHiddenNames().catch(reportError);
     refreshMyPullRequests(context, viewer);
     if (enabled) {
       refreshRows();
-      void resolveUserFork(context, viewer);
+      resolveUserFork(context, viewer);
     }
   };
 
-  const updateControl = () => {
-    if (!control) return;
-    const action = enabled ? "Disable" : "Enable";
-    control.textContent = enabled ? "🌔" : "🌘";
-    control.setAttribute("aria-label", `${action} Gibbous`);
-    control.setAttribute("aria-pressed", enabled);
-    control.title = `${action} Gibbous`;
-  };
+  // The 🌔/🌘 button in GitHub's header turns every tweak on or off.
+  let control;
+  const updateControl = () => control && sync(control, {
+    text: enabled ? "🌔" : "🌘",
+    "aria-label": `${enabled ? "Disable" : "Enable"} Gibbous`,
+    "aria-pressed": String(enabled),
+    title: `${enabled ? "Disable" : "Enable"} Gibbous`,
+  });
 
   const applyEnabled = value => {
     if (!value) closeHiddenMenus();
     if (!value && mermaidDialog?.open) mermaidDialog.close();
     enabled = value;
     writeMirror({enabled: value});
-    document.documentElement.toggleAttribute("data-gibbous-disabled", !value);
+    root.toggleAttribute("data-gibbous-disabled", !value);
     updateControl();
     refresh();
   };
@@ -2589,17 +2162,14 @@
       ?? document.querySelector('header [data-testid="top-nav-right"] a[href^="/login"], header .HeaderMenu-link-wrap:has(a.HeaderMenu-link--sign-in)');
     if (!anchor) return;
     if (!control) {
-      control = create(
-        "button",
-        {
-          class: "Button Button--secondary Button--medium Button--iconOnly gibbous-header-button",
-          type: "button",
-          onclick: () => {
-            applyEnabled(!enabled);
-            void storageSet({enabled}).catch(reportError);
-          },
+      control = create("button", {
+        class: "Button Button--secondary Button--medium Button--iconOnly gibbous-header-button",
+        type: "button",
+        onclick: () => {
+          applyEnabled(!enabled);
+          void storageSet({enabled}).catch(reportError);
         },
-      );
+      });
       updateControl();
     }
     if (control.nextElementSibling !== anchor) anchor.before(control);
@@ -2623,7 +2193,12 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (changes.enabled) applyEnabled(changes.enabled.newValue ?? true);
-    if (changes.cache && changes.cache.newValue && typeof changes.cache.newValue === "object") cache = changes.cache.newValue;
+    // Keep the newer of each entry: an echo of an older write must not drop what was fetched since.
+    for (const [bucket, entries] of Object.entries(changes.cache?.newValue ?? {})) {
+      for (const [key, entry] of Object.entries(entries)) {
+        if (!(cache[bucket]?.[key]?.at >= entry.at)) (cache[bucket] ??= {})[key] = entry;
+      }
+    }
     if (changes.quoteChoices) {
       quoteChoices = changes.quoteChoices.newValue ?? {};
       document.querySelectorAll(".gibbous-quote-rail-replies").forEach(node => node.remove());
@@ -2648,21 +2223,21 @@
   })().catch(reportError);
 
   let refreshScheduled = false;
-  const scheduleRefresh = () => {
+  function scheduleRefresh() {
     if (refreshScheduled) return;
     refreshScheduled = true;
     requestAnimationFrame(() => {
       refreshScheduled = false;
       refresh();
     });
-  };
+  }
 
   new MutationObserver(records => {
     if (ready && enabled && records.some(record => record.target instanceof Element && record.target.closest('[role="dialog"]'))) {
       mountTopRepositories();
     }
     scheduleRefresh();
-  }).observe(document.documentElement, {childList: true, subtree: true});
+  }).observe(root, {childList: true, subtree: true});
   addEventListener("pointerdown", releaseQuoteTarget, {capture: true, passive: true});
   addEventListener("wheel", releaseQuoteTarget, {passive: true});
   addEventListener("keydown", releaseQuoteTarget);
