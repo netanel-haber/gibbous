@@ -1534,9 +1534,11 @@ const html = (strings, ...values) => {
   };
 
   // A link into a diff GitHub left unloaded as too large (#diff-<file>, maybe with R932 or L10-L20):
-  // the diff is loaded, and once its line is there, the link is followed again, so GitHub selects
-  // and scrolls to the line as it would have, had the line existed when it first read the link.
-  // Only a diff Gibbous loaded is touched; otherwise GitHub's own jump stands.
+  // the diff is loaded, and once its line is there, GitHub is made to select it as it would have,
+  // had the line existed when it first read the link: the classic view by following the link
+  // again, the Changes view (which on a hashchange only focuses the file) by a click on the line's
+  // number, and a shift-click on the last line of a range. Only a diff Gibbous loaded is touched;
+  // otherwise GitHub's own jump stands.
   let diffJump;
   const jumpIntoLargeDiff = () => {
     const hash = decodeURIComponent(location.hash.slice(1));
@@ -1560,11 +1562,24 @@ const html = (strings, ...values) => {
     }
     if (diffJump.loading) {
       diffJump.done = true;
-      // The same hash again, replacing this history entry: GitHub hears a hashchange.
-      const url = location.href;
-      history.replaceState(history.state, "", url.slice(0, url.indexOf("#")));
-      location.replace(url);
-      (match[2] ? line : file).scrollIntoView({block: match[2] ? "center" : "start"});
+      if (!match[2] || document.getElementById(anchor)) {
+        // The same hash again, replacing this history entry: GitHub hears a hashchange.
+        const url = location.href;
+        history.replaceState(history.state, "", url.slice(0, url.indexOf("#")));
+        location.replace(url);
+      } else {
+        const number = line => {
+          const cell = file.querySelector(`[data-line-anchor="${match[1] + line}"]`);
+          return cell?.closest("tr").querySelector(`td[data-line-number="${line.slice(1)}"][data-diff-side="${cell.dataset.diffSide}"]:not([data-line-anchor])`);
+        };
+        const click = (cell, shiftKey) => {
+          for (const type of ["mousedown", "mouseup", "click"]) cell?.dispatchEvent(new MouseEvent(type, {bubbles: true, cancelable: true, view: window, shiftKey}));
+        };
+        click(number(match[2]), false);
+        if (match[3]) click(number(match[3]), true);
+      }
+      // After GitHub's own handling, which may scroll elsewhere.
+      requestAnimationFrame(() => requestAnimationFrame(() => (match[2] ? line : file).scrollIntoView({block: match[2] ? "center" : "start"})));
     }
     diffJump.done = true;
   };
