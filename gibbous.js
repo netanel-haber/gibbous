@@ -1544,18 +1544,19 @@ const html = (strings, ...values) => {
     if (diffJump?.hash !== hash) diffJump = {hash};
     const file = document.getElementById(match[1]);
     if (!file) return;
-    if (!diffJump.loading) {
-      const load = file.querySelector("button.js-diff-load")
-        ?? [...file.querySelectorAll("button")].find(button => textOf(button) === "Load diff");
-      if (!load) return void (diffJump.done = true);
-      diffJump.loading = true;
-      load.click();
+    // Until the line is there: the file may still be a skeleton, or show GitHub's Load diff button.
+    const anchor = match[1] + (match[2] ?? "");
+    const line = match[2] ? document.getElementById(anchor) ?? file.querySelector(`[data-line-anchor="${anchor}"]`) : file.querySelector("table");
+    if (!line) {
+      const load = !diffJump.loading && (file.querySelector("button.js-diff-load")
+        ?? [...file.querySelectorAll("button")].find(button => /^load diff$/i.test(textOf(button))));
+      if (load) {
+        diffJump.loading = true;
+        load.click();
+      }
       return;
     }
-    const anchor = match[1] + (match[2] ?? "");
-    const line = match[2] && (document.getElementById(anchor) ?? file.querySelector(`[data-line-anchor="${anchor}"]`));
-    if (match[2] && !line) return;
-    (line ?? file).scrollIntoView({block: line ? "center" : "start"});
+    if (diffJump.loading) (match[2] ? line : file).scrollIntoView({block: match[2] ? "center" : "start"});
     diffJump.done = true;
   };
 

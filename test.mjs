@@ -219,12 +219,14 @@ const hunksPage = pushed => page(`<div data-testid="progressive-diffs-list" clas
 </div>`, pullRequestStyles);
 
 // A file GitHub left unloaded as too large, in the classic view (button.js-diff-load, line ids)
-// and the new one (a "Load diff" button, data-line-anchor), below other files. Loading takes a moment.
+// and the new one (a skeleton, then a "Load Diff" button; data-line-anchor), below other files.
 const largeFile = "diff-" + "a".repeat(64);
+const loadDiff = classic => `<div class="js-diff-load-container"><button type="button" class="${classic ? "load-diff-button js-diff-load" : ""}"><span>${classic ? "Load diff" : "Load Diff"}</span></button><p>Large diffs are not rendered by default.</p></div>`;
 const largeDiffPage = classic => page(`<div style="height: 1500px">Other files</div>
   <div id="${largeFile}" role="region"><h3>csrc/huge_kernel.cu</h3>
-    <div class="js-diff-load-container"><button type="button" class="${classic ? "load-diff-button js-diff-load" : ""}"><span>Load diff</span></button><p>Large diffs are not rendered by default.</p></div>
-  </div><div style="height: 1500px"></div>`, `<script>document.addEventListener("click", event => {
+    ${classic ? loadDiff(true) : '<div class="skeleton">Loading…</div>'}
+  </div><div style="height: 1500px"></div>`, `<script>${classic ? "" : `addEventListener("DOMContentLoaded", () => setTimeout(() => document.querySelector("#${largeFile} .skeleton").outerHTML = ${JSON.stringify(loadDiff(false))}, 600));`}
+document.addEventListener("click", event => {
   const button = event.target.closest("#${largeFile} button");
   if (!button) return;
   setTimeout(() => button.parentElement.outerHTML = "<table data-diff-anchor='${largeFile}'><tbody>" + Array.from({length: 120}, (_, index) => ${classic}
