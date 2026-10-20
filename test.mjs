@@ -240,6 +240,7 @@ document.addEventListener("click", event => {
   const [from, to] = [rows.indexOf(start), rows.indexOf(row)].sort((a, b) => a - b);
   rows.slice(from, to + 1).forEach(other => other.dataset.selected = "true");
   selected = start;
+  setTimeout(() => scrollBy(0, 400), 150);
 });`}
 ${classic ? "" : "/*"}addEventListener("hashchange", () => {
   const [, first, last] = location.hash.match(/(R\\d+)(?:-(R\\d+))?$/) ?? [];

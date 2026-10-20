@@ -1578,8 +1578,18 @@ const html = (strings, ...values) => {
         click(number(match[2]), false);
         if (match[3]) click(number(match[3]), true);
       }
-      // After GitHub's own handling, which may scroll elsewhere.
-      requestAnimationFrame(() => requestAnimationFrame(() => (match[2] ? line : file).scrollIntoView({block: match[2] ? "center" : "start"})));
+      // Once GitHub's own scrolling has stopped (still for 10 frames, at most 2 seconds), unless
+      // the visitor has moved on by then.
+      let moved = false;
+      const move = () => moved = true;
+      for (const type of ["wheel", "keydown", "pointerdown"]) addEventListener(type, move, {once: true, passive: true, capture: true});
+      const settle = (still = 0, last = scrollY, frames = 0) => requestAnimationFrame(() => {
+        if (moved || diffJump?.hash !== hash) return;
+        if (scrollY === last ? still < 10 && frames < 120 : frames < 120) return settle(scrollY === last ? still + 1 : 0, scrollY, frames + 1);
+        for (const type of ["wheel", "keydown", "pointerdown"]) removeEventListener(type, move, {capture: true});
+        (match[2] ? line : file).scrollIntoView({block: match[2] ? "center" : "start"});
+      });
+      settle();
     }
     diffJump.done = true;
   };
