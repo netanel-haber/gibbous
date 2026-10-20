@@ -226,6 +226,12 @@ const largeDiffPage = classic => page(`<div style="height: 1500px">Other files</
   <div id="${largeFile}" role="region"><h3>csrc/huge_kernel.cu</h3>
     ${classic ? loadDiff(true) : '<div class="skeleton">Loading…</div>'}
   </div><div style="height: 1500px"></div>`, `<script>${classic ? "" : `addEventListener("DOMContentLoaded", () => setTimeout(() => document.querySelector("#${largeFile} .skeleton").outerHTML = ${JSON.stringify(loadDiff(false))}, 600));`}
+// GitHub selects the lines a hash names, on hashchange.
+addEventListener("hashchange", () => {
+  const [, first, last] = location.hash.match(/(R\\d+)(?:-(R\\d+))?$/) ?? [];
+  const row = line => document.querySelector("[id='${largeFile}" + line + "'], [data-line-anchor='${largeFile}" + line + "']")?.closest("tr");
+  for (let current = row(first), end = row(last ?? first); current; current = current === end ? null : current.nextElementSibling) current.dataset.selected = "true";
+});
 document.addEventListener("click", event => {
   const button = event.target.closest("#${largeFile} button");
   if (!button) return;
@@ -375,6 +381,10 @@ const scenarios = [
       await page.evaluate(`location.href = "/vllm-project/vllm/pull/41518/changes#${largeFile}R60"`);
       await sleep(500);
       await page.waitFor(`[data-line-anchor="${largeFile}R60"]`);
+    }], ["range", async page => {
+      await page.evaluate(`location.href = "/vllm-project/vllm/pull/41518/files#${largeFile}R58-R62"`);
+      await sleep(500);
+      await page.waitFor("[data-selected]");
     }]],
   },
   {

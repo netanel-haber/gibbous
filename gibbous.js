@@ -1534,14 +1534,16 @@ const html = (strings, ...values) => {
   };
 
   // A link into a diff GitHub left unloaded as too large (#diff-<file>, maybe with R932 or L10-L20):
-  // the diff is loaded, and once its line is there, scrolled to. Only a diff Gibbous loaded is
-  // scrolled; otherwise GitHub's own jump stands.
+  // the diff is loaded, and once its line is there, the link is followed again, so GitHub selects
+  // and scrolls to the line as it would have, had the line existed when it first read the link.
+  // Only a diff Gibbous loaded is touched; otherwise GitHub's own jump stands.
   let diffJump;
   const jumpIntoLargeDiff = () => {
     const hash = decodeURIComponent(location.hash.slice(1));
-    const match = pullRequestContext() && /^(diff-[0-9a-f]{64})(?:([LR]\d+)(?:-[LR]\d+)?)?$/.exec(hash);
-    if (!match || diffJump?.done && diffJump.hash === hash) return;
-    if (diffJump?.hash !== hash) diffJump = {hash};
+    if (diffJump && diffJump.hash !== hash) diffJump = undefined;
+    const match = pullRequestContext() && /^(diff-[0-9a-f]{64})(?:([LR]\d+)(?:-([LR]\d+))?)?$/.exec(hash);
+    if (!match || diffJump?.done) return;
+    diffJump ??= {hash};
     const file = document.getElementById(match[1]);
     if (!file) return;
     // Until the line is there: the file may still be a skeleton, or show GitHub's Load diff button.
@@ -1556,7 +1558,14 @@ const html = (strings, ...values) => {
       }
       return;
     }
-    if (diffJump.loading) (match[2] ? line : file).scrollIntoView({block: match[2] ? "center" : "start"});
+    if (diffJump.loading) {
+      diffJump.done = true;
+      // The same hash again, replacing this history entry: GitHub hears a hashchange.
+      const url = location.href;
+      history.replaceState(history.state, "", url.slice(0, url.indexOf("#")));
+      location.replace(url);
+      (match[2] ? line : file).scrollIntoView({block: match[2] ? "center" : "start"});
+    }
     diffJump.done = true;
   };
 
