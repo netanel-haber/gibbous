@@ -1145,7 +1145,9 @@ const html = (strings, ...values) => {
       quoteObserver = undefined;
     }
     if (!quoteLoadRequested) {
-      // Resolve lazily: nothing runs until a quoted reply actually scrolls into view.
+      // Resolve lazily: nothing runs until a quoted reply actually scrolls into view. The page's
+      // quotes are watched once, then those added later.
+      const watching = Boolean(quoteObserver);
       quoteObserver ??= new IntersectionObserver(entries => {
         if (quoteLoadRequested || !entries.some(entry => entry.isIntersecting)) return;
         quoteLoadRequested = true;
@@ -1157,7 +1159,7 @@ const html = (strings, ...values) => {
         });
       }, {rootMargin: "200px 0px"});
       const quotes = ".js-discussion .comment-body blockquote, .js-command-palette-pull-body .comment-body blockquote";
-      for (const blockquote of document.querySelectorAll(quotes)) quoteObserver.observe(blockquote);
+      for (const blockquote of watching ? added(quotes) : document.querySelectorAll(quotes)) quoteObserver.observe(blockquote);
       return;
     }
     // Comments the visitor loaded since we matched are free to fold in: no request needed.
@@ -1483,15 +1485,19 @@ const html = (strings, ...values) => {
     return button;
   };
 
-  // A file's hunks: each @@ row and the rows in its range, read from the cells.
+  // A file's hunks: each @@ row and the rows in its range, read from the cells, in the new view
+  // (data-diff-side, data-line-number) and the classic one (blob-* classes, L/R line ids).
   const readHunkTable = (context, table) => {
     const hunks = [];
     for (const row of table.rows) {
       let header;
       const lines = {};
       for (const cell of row.cells) {
-        if (cell.classList.contains("diff-hunk-cell")) header = cell;
-        else if (cell.dataset.lineNumber) lines[cell.dataset.diffSide] = Number(cell.dataset.lineNumber);
+        if (cell.matches(".diff-hunk-cell, .blob-code-hunk")) header = cell;
+        else if (cell.dataset.lineNumber) {
+          const side = cell.dataset.diffSide ?? {L: "left", R: "right"}[cell.id.match(/([LR])\d+$/)?.[1]];
+          lines[side] = Number(cell.dataset.lineNumber);
+        }
       }
       const range = header && /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(textOf(header.querySelector("code") ?? header));
       if (range) {
@@ -1505,9 +1511,10 @@ const html = (strings, ...values) => {
     }
     const seen = new Map();
     for (const {header, rows} of hunks) {
-      // Deletions and additions apart, so the split and unified views agree.
-      const changed = rows.flatMap(row => [...row.querySelectorAll("code.deletion, code.addition")]);
-      const text = kind => changed.filter(code => code.classList.contains(kind)).map(code => code.textContent).join("\n");
+      // Deletions and additions apart, and the code without its +/- marker, so every view agrees.
+      const changed = rows.flatMap(row => [...row.querySelectorAll("code.deletion, code.addition, td.blob-code-deletion, td.blob-code-addition")]);
+      const text = kind => changed.filter(code => code.matches(`.${kind}, .blob-code-${kind}`))
+        .map(code => (code.querySelector(".diff-text-inner, .blob-code-inner") ?? code).textContent).join("\n");
       const content = hash(`${table.dataset.diffAnchor}\n${text("deletion")}\0${text("addition")}`);
       // The same change twice in a file: each its own hunk.
       const occurrence = seen.get(content) ?? 0;
@@ -1524,6 +1531,32 @@ const html = (strings, ...values) => {
     const tables = added("table[data-diff-anchor], table[data-diff-anchor] :is(tr, .diff-hunk-cell > *)")
       .map(node => node.closest("table[data-diff-anchor]"));
     for (const table of new Set(tables)) readHunkTable(context, table);
+  };
+
+  // A link into a diff GitHub left unloaded as too large (#diff-<file>, maybe with R932 or L10-L20):
+  // the diff is loaded, and once its line is there, scrolled to. Only a diff Gibbous loaded is
+  // scrolled; otherwise GitHub's own jump stands.
+  let diffJump;
+  const jumpIntoLargeDiff = () => {
+    const hash = decodeURIComponent(location.hash.slice(1));
+    const match = pullRequestContext() && /^(diff-[0-9a-f]{64})(?:([LR]\d+)(?:-[LR]\d+)?)?$/.exec(hash);
+    if (!match || diffJump?.done && diffJump.hash === hash) return;
+    if (diffJump?.hash !== hash) diffJump = {hash};
+    const file = document.getElementById(match[1]);
+    if (!file) return;
+    if (!diffJump.loading) {
+      const load = file.querySelector("button.js-diff-load")
+        ?? [...file.querySelectorAll("button")].find(button => textOf(button) === "Load diff");
+      if (!load) return void (diffJump.done = true);
+      diffJump.loading = true;
+      load.click();
+      return;
+    }
+    const anchor = match[1] + (match[2] ?? "");
+    const line = match[2] && (document.getElementById(anchor) ?? file.querySelector(`[data-line-anchor="${anchor}"]`));
+    if (match[2] && !line) return;
+    (line ?? file).scrollIntoView({block: line ? "center" : "start"});
+    diffJump.done = true;
   };
 
   // Top repositories, in the dashboard (new and classic) and in the global navigation drawer:
@@ -2197,7 +2230,7 @@ const html = (strings, ...values) => {
   const mountControl = () => {
     const anchor = viewerButton()?.parentElement
       ?? topNavigation()?.querySelector('a[href^="/login"]')
-      ?? document.querySelector('header .HeaderMenu-link-wrap:has(a.HeaderMenu-link--sign-in)');
+      ?? document.querySelector("header")?.querySelector(".HeaderMenu-link-wrap:has(a.HeaderMenu-link--sign-in)");
     if (!anchor) return;
     if (!control) {
       control = create("button", {
@@ -2246,6 +2279,7 @@ const html = (strings, ...values) => {
     refreshQuoteLinks();
     refreshWhitespaceDiffstat();
     refreshHunks();
+    if (enabled) jumpIntoLargeDiff();
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -2303,5 +2337,6 @@ const html = (strings, ...values) => {
   addEventListener("wheel", releaseQuoteTarget, {passive: true});
   addEventListener("keydown", releaseQuoteTarget);
   addEventListener("resize", scheduleRefresh);
+  addEventListener("hashchange", scheduleRefresh);
   refresh();
 })();

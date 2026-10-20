@@ -218,6 +218,20 @@ const hunksPage = pushed => page(`<div data-testid="progressive-diffs-list" clas
   ])}
 </div>`, pullRequestStyles);
 
+// A file GitHub left unloaded as too large, in the classic view (button.js-diff-load, line ids)
+// and the new one (a "Load diff" button, data-line-anchor), below other files. Loading takes a moment.
+const largeFile = "diff-" + "a".repeat(64);
+const largeDiffPage = classic => page(`<div style="height: 1500px">Other files</div>
+  <div id="${largeFile}" role="region"><h3>csrc/huge_kernel.cu</h3>
+    <div class="js-diff-load-container"><button type="button" class="${classic ? "load-diff-button js-diff-load" : ""}"><span>Load diff</span></button><p>Large diffs are not rendered by default.</p></div>
+  </div><div style="height: 1500px"></div>`, `<script>document.addEventListener("click", event => {
+  const button = event.target.closest("#${largeFile} button");
+  if (!button) return;
+  setTimeout(() => button.parentElement.outerHTML = "<table data-diff-anchor='${largeFile}'><tbody>" + Array.from({length: 120}, (_, index) => ${classic}
+    ? "<tr><td id='${largeFile}R" + (index + 1) + "' data-line-number='" + (index + 1) + "'>" + (index + 1) + "</td><td>line " + (index + 1) + "</td></tr>"
+    : "<tr><td data-diff-side='right' data-line-number='" + (index + 1) + "'>" + (index + 1) + "</td><td data-line-anchor='${largeFile}R" + (index + 1) + "'>line " + (index + 1) + "</td></tr>").join("") + "</tbody></table>", 300);
+});</script>`);
+
 // A rendered Mermaid diagram in GitHub's viewer frame, kept in-process so its requests are mocked too.
 const mermaidPage = page(`<article class="markdown-body"><h1>Diagram</h1><section class="js-render-needs-enrichment"><div class="render-container"><iframe class="render-viewer" src="https://viewscreen.githubusercontent.com/markdown/mermaid?docs_host=https%3A%2F%2Fdocs.github.com&color_mode=dark#fixture" width="600" height="300"></iframe></div></section></article>`);
 const mermaidFrame = `<!doctype html><html><head><style>body{margin:0;background:#0d1117} .mermaid-view{width:100%;height:100%}</style></head><body><div class="mermaid-view"><div><svg viewBox="0 0 400 200" width="400" height="200"><rect x="10" y="10" width="380" height="180" fill="#30363d"/><text x="200" y="100" fill="white" text-anchor="middle">Client → Server</text></svg></div></div></body></html>`;
@@ -349,9 +363,23 @@ const scenarios = [
     ],
   },
   {
+    name: "pr-large-diff",
+    url: `https://github.com/vllm-project/vllm/pull/41518/files#${largeFile}R60`,
+    routes: {
+      "https://github.com/vllm-project/vllm/pull/41518/files": html(largeDiffPage(true)),
+      "https://github.com/vllm-project/vllm/pull/41518/changes": html(largeDiffPage(false)),
+    },
+    steps: [["changes", async page => {
+      await page.evaluate(`location.href = "/vllm-project/vllm/pull/41518/changes#${largeFile}R60"`);
+      await sleep(500);
+      await page.waitFor(`[data-line-anchor="${largeFile}R60"]`);
+    }]],
+  },
+  {
     name: "pr-files-classic",
     url: "https://github.com/vllm-project/vllm/pull/41518/files",
     routes: {"https://github.com/vllm-project/vllm/pull/41518/files": html(githubPage("pr-files"))},
+    steps: [["view-hunk", page => page.click(".gibbous-hunk-viewed")]],
   },
   {
     name: "mermaid",

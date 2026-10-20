@@ -765,7 +765,8 @@ html:not([data-gibbous-disabled]) [data-gibbous-diffstat-swapped] {
 /* The Viewed button at the end of each hunk's @@ row: GitHub's file Viewed button, as tall as the
    row, and right under it. The file header ends with two small icon buttons (comment, more
    options), each after an 8px gap, and 8px of padding. A viewed hunk's lines fold away. */
-.diff-hunk-cell:has(> * > .gibbous-hunk-viewed) {
+.diff-hunk-cell:has(> * > .gibbous-hunk-viewed),
+.blob-code-hunk:has(> .gibbous-hunk-viewed) {
   position: relative;
 }
 
