@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- A waxing gibbous moon: the disk in shadow, and the lit part, right of a terminator that bulges past the middle -->
+  <circle cx="64" cy="64" r="48" fill="#2d333b"/>
+  <path d="M64 16a48 48 0 0 1 0 96a24 48 0 0 1 0-96z" fill="#e6c96f"/>
+  <circle cx="80" cy="46" r="7" fill="#d4b55c"/>
+  <circle cx="70" cy="80" r="5" fill="#d4b55c"/>
+  <circle cx="92" cy="72" r="4" fill="#d4b55c"/>
+  <circle cx="64" cy="64" r="47" fill="none" stroke="#e6c96f" stroke-opacity=".45" stroke-width="2"/>
+</svg>

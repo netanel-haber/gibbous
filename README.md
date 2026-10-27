@@ -45,6 +45,8 @@ sequenceDiagram
 3. Enable **Developer mode**.
 4. Click **Load unpacked** and select the extracted `gibbous-main` folder.
 
+Gibbous keeps everything in your browser and talks only to GitHub: [privacy policy](https://netanel-haber.github.io/gibbous/privacy.html).
+
 <p align="center">
   <a href="https://www.flickr.com/photos/john-spade/6680460959/">
     <img src="https://live.staticflickr.com/7022/6680460959_fb8336eb3a_k.jpg" width="2048" height="2048" alt="Moon Waxing Gibbous January 2012">
