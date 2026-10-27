@@ -420,12 +420,6 @@ const scenarios = [
       ["close", page => page.key("Escape", "Escape", 27)],
     ],
   },
-  {
-    name: "theme-site",
-    url: "https://github.com/explore",
-    routes: {"https://github.com/explore": html(drawer), "https://netanel-haber.github.io/gibbous/": html("<!doctype html><title>Gibbous</title><h1>gibbous</h1>")},
-    steps: [["site", page => page.evaluate(`location.href = "https://netanel-haber.github.io/gibbous/"`)]],
-  },
 ].filter(scenario => !only || only.some(name => scenario.name.includes(name)));
 
 // The page as text: every element with its attributes sorted and whether it renders, Gibbous's
@@ -599,11 +593,14 @@ const runScenario = async (extension, outDir, scenario) => {
   }
 };
 
-// The extension at ref, and the working tree, through every scenario four at a time.
+// The extension at ref (the files its manifest names), and the working tree, through every scenario four at a time.
 const base = resolve(".test/base-extension");
 rmSync(base, {recursive: true, force: true});
 mkdirSync(base, {recursive: true});
-execFileSync("tar", ["-x", "-C", base], {input: execFileSync("git", ["archive", ref, "manifest.json", "gibbous.js", "gibbous.css", "worker.js"])});
+const manifest = JSON.parse(execFileSync("git", ["show", `${ref}:manifest.json`], {encoding: "utf8"}));
+const shipped = new Set(["manifest.json", ...Object.values(manifest.icons ?? {}), manifest.background.service_worker,
+  ...manifest.content_scripts.flatMap(script => [...script.js ?? [], ...script.css ?? []])]);
+execFileSync("tar", ["-x", "-C", base], {input: execFileSync("git", ["archive", ref, ...shipped])});
 const runs = [[base, resolve(".test/base")], [resolve("."), resolve(".test/work")]];
 for (const [, outDir] of runs) {
   rmSync(outDir, {recursive: true, force: true});

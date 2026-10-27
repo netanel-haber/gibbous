@@ -17,11 +17,6 @@
       "run_at": "document_start"
     },
     {
-      "matches": ["https://netanel-haber.github.io/gibbous/*"],
-      "js": ["gibbous.js"],
-      "run_at": "document_start"
-    },
-    {
       "matches": ["https://viewscreen.githubusercontent.com/markdown/mermaid*"],
       "css": ["gibbous.css"],
       "js": ["gibbous.js"],

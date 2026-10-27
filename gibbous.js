@@ -1,6 +1,5 @@
-// One content script for three places, each section guarded by where it runs:
-// GitHub's theme mirrored to the Gibbous site (both sites), the Mermaid viewer frame GitHub
-// embeds (zoom and pan once enlarged), and GitHub itself.
+// One content script for two places, each section guarded by where it runs: the Mermaid viewer
+// frame GitHub embeds (zoom and pan once enlarged), and GitHub itself.
 
 // An element from a tag, attributes (on* become listeners) and children.
 const create = (tag, attributes = {}, ...children) => {
@@ -28,33 +27,6 @@ const html = (strings, ...values) => {
   for (const slot of template.content.querySelectorAll("template[data-node]")) slot.replaceWith(...[nodes[slot.dataset.node]].flat());
   return template.content.firstElementChild;
 };
-
-(() => {
-  const root = document.documentElement;
-  const isTheme = theme => /^(light|dark)(-colorblind)?(-high-contrast)?$|^dark-dimmed(-high-contrast)?$/.test(theme);
-  const fail = error => console.error("Gibbous could not synchronize the GitHub theme.", error);
-  if (location.hostname === "netanel-haber.github.io") {
-    const expose = theme => {
-      if (isTheme(theme)) root.dataset.githubTheme = theme;
-    };
-    chrome.storage.local.get("githubTheme").then(({githubTheme}) => expose(githubTheme), fail);
-    chrome.storage.onChanged.addListener((changes, area) => area === "local" && expose(changes.githubTheme?.newValue));
-    return;
-  }
-  if (location.hostname !== "github.com") return;
-  const storeTheme = () => {
-    const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-    const mode = root.dataset.colorMode === "auto" ? (dark ? "dark" : "light") : root.dataset.colorMode;
-    const theme = root.dataset[`${mode}Theme`]?.replaceAll("_", "-");
-    if (isTheme(theme)) chrome.storage.local.set({githubTheme: theme}).catch(fail);
-  };
-  new MutationObserver(storeTheme).observe(root, {
-    attributes: true,
-    attributeFilter: ["data-color-mode", "data-light-theme", "data-dark-theme"],
-  });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", storeTheme);
-  storeTheme();
-})();
 
 (() => {
   if (location.hostname !== "viewscreen.githubusercontent.com" || !document.referrer) return;

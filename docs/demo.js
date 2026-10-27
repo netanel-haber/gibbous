@@ -1,16 +1,3 @@
-const themes = new Set([
-  "light",
-  "light-high-contrast",
-  "light-colorblind",
-  "light-colorblind-high-contrast",
-  "dark",
-  "dark-high-contrast",
-  "dark-colorblind",
-  "dark-colorblind-high-contrast",
-  "dark-dimmed",
-  "dark-dimmed-high-contrast",
-]);
-
 const icons = {
   actions: '<path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Zm4.879-2.773 4.264 2.559a.25.25 0 0 1 0 .428l-4.264 2.559A.25.25 0 0 1 6 10.559V5.442a.25.25 0 0 1 .379-.215Z"/>',
   book: '<path d="M0 1.75A.75.75 0 0 1 .75 1h4.253c1.227 0 2.317.59 3 1.501A3.743 3.743 0 0 1 11.006 1h4.245a.75.75 0 0 1 .75.75v10.5a.75.75 0 0 1-.75.75h-4.507a2.25 2.25 0 0 0-1.591.659l-.622.621a.75.75 0 0 1-1.06 0l-.622-.621A2.25 2.25 0 0 0 5.258 13H.75a.75.75 0 0 1-.75-.75Zm7.251 10.324.004-5.073-.002-2.253A2.25 2.25 0 0 0 5.003 2.5H1.5v9h3.757a3.75 3.75 0 0 1 1.994.574ZM8.755 4.75l-.004 7.322a3.752 3.752 0 0 1 1.992-.572H14.5v-9h-3.495a2.25 2.25 0 0 0-2.25 2.25Z"/>',
@@ -414,16 +401,14 @@ let crossfadeTimer;
 const renderDemo = options => {
   const feature = scenes[options.feature] ? options.feature : "dashboard";
   const state = states.has(options.state) ? options.state : "before";
-  const theme = themes.has(options.theme) ? options.theme : "dark";
   const root = document.documentElement;
-  if (root.dataset.theme !== theme) root.dataset.theme = theme;
   if (root.dataset.feature !== feature) root.dataset.feature = feature;
   if (root.dataset.state !== state) root.dataset.state = state;
   const sceneChanged = demo.dataset.feature !== feature || demo.dataset.state !== state;
   const crossfade = sceneChanged && feature === "mermaid" && demo.dataset.feature === "mermaid";
   demo.dataset.feature = feature;
   demo.dataset.state = state;
-  demo.ariaLabel = `${feature.replaceAll("-", " ")}, ${state}, ${theme}`;
+  demo.ariaLabel = `${feature.replaceAll("-", " ")}, ${state}`;
   if (!sceneChanged) return;
   if (!crossfade) {
     demo.innerHTML = scenes[feature](state);
@@ -442,11 +427,10 @@ if (params.has("still")) document.documentElement.dataset.still = "";
 renderDemo({
   feature: params.get("feature"),
   state: params.get("state"),
-  theme: params.get("theme"),
 });
 
 new MutationObserver(() => renderDemo(document.documentElement.dataset)).observe(document.documentElement, {
-  attributeFilter: ["data-feature", "data-state", "data-theme"],
+  attributeFilter: ["data-feature", "data-state"],
   attributes: true,
 });
 

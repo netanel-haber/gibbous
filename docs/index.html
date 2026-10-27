@@ -19,7 +19,7 @@
     .gallery-scroll, .gallery-sticky, .gallery-viewport, .gallery-track { height: auto !important; overflow: visible !important; position: static !important; }
     .gallery-sticky { display: block !important; }
     .feature-panel { position: relative !important; visibility: visible !important; }
-    .gallery-navigation, .comparison-toggle, .theme-picker { display: none !important; }
+    .gallery-navigation, .comparison-toggle { display: none !important; }
   </style></noscript>
   <script src="site.js?v=20261001a" defer></script>
   <title>Gibbous: GitHub with less bs</title>
@@ -31,26 +31,6 @@
       <p>A Chrome extension for hiding the useless parts of GitHub</p>
     </div>
     <nav class="site-links" aria-label="Project links">
-      <label class="theme-picker">
-        <span>theme</span>
-        <select id="theme-select" aria-label="GitHub theme for the examples">
-          <option value="github">GitHub · Dark default</option>
-          <optgroup label="Light">
-            <option value="light">Light default</option>
-            <option value="light-high-contrast">Light · high contrast</option>
-            <option value="light-colorblind">Light colorblind</option>
-            <option value="light-colorblind-high-contrast">Light colorblind · high contrast</option>
-          </optgroup>
-          <optgroup label="Dark">
-            <option value="dark">Dark default</option>
-            <option value="dark-high-contrast">Dark · high contrast</option>
-            <option value="dark-colorblind">Dark colorblind</option>
-            <option value="dark-colorblind-high-contrast">Dark colorblind · high contrast</option>
-            <option value="dark-dimmed">Soft dark</option>
-            <option value="dark-dimmed-high-contrast">Soft dark · high contrast</option>
-          </optgroup>
-        </select>
-      </label>
       <a class="project-link" href="https://github.com/netanel-haber/gibbous/archive/refs/heads/main.zip">download .zip</a>
       <a class="project-link" href="https://github.com/netanel-haber/gibbous">
         <span>source</span>
@@ -77,7 +57,7 @@
                   </div>
                 </div>
                 <div class="comparison-card" data-asset="dashboard">
-                  <iframe class="demo-frame" data-src="demo.html?feature=dashboard&amp;state=before&amp;theme=dark&amp;v=20261001a" title="GitHub before Gibbous: Dashboard" tabindex="-1"></iframe>
+                  <iframe class="demo-frame" data-src="demo.html?feature=dashboard&amp;state=before&amp;v=20261001a" title="GitHub before Gibbous: Dashboard" tabindex="-1"></iframe>
                   <noscript><img src="dashboard-before.webp?v=20261001a" width="2560" height="1600" alt="GitHub before Gibbous: Dashboard"></noscript>
                 </div>
               </div>
@@ -93,7 +73,7 @@
                   </div>
                 </div>
                 <div class="comparison-card" data-asset="sidebar">
-                  <iframe class="demo-frame" data-src="demo.html?feature=sidebar&amp;state=before&amp;theme=dark&amp;v=20261001a" title="GitHub before Gibbous: Sidebar" tabindex="-1"></iframe>
+                  <iframe class="demo-frame" data-src="demo.html?feature=sidebar&amp;state=before&amp;v=20261001a" title="GitHub before Gibbous: Sidebar" tabindex="-1"></iframe>
                   <noscript><img src="sidebar-before.webp?v=20261001a" width="2560" height="1600" alt="GitHub before Gibbous: Sidebar"></noscript>
                 </div>
               </div>
@@ -109,7 +89,7 @@
                   </div>
                 </div>
                 <div class="comparison-card" data-asset="repository-navigation">
-                  <iframe class="demo-frame" data-src="demo.html?feature=repository-navigation&amp;state=before&amp;theme=dark&amp;v=20261001a" title="GitHub before Gibbous: Repository navigation" tabindex="-1"></iframe>
+                  <iframe class="demo-frame" data-src="demo.html?feature=repository-navigation&amp;state=before&amp;v=20261001a" title="GitHub before Gibbous: Repository navigation" tabindex="-1"></iframe>
                   <noscript><img src="repository-navigation-before.webp?v=20261001a" width="2560" height="1600" alt="GitHub before Gibbous: Repository navigation"></noscript>
                 </div>
               </div>
@@ -125,7 +105,7 @@
                   </div>
                 </div>
                 <div class="comparison-card" data-asset="pull-request-shortcuts">
-                  <iframe class="demo-frame" data-src="demo.html?feature=pull-request-shortcuts&amp;state=before&amp;theme=dark&amp;v=20261001a" title="GitHub before Gibbous: Pull request shortcuts" tabindex="-1"></iframe>
+                  <iframe class="demo-frame" data-src="demo.html?feature=pull-request-shortcuts&amp;state=before&amp;v=20261001a" title="GitHub before Gibbous: Pull request shortcuts" tabindex="-1"></iframe>
                   <noscript><img src="pull-request-shortcuts-before.webp?v=20261001a" width="2560" height="1600" alt="GitHub before Gibbous: Pull request shortcuts"></noscript>
                 </div>
               </div>
@@ -141,7 +121,7 @@
                   </div>
                 </div>
                 <div class="comparison-card" data-asset="hidden-files">
-                  <iframe class="demo-frame" data-src="demo.html?feature=hidden-files&amp;state=before&amp;theme=dark&amp;v=20261001a" title="GitHub before Gibbous: Files and folders" tabindex="-1"></iframe>
+                  <iframe class="demo-frame" data-src="demo.html?feature=hidden-files&amp;state=before&amp;v=20261001a" title="GitHub before Gibbous: Files and folders" tabindex="-1"></iframe>
                   <noscript><img src="hidden-files-before.webp?v=20261001a" width="2560" height="1600" alt="GitHub before Gibbous: Files and folders"></noscript>
                 </div>
               </div>
@@ -157,7 +137,7 @@
                   </div>
                 </div>
                 <div class="comparison-card" data-asset="quote-navigation">
-                  <iframe class="demo-frame" data-src="demo.html?feature=quote-navigation&amp;state=before&amp;theme=dark&amp;v=20261001a" title="GitHub before Gibbous: Quote navigation" tabindex="-1"></iframe>
+                  <iframe class="demo-frame" data-src="demo.html?feature=quote-navigation&amp;state=before&amp;v=20261001a" title="GitHub before Gibbous: Quote navigation" tabindex="-1"></iframe>
                   <noscript><img src="quote-navigation-before.webp?v=20261001a" width="2560" height="1600" alt="GitHub before Gibbous: Quote navigation"></noscript>
                 </div>
               </div>
@@ -173,7 +153,7 @@
                   </div>
                 </div>
                 <div class="comparison-card" data-asset="mermaid">
-                  <iframe class="demo-frame" data-src="demo.html?feature=mermaid&amp;state=before&amp;theme=dark&amp;v=20261001a" title="GitHub before Gibbous: Mermaid" tabindex="-1"></iframe>
+                  <iframe class="demo-frame" data-src="demo.html?feature=mermaid&amp;state=before&amp;v=20261001a" title="GitHub before Gibbous: Mermaid" tabindex="-1"></iframe>
                   <noscript><img src="mermaid-before.webp?v=20261001a" width="2560" height="1600" alt="GitHub before Gibbous: Mermaid"></noscript>
                 </div>
               </div>
