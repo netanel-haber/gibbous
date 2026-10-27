@@ -1,6 +1,6 @@
 # Gibbous
 
-Hides the parts of GitHub you don't use, and adds a few shortcuts.
+Pleasant GitHub
 
 ## Features
 

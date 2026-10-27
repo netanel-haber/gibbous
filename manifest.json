@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Gibbous",
   "version": "1.0.0",
-  "description": "Hides the parts of GitHub you don't use, and adds a few shortcuts.",
+  "description": "Pleasant GitHub",
   "homepage_url": "https://netanel-haber.github.io/gibbous/",
   "icons": {"16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png"},
   "minimum_chrome_version": "134",
