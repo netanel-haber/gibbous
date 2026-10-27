@@ -1,24 +1,11 @@
 // The Pages site's tooling, run from the repository root:
 //   node site.mjs render [feature]   re-render docs/<feature>-<state>.webp, the no-JavaScript fallbacks
-//   node site.mjs audit [url]        audit every theme, feature and state of the served site
+//   node site.mjs audit [url]        audit every feature and state of the served site
 import {spawn} from "node:child_process";
 import {existsSync} from "node:fs";
 import {mkdir, mkdtemp, readdir, stat, writeFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join, resolve} from "node:path";
-
-const themes = [
-  "light",
-  "light-high-contrast",
-  "light-colorblind",
-  "light-colorblind-high-contrast",
-  "dark",
-  "dark-high-contrast",
-  "dark-colorblind",
-  "dark-colorblind-high-contrast",
-  "dark-dimmed",
-  "dark-dimmed-high-contrast",
-];
 
 const features = [
   "dashboard",
@@ -31,51 +18,13 @@ const features = [
 
 const states = ["before", "after"];
 
-const palettes = {
-  light: {
-    canvas: "#ffffff",
-    subtle: "#f6f8fa",
-    inset: "#f6f8fa",
-    overlay: "#ffffff",
-  },
-  "light-high-contrast": {
-    canvas: "#ffffff",
-    subtle: "#e6eaef",
-    inset: "#eff2f5",
-    overlay: "#ffffff",
-  },
-  dark: {
-    canvas: "#0d1117",
-    subtle: "#151b23",
-    inset: "#010409",
-    overlay: "#010409",
-  },
-  "dark-high-contrast": {
-    canvas: "#010409",
-    subtle: "#151b23",
-    inset: "#010409",
-    overlay: "#010409",
-  },
-  "dark-dimmed": {
-    canvas: "#212830",
-    subtle: "#262c36",
-    inset: "#151b23",
-    overlay: "#2a313c",
-  },
-  "dark-dimmed-high-contrast": {
-    canvas: "#212830",
-    subtle: "#262c36",
-    inset: "#151b23",
-    overlay: "#262c36",
-  },
+// The demo wears GitHub's dark high contrast theme; the site shell keeps its own palette.
+const palette = {
+  canvas: "#010409",
+  subtle: "#151b23",
+  inset: "#010409",
+  overlay: "#010409",
 };
-
-// Colorblind themes change accent and success colors only, never surfaces.
-for (const base of ["light", "light-high-contrast", "dark", "dark-high-contrast"]) {
-  palettes[base.replace(/^(light|dark)/, "$1-colorblind")] = palettes[base];
-}
-
-// The site shell keeps its own fixed palette; only the demo follows the GitHub theme.
 const siteCanvas = "#101722";
 
 const requiredSurfaceRoles = {
@@ -235,15 +184,10 @@ const settle = async protocol => {
   })()`);
 };
 
-const prepareCase = async (protocol, theme, feature, state) => {
+const prepareCase = async (protocol, feature, state) => {
   const result = await protocol.evaluate(`(async () => {
-    const theme = ${JSON.stringify(theme)};
     const feature = ${JSON.stringify(feature)};
     const state = ${JSON.stringify(state)};
-    const select = document.querySelector("#theme-select");
-    if (!select) return {error: "Missing #theme-select"};
-    select.value = theme;
-    select.dispatchEvent(new Event("change", {bubbles: true}));
     const panel = document.querySelector('[data-feature="' + CSS.escape(feature) + '"]');
     if (!panel) return {error: "Missing panel for " + feature};
     location.hash = feature;
@@ -255,7 +199,6 @@ const prepareCase = async (protocol, theme, feature, state) => {
     return {
       active: panel.hasAttribute("data-active") || getComputedStyle(panel).visibility !== "hidden",
       checked: toggle.getAttribute("aria-checked"),
-      selectedTheme: document.querySelector("#theme-select").value,
     };
   })()`);
   if (result.error) throw new Error(result.error);
@@ -263,7 +206,6 @@ const prepareCase = async (protocol, theme, feature, state) => {
   if (result.checked !== String(state === "after")) {
     fail(activeCase, `Comparison switch is ${result.checked}, expected ${state === "after"}`);
   }
-  if (result.selectedTheme !== theme) fail(activeCase, `Selected theme is ${result.selectedTheme}, expected ${theme}`);
 };
 
 const inspectCase = async (protocol, feature) => protocol.evaluate(`(() => {
@@ -375,7 +317,6 @@ const inspectCase = async (protocol, feature) => protocol.evaluate(`(() => {
       scrollWidth: document.documentElement.scrollWidth,
     },
     surfaces,
-    theme: demoDocument.documentElement?.dataset.theme,
     visibleElements,
     viewport: {height: demoWindow.innerHeight, width: demoWindow.innerWidth},
   };
@@ -410,9 +351,7 @@ const inside = (inner, outer, tolerance = 1) => inner.left >= outer.left - toler
   && inner.right <= outer.right + tolerance
   && inner.bottom <= outer.bottom + tolerance;
 
-const auditInspection = (inspection, theme, feature, state) => {
-  const palette = palettes[theme];
-  if (inspection.theme !== theme) fail(activeCase, `Demo theme is ${inspection.theme}, expected ${theme}`);
+const auditInspection = (inspection, feature, state) => {
   if (!colorsEqual(inspection.pageBackground, siteCanvas)) {
     fail(activeCase, `Page canvas is ${inspection.pageBackground}, expected ${siteCanvas}`);
   }
@@ -507,7 +446,7 @@ const capture = async (protocol, path) => {
   await writeFile(path, Buffer.from(screenshot.data, "base64"));
 };
 
-const auditHeaderPixel = async (protocol, inspection, theme, feature, state) => {
+const auditHeaderPixel = async (protocol, inspection, feature, state) => {
   const header = inspection.surfaces.find(surface => surface.role === "header");
   if (!header || !inspection.frame) return;
   const x = Math.floor(inspection.frame.left + header.rect.left + header.rect.width / 2);
@@ -517,11 +456,10 @@ const auditHeaderPixel = async (protocol, inspection, theme, feature, state) => 
     format: "png",
     fromSurface: true,
   });
-  const key = `${theme}/header`;
-  const baseline = headerPixels.get(key);
+  const baseline = headerPixels.get("header");
   if (state === "before") {
-    if (!baseline) headerPixels.set(key, screenshot.data);
-    else if (baseline !== screenshot.data) fail(activeCase, `Header pixel differs from other ${theme} features`);
+    if (!baseline) headerPixels.set("header", screenshot.data);
+    else if (baseline !== screenshot.data) fail(activeCase, "Header pixel differs from other features");
   } else if (feature !== "sidebar" && baseline !== screenshot.data) {
     fail(activeCase, `Header pixel changes between before and after for ${feature}`);
   }
@@ -548,12 +486,10 @@ const assertSiteAvailable = async () => {
 
 const writeContactSheet = async () => {
   const cards = [];
-  for (const theme of themes) {
-    for (const feature of features) {
-      for (const state of states) {
-        const name = `${theme}-${feature}-${state}.png`;
-        cards.push(`<figure><img src="${name}" loading="lazy"><figcaption>${theme} · ${feature} · ${state}</figcaption></figure>`);
-      }
+  for (const feature of features) {
+    for (const state of states) {
+      const name = `${feature}-${state}.png`;
+      cards.push(`<figure><img src="${name}" loading="lazy"><figcaption>${feature} · ${state}</figcaption></figure>`);
     }
   }
   const html = `<!doctype html><meta charset="utf-8"><title>Gibbous visual audit</title><style>body{background:#010409;color:#fff;font:14px system-ui;margin:16px}main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}figure{margin:0}img{border:1px solid #b7bdc8;display:block;width:100%}figcaption{padding-block:6px}</style><main>${cards.join("")}</main>`;
@@ -572,7 +508,7 @@ const render = async () => {
     for (const feature of rendered) {
       for (const state of states) {
         const url = new URL(`file://${resolve("docs/demo.html")}`);
-        url.search = new URLSearchParams({feature, state, theme: "dark", still: "1"});
+        url.search = new URLSearchParams({feature, state, still: "1"});
         await protocol.send("Page.navigate", {url: url.href});
         await waitForDocument(protocol);
         await settle(protocol);
@@ -618,27 +554,25 @@ const audit = async () => {
       features: [{name: "prefers-reduced-motion", value: "reduce"}],
     });
 
-    for (const theme of themes) {
-      for (const feature of features) {
-        activeCase = `${theme}/${feature}/navigation`;
-        const url = new URL(siteUrl);
-        url.searchParams.set("audit", `${theme}-${feature}-${Date.now()}`);
-        url.hash = feature;
-        await protocol.send("Page.navigate", {url: url.href});
-        await waitForDocument(protocol);
-        await settle(protocol);
-        for (const state of states) {
-          activeCase = `${theme}/${feature}/${state}`;
-          try {
-            await prepareCase(protocol, theme, feature, state);
-            await settle(protocol);
-            const inspection = await inspectCase(protocol, feature);
-            auditInspection(inspection, theme, feature, state);
-            await auditHeaderPixel(protocol, inspection, theme, feature, state);
-            await capture(protocol, join(outputDirectory, `${theme}-${feature}-${state}.png`));
-          } catch (error) {
-            fail(activeCase, error.message);
-          }
+    for (const feature of features) {
+      activeCase = `${feature}/navigation`;
+      const url = new URL(siteUrl);
+      url.searchParams.set("audit", `${feature}-${Date.now()}`);
+      url.hash = feature;
+      await protocol.send("Page.navigate", {url: url.href});
+      await waitForDocument(protocol);
+      await settle(protocol);
+      for (const state of states) {
+        activeCase = `${feature}/${state}`;
+        try {
+          await prepareCase(protocol, feature, state);
+          await settle(protocol);
+          const inspection = await inspectCase(protocol, feature);
+          auditInspection(inspection, feature, state);
+          await auditHeaderPixel(protocol, inspection, feature, state);
+          await capture(protocol, join(outputDirectory, `${feature}-${state}.png`));
+        } catch (error) {
+          fail(activeCase, error.message);
         }
       }
     }
@@ -652,7 +586,7 @@ const audit = async () => {
   const report = {
     failures,
     outputDirectory,
-    renders: themes.length * features.length * states.length,
+    renders: features.length * states.length,
     siteUrl,
   };
   await writeFile(join(outputDirectory, "report.json"), `${JSON.stringify(report, null, 2)}\n`);

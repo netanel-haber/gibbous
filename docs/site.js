@@ -1,16 +1,3 @@
-const THEME_NAMES = {
-  light: "Light default",
-  "light-high-contrast": "Light · high contrast",
-  "light-colorblind": "Light colorblind",
-  "light-colorblind-high-contrast": "Light colorblind · high contrast",
-  dark: "Dark default",
-  "dark-high-contrast": "Dark · high contrast",
-  "dark-colorblind": "Dark colorblind",
-  "dark-colorblind-high-contrast": "Dark colorblind · high contrast",
-  "dark-dimmed": "Soft dark",
-  "dark-dimmed-high-contrast": "Soft dark · high contrast",
-};
-
 const FEATURE_HASHES = {
   dashboard: "dashboard",
   sidebar: "sidebar",
@@ -27,8 +14,6 @@ const HASH_FEATURES = Object.fromEntries(
 
 const root = document.documentElement;
 const siteHeader = document.querySelector(".site-header");
-const themeSelect = document.querySelector("#theme-select");
-const githubThemeOption = themeSelect.querySelector('[value="github"]');
 const gallery = document.querySelector(".gallery-scroll");
 const gallerySticky = document.querySelector(".gallery-sticky");
 const track = document.querySelector(".gallery-track");
@@ -39,8 +24,6 @@ const panels = [...document.querySelectorAll(".feature-panel")];
 const cards = [...document.querySelectorAll(".comparison-card")];
 const desktop = matchMedia("(min-width: 1024px)");
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-let githubTheme = "dark";
-let selectedTheme = githubTheme;
 let currentPanel = -1;
 let comparisonsEnabled = false;
 let galleryUpdateScheduled = false;
@@ -53,7 +36,6 @@ const renderFrame = frame => {
   frame.style.setProperty("--demo-scale", frame.parentElement.clientWidth / 1280);
   const demoRoot = frame.contentDocument?.documentElement;
   if (!demoRoot) return;
-  demoRoot.dataset.theme = selectedTheme;
   demoRoot.dataset.state = comparisonsEnabled ? "after" : "before";
   const body = frame.contentDocument.body;
   if (body) frame.parentElement.style.background = frame.contentWindow.getComputedStyle(body).backgroundColor;
@@ -73,18 +55,6 @@ const viewedPanels = new IntersectionObserver(entries => {
   if (desktop.matches) return;
   for (const entry of entries) if (entry.isIntersecting) loadPanel(entry.target);
 });
-
-const readGitHubTheme = () => {
-  const theme = root.dataset.githubTheme;
-  if (THEME_NAMES[theme]) githubTheme = theme;
-};
-
-const renderTheme = () => {
-  readGitHubTheme();
-  selectedTheme = themeSelect.value === "github" ? githubTheme : themeSelect.value;
-  githubThemeOption.textContent = `GitHub · ${THEME_NAMES[githubTheme]}`;
-  renderFrames();
-};
 
 const setHash = feature => history.replaceState(null, "", `#${FEATURE_HASHES[feature]}`);
 
@@ -186,9 +156,6 @@ const renderComparison = () => {
   }
 };
 
-themeSelect.value = "github";
-themeSelect.addEventListener("change", renderTheme);
-new MutationObserver(renderTheme).observe(root, {attributes: true, attributeFilter: ["data-github-theme"]});
 document.querySelectorAll(".demo-frame").forEach(frame => frame.addEventListener("load", () => renderFrame(frame)));
 const frameResizeObserver = new ResizeObserver(entries => {
   for (const {target} of entries) renderFrame(target.querySelector(".demo-frame"));
@@ -252,7 +219,7 @@ addEventListener("keydown", event => {
   event.preventDefault();
 });
 
-renderTheme();
+renderFrames();
 renderComparison();
 configureGallery();
 if (!navigateToHash()) updateGallery();

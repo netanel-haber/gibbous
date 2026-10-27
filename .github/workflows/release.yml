@@ -1,0 +1,67 @@
+# The Chrome Web Store package for a version: the files manifest.json names (itself, its icons, its worker, its content scripts and
+# their CSS) and nothing else, zipped and attached to the version's release; a version with no release yet gets one, its notes
+# the pull requests merged since the version before.
+# A push to main that changes manifest.json to a version with no tag yet tags it (v1.0.0, at that commit) and packages it; so does
+# a run by hand with no tag. A tag pushed by hand, or a run by hand with a tag, packages that tag. (This one workflow does both:
+# a tag it pushes itself would not start another.)
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths: [manifest.json]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: An existing version tag, e.g. v1.0.0 (empty to tag main's version, if it has no tag yet)
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Tag a new version
+        if: github.ref == 'refs/heads/main' && !inputs.tag
+        run: |
+          version=$(jq -r .version manifest.json)
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" > /dev/null; then
+            echo "v$version is already tagged: nothing to release"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$version" -m "Gibbous $version"
+          git push origin "v$version"
+          echo "TAG=v$version" >> "$GITHUB_ENV"
+      - name: The tag to package
+        if: github.ref_type == 'tag' || inputs.tag
+        env:
+          WANTED: ${{ inputs.tag || github.ref_name }}
+        run: echo "TAG=$WANTED" >> "$GITHUB_ENV"
+      - name: Zip what the manifest names
+        if: env.TAG
+        run: |
+          version=$(jq -r .version manifest.json)
+          [ "v$version" = "$TAG" ] || { echo "manifest.json says $version, the tag is $TAG"; exit 1; }
+          files=$(jq -r '"manifest.json", .icons[], .background.service_worker, (.content_scripts[] | .js[]?, .css[]?)' manifest.json | sort -u)
+          zip -X "gibbous-$version.zip" $files
+          unzip -l "gibbous-$version.zip"
+          echo "ZIP=gibbous-$version.zip" >> "$GITHUB_ENV"
+      - name: Attach it to the release
+        if: env.TAG
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" --clobber
+          else
+            gh release create "$TAG" "$ZIP" --title "Gibbous ${TAG#v}" --generate-notes
+          fi

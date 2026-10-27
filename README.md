@@ -1,24 +1,25 @@
 # Gibbous
 
-GitHub, but with the UX you want.
+Pleasant GitHub
 
 ## Features
 
-- `🌔`/`🌘` global toggle for all of the tweaks
-- Leaves GitHub untouched on mobile viewports
-- 👀 button above files view: click to persistently hide files like CNAME in top-level repository views
-- Hides unused buttons like Copilot and Workflows
-- `forked in owner/repository` link to fork on upstream repositories when you have a fork
-- On repositories you own, can push to, or have forked: no topics, resource links, social stats, Watch or Fork buttons, or sidebar extras; releases sit beside a tags panel, and contributors and languages become tabs next to `README`
-- `My pull requests` tab on repositories where you have open pull requests, shown first; the license, conduct, contributing, and security tabs move into a `⋯` menu
-- Pull requests show a second `+/−` count beside GitHub's, with whitespace changes ignored (as with `?w=1`); click it to hide whitespace in the diff
-- A `Viewed` checkbox on each hunk of a pull request's diff folds the hunk to its `@@` line; a later push that changes the hunk unfolds it again. Works in both the Changes and the classic Files view
-- A link into a pull request diff GitHub left unloaded as too large loads it and scrolls to the linked line
-- Enlarge Mermaid diagrams into a lightbox: scroll or double-click to zoom, drag to pan, Esc to close
+- 🌔/🌘 turns everything on or off.
+- Does nothing on phone-sized windows.
+- 👀 above a repo's files hides the ones you pick, like CNAME. They stay hidden.
+- Hides buttons like Copilot and Workflows.
+- If you have a fork, the upstream repo links to it.
+- On repos you own, can push to, or forked, the sidebar loses topics, links, stats, Watch and Fork. Releases get a Tags panel next to them. Contributors and languages move to tabs next to README.
+- Repos where you have open pull requests get a My pull requests tab, first. The license, code of conduct, contributing and security tabs move into a ⋯ menu.
+- Pull requests show a second +/− count that ignores whitespace, like `?w=1`. Click it to hide whitespace in the diff.
+- Each diff hunk gets a Viewed checkbox that folds it to its `@@` line. A later push that changes the hunk unfolds it. Works in Changes and in the classic Files view.
+- A link to a line in a diff GitHub didn't load (too large) loads it and scrolls to the line.
+- In pull request conversations, a quote links to the comment it quotes, and that comment links back.
+- Mermaid diagrams open in a lightbox. Scroll or double-click to zoom, drag to pan, Esc to close.
 
 ### Try the Mermaid lightbox
 
-With Gibbous on, use Enlarge on this diagram: scroll or double-click to zoom, drag to pan, press 0 to refit, and Esc to close.
+With Gibbous on, click Enlarge on this diagram. Scroll or double-click to zoom, drag to pan, 0 to refit, Esc to close.
 
 ```mermaid
 sequenceDiagram
@@ -44,6 +45,8 @@ sequenceDiagram
 2. Open `chrome://extensions`.
 3. Enable **Developer mode**.
 4. Click **Load unpacked** and select the extracted `gibbous-main` folder.
+
+[Privacy policy](https://netanel-haber.github.io/gibbous/privacy.html)
 
 <p align="center">
   <a href="https://www.flickr.com/photos/john-spade/6680460959/">
