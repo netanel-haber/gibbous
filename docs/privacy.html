@@ -20,39 +20,36 @@
   <h1>Gibbous privacy policy</h1>
   <p class="updated">Last updated: October 27, 2026</p>
 
-  <p>Gibbous is a browser extension that changes how GitHub looks and adds controls to it. It has no server of its own and no
-  analytics. Nothing it reads or stores is sent to its developer or to anyone else.</p>
+  <p>Gibbous changes how GitHub's pages look. It has no server and no analytics, and it sends nothing to me or to anyone
+  else.</p>
 
-  <h2>What Gibbous reads</h2>
-  <p>On github.com, Gibbous reads the pages you open, so it can rearrange them. To fill in what a page leaves out, it asks GitHub
-  itself, from your browser and as you, with your GitHub session:</p>
+  <h2>What it reads</h2>
+  <p>On github.com it reads the page you're on, so it can change it. It also requests a few things from GitHub, with your login,
+  the way the page itself would:</p>
   <ul>
-    <li>GitHub pages: a repository's tags, your fork of a repository, the comments a pull request folds away;</li>
-    <li>GitHub's public search API (<code>api.github.com</code>): your open pull requests on a repository;</li>
-    <li>a pull request's diff (<code>github.com/…/pull/….diff</code>, which GitHub serves from
-    <code>patch-diff.githubusercontent.com</code>): to count its changed lines with whitespace ignored.</li>
+    <li>other GitHub pages: a repo's tags, whether you have a fork, comments GitHub collapsed;</li>
+    <li>GitHub's search API (<code>api.github.com</code>), to find your open pull requests in a repo;</li>
+    <li>a pull request's <code>.diff</code>, which GitHub serves from <code>patch-diff.githubusercontent.com</code>, to count
+    changed lines without whitespace.</li>
   </ul>
-  <p>It also runs in the frame GitHub draws Mermaid diagrams in (<code>viewscreen.githubusercontent.com</code>), to zoom and pan
-  them, and on this site, to show it in your GitHub theme.</p>
+  <p>It also runs in the frame GitHub draws Mermaid diagrams in (<code>viewscreen.githubusercontent.com</code>), and on this
+  site, to match your GitHub theme.</p>
 
-  <h2>What Gibbous stores</h2>
-  <p>Only in your browser, in the extension's local storage (with a copy in github.com's local storage, so pages appear right
-  away):</p>
+  <h2>What it stores</h2>
+  <p>Settings and a short-term cache, in your browser only: in the extension's storage, with a copy in github.com's local
+  storage so pages load right.</p>
   <ul>
-    <li>whether Gibbous is on;</li>
-    <li>the files and repositories you chose to hide, and the diff hunks you marked as viewed;</li>
+    <li>whether it's on;</li>
+    <li>the files and repos you hid, and the diff hunks you marked as viewed;</li>
     <li>your GitHub theme;</li>
-    <li>facts about repositories it has looked up (such as whether you have a fork), and comments it matched to quoted replies, for
-    a short time, so the same page does not ask GitHub again.</li>
+    <li>recent lookups, like whether you have a fork, and quote matches.</li>
   </ul>
-  <p>Removing the extension deletes its own storage; the copy on github.com stays until you clear github.com's site data. Nothing
-  is synced or shared.</p>
+  <p>Uninstalling deletes the extension's storage. The copy on github.com stays until you clear github.com's site data.</p>
 
-  <h2>What Gibbous does not do</h2>
-  <p>It does not collect, sell or share data, show ads, track you across sites, or load code from anywhere: everything it runs
-  ships inside the extension.</p>
+  <h2>What it doesn't do</h2>
+  <p>No ads, no tracking, no selling or sharing data, and no code loaded from anywhere.</p>
 
   <h2>Contact</h2>
-  <p>Questions: open an issue at <a href="https://github.com/netanel-haber/gibbous/issues">github.com/netanel-haber/gibbous</a>.</p>
+  <p>Open an issue at <a href="https://github.com/netanel-haber/gibbous/issues">github.com/netanel-haber/gibbous</a>.</p>
 </body>
 </html>
