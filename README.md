@@ -39,12 +39,7 @@ sequenceDiagram
 
 ## Install
 
-[![Download extension ZIP](https://img.shields.io/badge/download-extension.zip-e6c96f?style=for-the-badge&labelColor=161b22)](https://github.com/netanel-haber/gibbous/archive/refs/heads/main.zip)
-
-1. Download and extract the ZIP.
-2. Open `chrome://extensions`.
-3. Enable **Developer mode**.
-4. Click **Load unpacked** and select the extracted `gibbous-main` folder.
+[![Add to Chrome](https://img.shields.io/badge/add_to-chrome-e6c96f?style=for-the-badge&labelColor=161b22)](https://chromewebstore.google.com/detail/gibbous/lnphgkabifjbccgmlllieihejkmplffe)
 
 [Privacy policy](https://netanel-haber.github.io/gibbous/privacy.html)
 
